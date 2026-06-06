@@ -1,6 +1,7 @@
 import {
     markImperialUsed,
     performHelpWithdrawal,
+    performHelpQuotaClearance,
     performImperialClearance,
     performPrivilegeRevive,
     performTogetherFall,
@@ -58,7 +59,7 @@ export class DeerSpecial extends plugin {
     constructor() {
         super({
             name: '🦌管扩展',
-            dsc: '同归鹿尽、帮戒鹿、皇城鹿、特权回鹿返照/皇城清算',
+            dsc: '同归鹿尽、帮戒鹿、皇城鹿、特权回鹿返照/皇城清算/鹿清算',
             event: 'message',
             priority: 5001,
             rule: [
@@ -66,6 +67,7 @@ export class DeerSpecial extends plugin {
                 { reg: '^帮戒(🦌|鹿)', fnc: 'helpWithdraw' },
                 { reg: '^回(鹿返照|🦌返照)$', fnc: 'privilegeRevive' },
                 { reg: '^皇城清算$', fnc: 'imperialClearance' },
+                { reg: '^(🦌|鹿)清算$', fnc: 'helpQuotaClearance' },
                 { reg: '^(皇城鹿|皇城🦌|皇城)$', fnc: 'imperialStart' },
             ],
         });
@@ -171,6 +173,26 @@ export class DeerSpecial extends plugin {
         const day = date.getDate();
         const deerData = await loadDeerData();
         const result = performPrivilegeRevive(deerData, user_id, date, day);
+        if (!result.ok) {
+            e.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        e.reply(formatActionMessage(result, { helperName: card || nickname }), true);
+    }
+
+    /** 特权：鹿清算（仅 PRIVILEGED_QQ，全员当日帮🦌/帮戒🦌配额重置） */
+    async helpQuotaClearance(e) {
+        const { user_id, card, nickname } = e.sender;
+        if (!isPrivileged(user_id)) {
+            e.reply(formatErrorMessage({ type: 'privilege_only' }), true);
+            return;
+        }
+
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performHelpQuotaClearance(deerData, user_id, date, day);
         if (!result.ok) {
             e.reply(formatErrorMessage(result), true);
             return;

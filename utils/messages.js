@@ -21,6 +21,7 @@ import {
     IMPERIAL_WIN_MESSAGES,
     IMPERIAL_PK_HINTS,
     IMPERIAL_CLEARANCE_MESSAGES,
+    HELP_QUOTA_CLEARANCE_MESSAGES,
     ACTOR_DEAD_MESSAGES,
     TARGET_DEAD_MESSAGES,
     OVERLIMIT_DEATH_CHANCE_STEP,
@@ -149,6 +150,8 @@ export function formatActionMessage(result, ctx = {}) {
             return `${pickRandom(PRIVILEGE_REVIVE_MESSAGES)}${result.wasDead ? '（原鹿死状态已解除）' : ''}（今日 0 次，可重新🦌）`;
         case 'imperial_clearance':
             return `${pickRandom(IMPERIAL_CLEARANCE_MESSAGES)}（${result.cleared} 人可再战皇城鹿）`;
+        case 'help_quota_clearance':
+            return `${pickRandom(HELP_QUOTA_CLEARANCE_MESSAGES)}（${result.cleared} 人配额已重置）`;
         case 'imperial_win':
             return `${pickRandom(IMPERIAL_WIN_MESSAGES)} · ${targetName || '鹿王'} 现 ${result.kingCount} 次`;
         case 'imperial_lose': {

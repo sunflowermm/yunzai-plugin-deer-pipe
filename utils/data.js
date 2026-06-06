@@ -227,6 +227,26 @@ export function clearImperialUsedForAll(deerData, date, day) {
     return cleared;
 }
 
+/** 全员当日帮🦌/帮戒🦌配额重置 */
+export function clearHelperQuotasForAll(deerData, date, day) {
+    const monthKey = getMonthKey(date);
+    const hqKey = helperQuotaKey(day);
+    const hwqKey = helperWithdrawQuotaKey(day);
+    let cleared = 0;
+    for (const userRecord of Object.values(deerData || {})) {
+        if (!userRecord || typeof userRecord !== 'object') continue;
+        const monthData = userRecord[monthKey];
+        if (!monthData) continue;
+        const hadHq = !!monthData[hqKey];
+        const hadHwq = !!monthData[hwqKey];
+        if (!hadHq && !hadHwq) continue;
+        if (hadHq) delete monthData[hqKey];
+        if (hadHwq) delete monthData[hwqKey];
+        cleared += 1;
+    }
+    return cleared;
+}
+
 export function hasUsedTogether(monthData, day) {
     return !!monthData?.[togetherUsedKey(day)];
 }
@@ -842,6 +862,20 @@ export function performImperialClearance(deerData, operatorId, date, day) {
     return {
         ok: true,
         type: 'imperial_clearance',
+        cleared,
+        day,
+    };
+}
+
+/** 特权：鹿清算（全员当日帮🦌/帮戒🦌配额重置） */
+export function performHelpQuotaClearance(deerData, operatorId, date, day) {
+    if (!isPrivileged(operatorId)) {
+        return { ok: false, type: 'privilege_only' };
+    }
+    const cleared = clearHelperQuotasForAll(deerData, date, day);
+    return {
+        ok: true,
+        type: 'help_quota_clearance',
         cleared,
         day,
     };

@@ -195,6 +195,12 @@ export const IMPERIAL_CLEARANCE_MESSAGES = [
     '紫禁鹿门重开，众人可再赴皇城鹿一战',
 ];
 
+export const HELP_QUOTA_CLEARANCE_MESSAGES = [
+    '鹿清算！今日帮🦌/帮戒🦌配额全员回满',
+    '互助额度大赦，帮🦌帮戒次数统统重置',
+    '鹿使颁令：天下🦌友今日互助配额清零重来',
+];
+
 export const FRIEND_ADD_MESSAGES = [
     '鹿缘一线牵！一次添加，双向结缘～',
     '🦌友达成！你们已互入名单，可互相帮🦌/帮戒🦌/救活',
