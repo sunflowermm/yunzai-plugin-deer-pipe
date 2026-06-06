@@ -19,6 +19,7 @@ import {
     pickRandom,
 } from '../constants/game.js';
 import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
+import { replyDeerPanel } from '../utils/panel.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 /** 皇城鹿待选 session（群:用户 → 决斗信息，与 setContext 用户级上下文配套） */
@@ -89,6 +90,12 @@ export class DeerSpecial extends plugin {
             return;
         }
 
+        const friends = await loadFriends();
+        if (!canHelpFriend(friends, user_id, targetId)) {
+            e.reply(ERROR_MESSAGES.not_friend, true);
+            return;
+        }
+
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
@@ -100,10 +107,18 @@ export class DeerSpecial extends plugin {
         await saveDeerData(deerData);
 
         const targetName = await this.getMemberName(e, targetId);
-        e.reply(formatActionMessage(result, {
+        const text = formatActionMessage(result, {
             helperName: e.sender.card || e.sender.nickname,
             targetName,
-        }), true);
+        });
+        await replyDeerPanel(e, {
+            date,
+            name: e.sender.card || e.sender.nickname,
+            userId: user_id,
+            deerData,
+            text,
+            dayOverride: day,
+        });
     }
 
     async helpWithdraw(e) {
@@ -130,10 +145,18 @@ export class DeerSpecial extends plugin {
         }
         await saveDeerData(deerData);
 
-        e.reply(formatActionMessage(result, {
+        const text = formatActionMessage(result, {
             helperName: card || nickname,
             targetName: await this.getMemberName(e, targetId),
-        }), true);
+        });
+        await replyDeerPanel(e, {
+            date,
+            name: await this.getMemberName(e, targetId),
+            userId: targetId,
+            deerData,
+            text,
+            dayOverride: day,
+        });
     }
 
     /** 特权：回鹿返照（仅 PRIVILEGED_QQ） */
@@ -279,6 +302,13 @@ export class DeerSpecial extends plugin {
             diceSide: side,
             choice,
         });
-        await this.reply(`🎲 骰子：${dice}（${side}）· 你选：${choice}\n${text}`, true);
+        await replyDeerPanel(this.e, {
+            date: session.date,
+            name: this.e.sender.card || this.e.sender.nickname,
+            userId: this.e.user_id,
+            deerData,
+            text: `🎲 骰子：${dice}（${side}）· 你选：${choice}\n${text}`,
+            dayOverride: session.day,
+        });
     }
 }

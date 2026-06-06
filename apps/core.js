@@ -10,6 +10,7 @@ import {
 } from "../utils/data.js";
 import { canHelpFriend } from "../utils/friends.js";
 import { generateImage } from "../utils/core.js";
+import { replyDeerPanel } from "../utils/panel.js";
 import {
     formatActionMessage,
     formatErrorMessage,
@@ -51,17 +52,6 @@ export class DeerPipe extends plugin {
         return info?.card || info?.nickname || String(userId);
     }
 
-    async replyWithPanel(e, date, name, userId, deerData, text, dayOverride = null) {
-        const monthData = getMonthData(getUserRecord(deerData, userId), date);
-        const highlightDay = dayOverride ?? date.getDate();
-        const entry = monthData?.[String(highlightDay)];
-        const raw = await generateImage(date, name, monthData, {
-            highlightDay,
-            forceDeadBanner: entry?.d === 1,
-        });
-        await e.reply([text, segment.image(raw)], true);
-    }
-
     async lu(e) {
         const { user_id, card, nickname } = e.sender;
         const date = new Date();
@@ -74,7 +64,7 @@ export class DeerPipe extends plugin {
         }
         await saveDeerData(deerData);
         const text = formatActionMessage(result);
-        await this.replyWithPanel(e, date, card || nickname, user_id, deerData, text, day);
+        await replyDeerPanel(e, { date, name: card || nickname, userId: user_id, deerData, text, dayOverride: day });
     }
 
     async withdrawalLu(e) {
@@ -94,7 +84,7 @@ export class DeerPipe extends plugin {
             return;
         }
         const text = formatActionMessage(result);
-        await this.replyWithPanel(e, date, card || nickname, user_id, deerData, text, day);
+        await replyDeerPanel(e, { date, name: card || nickname, userId: user_id, deerData, text, dayOverride: day });
     }
 
     async viewLu(e) {
@@ -164,6 +154,6 @@ export class DeerPipe extends plugin {
             helperName: card || nickname,
             targetName: await this.getMemberName(e, targetId),
         });
-        await this.replyWithPanel(e, date, await this.getMemberName(e, targetId), targetId, deerData, text, day);
+        await replyDeerPanel(e, { date, name: await this.getMemberName(e, targetId), userId: targetId, deerData, text, dayOverride: day });
     }
 }

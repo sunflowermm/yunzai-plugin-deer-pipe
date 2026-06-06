@@ -9,6 +9,7 @@ import {
     getDeathKillerId,
     getDeathReason,
     getEffectiveCount,
+    getRawDayCount,
     getYearMonths,
     isDayDead,
     normalizeDayEntry,
@@ -44,7 +45,8 @@ function getMonthCalendar(now) {
 }
 
 function heatColor(count) {
-    if (!count || count <= 0) return { r: 245, g: 247, b: 250, a: 1 };
+    if (count == null || count === 0) return { r: 245, g: 247, b: 250, a: 1 };
+    if (count < 0) return { r: 200, g: 230, b: 255, a: 1 };
     if (count === 1) return { r: 255, g: 230, b: 200, a: 1 };
     if (count <= 3) return { r: 255, g: 190, b: 140, a: 1 };
     if (count <= 9) return { r: 255, g: 140, b: 100, a: 1 };
@@ -146,7 +148,7 @@ export async function generateImage(now, name, monthData, options = {}) {
             const rawDay = monthData?.[String(day)];
             const entry = normalizeDayEntry(rawDay);
             const dead = isDayDead(rawDay);
-            const count = getEffectiveCount(rawDay);
+            const count = dead ? 0 : (getRawDayCount(rawDay) ?? 0);
             const snap = getDaySnap(rawDay);
             const isHighlight = day === highlightDay;
             const reasonLabel = dead ? getDeathCellLabel(entry) : '';
@@ -169,8 +171,9 @@ export async function generateImage(now, name, monthData, options = {}) {
                         <text x="${BOX_W / 2}" y="82" font-size="14" font-family="MiSans" fill="#ff9999" text-anchor="middle">失${snap}</text>
                         <text x="${BOX_W - 8}" y="18" font-size="12" font-family="MiSans" fill="#ff7777" text-anchor="end">${reasonLabel}</text>
                     ` : ''}
-                    ${!dead && count > 0 ? `<text x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" font-family="MiSans" fill="#c0392b" text-anchor="end" font-weight="bold">${count > 99 ? '99+' : count}</text>` : ''}
+                    ${!dead && count !== 0 ? `<text x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" font-family="MiSans" fill="${count < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${count > 99 ? '99+' : count < -99 ? '-99+' : count}</text>` : ''}
                     ${!dead && count > DAILY_SAFE_LIMIT ? `<text x="8" y="48" font-size="14" font-family="MiSans" fill="#e67e22">危</text>` : ''}
+                    ${!dead && count < 0 ? `<text x="8" y="48" font-size="14" font-family="MiSans" fill="#3498db">戒</text>` : ''}
                     ${!dead && count === 0 && isHighlight ? `<text x="${BOX_W / 2}" y="68" font-size="14" font-family="MiSans" fill="#bbb" text-anchor="middle">空</text>` : ''}
                 `, BOX_W, BOX_H),
                 top: y0,
@@ -252,7 +255,7 @@ export async function generateYearImage(now, name, userRecord) {
         const monthKey = `${year}-${String(m).padStart(2, '0')}`;
         const monthData = yearMonths[monthKey];
         const total = sumMonthData(monthData);
-        const bg = heatColor(total > 0 ? Math.min(total, 10) : 0);
+        const bg = heatColor(total > 0 ? Math.min(total, 10) : total < 0 ? -1 : 0);
         const isCurrentMonth = m === now.getMonth() + 1;
 
         // 迷你月格子条
@@ -261,7 +264,7 @@ export async function generateYearImage(now, name, userRecord) {
         for (let d = 1; d <= daysInMonth; d++) {
             const raw = monthData?.[String(d)];
             const dead = isDayDead(raw);
-            const c = dead ? 0 : getEffectiveCount(raw);
+            const c = dead ? 0 : (getRawDayCount(raw) ?? 0);
             const cellBg = dead ? { r: 45, g: 30, b: 35, a: 1 } : heatColor(c);
             const cx = 8 + ((d - 1) % 7) * 20;
             const cy = 36 + Math.floor((d - 1) / 7) * 14;
@@ -274,7 +277,7 @@ export async function generateYearImage(now, name, userRecord) {
             input: svgText(`
                 <rect x="0" y="0" width="${MINI_W}" height="${MINI_H}" fill="rgb(${bg.r},${bg.g},${bg.b})" rx="10" stroke="${isCurrentMonth ? '#ffd700' : '#444'}" stroke-width="${isCurrentMonth ? 2 : 1}"/>
                 <text x="10" y="24" font-size="18" font-family="MiSans" fill="#333" font-weight="bold">${m}月</text>
-                <text x="${MINI_W - 10}" y="24" font-size="16" font-family="MiSans" fill="#c0392b" text-anchor="end" font-weight="bold">${total}次</text>
+                <text x="${MINI_W - 10}" y="24" font-size="16" font-family="MiSans" fill="${total < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${total}次</text>
                 ${cells}
             `, MINI_W, MINI_H),
             top: y0,

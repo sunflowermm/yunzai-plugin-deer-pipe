@@ -74,6 +74,20 @@ export function isDayDead(raw) {
     return !!entry?.d;
 }
 
+/** 当日是否有记录（含鹿死、负数、尝试） */
+export function hasDayRecord(raw) {
+    const entry = normalizeDayEntry(raw);
+    if (!entry) return false;
+    if (entry.d) return true;
+    return entry.a > 0 || entry.c !== 0;
+}
+
+/** 指定日是否鹿死（用于排行榜排除） */
+export function isDeadOnDay(deerData, userId, date, day) {
+    const entry = getDayEntry(getMonthData(getUserRecord(deerData, userId), date), day);
+    return !!entry?.d;
+}
+
 export function getDeathKillerId(raw) {
     const entry = normalizeDayEntry(raw);
     return entry?.dk || '';
@@ -234,18 +248,34 @@ export function adjustDayCount(entry, delta) {
 }
 
 export function sumMonthDataForRank(monthData, { withdrawal = false, upToDay = 31 } = {}) {
-    if (!monthData) return 0;
+    if (!monthData) return { sum: 0, hasActivity: false };
     let sum = 0;
     let hasActivity = false;
     for (const [k, v] of Object.entries(monthData)) {
         if (!isDayKey(k)) continue;
         const day = parseInt(k, 10);
         if (day > upToDay) continue;
+        if (isDayDead(v)) continue;
         const c = getRawDayCount(v);
         if (c === null) continue;
         hasActivity = true;
         if (!withdrawal && c <= 0) continue;
         sum += c;
+    }
+    return { sum, hasActivity };
+}
+
+export function sumYearDataForRank(userRecord, year, date = new Date(), { withdrawal = false } = {}) {
+    if (!userRecord) return { sum: 0, hasActivity: false };
+    const upToMonth = date.getMonth() + 1;
+    let sum = 0;
+    let hasActivity = false;
+    for (const [monthKey, monthData] of Object.entries(getYearMonths(userRecord, year))) {
+        const m = parseInt(monthKey.split('-')[1], 10);
+        const capDay = m === upToMonth ? date.getDate() : 31;
+        const ranked = sumMonthDataForRank(monthData, { withdrawal, upToDay: capDay });
+        sum += ranked.sum;
+        hasActivity = hasActivity || ranked.hasActivity;
     }
     return { sum, hasActivity };
 }
@@ -291,11 +321,12 @@ export function getDayRankInGroup(deerData, members, date = new Date()) {
     const list = members.map(id => {
         const uid = String(id);
         const entry = getDayEntry(getMonthData(getUserRecord(deerData, uid), date), day);
-        const c = getRawDayCount(entry);
-        if (c === null || c === 0) return null;
+        if (!entry || entry.d) return null;
+        const c = entry.c;
+        if (c <= 0) return null;
         return { id: uid, sum: c };
     }).filter(Boolean);
-    list.sort((a, b) => b.sum - a.sum);
+    list.sort((a, b) => b.sum - a.sum || a.id.localeCompare(b.id));
     return list;
 }
 
@@ -405,7 +436,10 @@ export function sumMonthData(monthData) {
     if (!monthData) return 0;
     return Object.keys(monthData)
         .filter(isDayKey)
-        .reduce((acc, k) => acc + getEffectiveCount(monthData[k]), 0);
+        .reduce((acc, k) => {
+            const c = getRawDayCount(monthData[k]);
+            return c === null ? acc : acc + c;
+        }, 0);
 }
 
 export function sumYearData(userRecord, year) {
@@ -429,11 +463,19 @@ export function getYearMonths(userRecord, year) {
 export function hasMonthData(userRecord, date) {
     const month = getMonthData(userRecord, date);
     if (!month) return false;
-    return Object.keys(month).some(k => isDayKey(k) && (getEffectiveCount(month[k]) > 0 || isDayDead(month[k])));
+    return Object.keys(month).some(k => isDayKey(k) && hasDayRecord(month[k]));
 }
 
 export function hasYearData(userRecord, year) {
-    return sumYearData(userRecord, year) > 0;
+    if (!userRecord) return false;
+    const prefix = `${year}-`;
+    for (const [k, monthData] of Object.entries(userRecord)) {
+        if (!k.startsWith(prefix) || !monthData) continue;
+        if (Object.keys(monthData).some(dk => isDayKey(dk) && hasDayRecord(monthData[dk]))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 export function calcStreak(monthData, upToDay) {
@@ -461,12 +503,12 @@ export function calcMonthStats(monthData, upToDay) {
         const day = parseInt(k, 10);
         if (day > upToDay) continue;
         if (isDayDead(v)) { deathDays++; continue; }
-        const count = getEffectiveCount(v);
-        if (count <= 0) continue;
-        total += count;
-        activeDays++;
-        if (count > maxCount) {
-            maxCount = count;
+        const c = getRawDayCount(v);
+        if (c === null) continue;
+        total += c;
+        if (c !== 0) activeDays++;
+        if (c > maxCount) {
+            maxCount = c;
             maxDay = day;
         }
     }
@@ -492,7 +534,12 @@ export function calcYearStats(userRecord, year, now = new Date()) {
     for (const [monthKey, monthData] of Object.entries(months)) {
         const monthTotal = sumMonthData(monthData);
         total += monthTotal;
-        activeDays += Object.keys(monthData).filter(k => isDayKey(k) && getEffectiveCount(monthData[k]) > 0).length;
+        activeDays += Object.keys(monthData).filter(k => {
+            if (!isDayKey(k)) return false;
+            if (isDayDead(monthData[k])) return true;
+            const c = getRawDayCount(monthData[k]);
+            return c !== null && c !== 0;
+        }).length;
         deathDays += Object.keys(monthData).filter(k => isDayKey(k) && isDayDead(monthData[k])).length;
         if (monthTotal > maxMonthCount) {
             maxMonthCount = monthTotal;
@@ -669,17 +716,13 @@ export function performHelpLu(deerData, helperId, targetId, date, day) {
     return attachQuota(result, quota);
 }
 
-/** 戒🦌 */
+/** 戒🦌（次数可为负，0 也可继续戒） */
 export function performWithdrawal(deerData, userId, date, day, { pastDay = false } = {}) {
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
 
     if (entry.d) {
         return { ok: false, type: 'withdrawal_dead' };
-    }
-
-    if (entry.c <= 0) {
-        return { ok: false, type: 'empty' };
     }
 
     entry.c -= 1;
@@ -710,6 +753,8 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
 
     adjustDayCount(selfEntry, -TOGETHER_FALL_COST);
     adjustDayCount(targetEntry, -TOGETHER_FALL_COST);
+    selfEntry.a += 1;
+    targetEntry.a += 1;
     initiatorMonth[togetherUsedKey(day)] = 1;
 
     return {
@@ -819,7 +864,11 @@ export function settleImperialPk(deerData, challengerId, kingId, date, day, { wi
     const challengerEntry = ensureDayEntry(ensureMonthData(deerData, challengerId, date), day);
 
     if (win) {
-        if (!kingEntry.d) adjustDayCount(kingEntry, -IMPERIAL_WIN_DEDUCT);
+        if (!kingEntry.d) {
+            adjustDayCount(kingEntry, -IMPERIAL_WIN_DEDUCT);
+            kingEntry.a += 1;
+        }
+        challengerEntry.a += 1;
         return {
             ok: true,
             type: 'imperial_win',
@@ -830,8 +879,14 @@ export function settleImperialPk(deerData, challengerId, kingId, date, day, { wi
         };
     }
 
-    if (!challengerEntry.d) adjustDayCount(challengerEntry, -IMPERIAL_LOSE_DEDUCT);
-    if (!kingEntry.d) adjustDayCount(kingEntry, IMPERIAL_KING_WIN_BONUS);
+    if (!challengerEntry.d) {
+        adjustDayCount(challengerEntry, -IMPERIAL_LOSE_DEDUCT);
+        challengerEntry.a += 1;
+    }
+    if (!kingEntry.d) {
+        adjustDayCount(kingEntry, IMPERIAL_KING_WIN_BONUS);
+        kingEntry.a += 1;
+    }
     return {
         ok: true,
         type: 'imperial_lose',
