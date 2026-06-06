@@ -4,6 +4,7 @@
 import {
     ALREADY_DEAD_MESSAGES,
     DAILY_HELP_QUOTA,
+    DAILY_HELP_WITHDRAW_QUOTA,
     DAILY_SAFE_LIMIT,
     DEATH_REASON,
     ERROR_MESSAGES,
@@ -11,14 +12,28 @@ import {
     HELP_KILL_CHANCE,
     HELP_QUOTA_MESSAGES,
     HELP_SUCCESS_MESSAGES,
+    HELP_WITHDRAW_SUCCESS,
+    HELP_WITHDRAW_QUOTA_MESSAGES,
     HELPER_DEAD_MESSAGES,
+    IMPERIAL_LOSE_MESSAGES,
+    IMPERIAL_WIN_MESSAGES,
     OVERLIMIT_DEATH_CHANCE_STEP,
+    PRIVILEGE_REVIVE_MESSAGES,
+    TOGETHER_FALL_MESSAGES,
     formatChancePercent,
     pickDeathMessage,
     pickRandom,
     REVIVE_MESSAGES,
     RISKY_SURVIVE_MESSAGES,
     SAFE_MESSAGES,
+    WITHDRAWAL_MESSAGES,
+    FRIEND_ADD_MESSAGES,
+    FRIEND_ADD_NOTIFY,
+    FRIEND_ALREADY_MESSAGES,
+    FRIEND_EMPTY_MESSAGES,
+    FRIEND_LIST_TITLES,
+    FRIEND_NOT_IN_GROUP,
+    FRIEND_REMOVE_MESSAGES,
     UI_MESSAGES,
 } from '../constants/game.js';
 
@@ -36,6 +51,12 @@ function riskHint(result) {
     return `，再🦌 ${pct}% 鹿死`;
 }
 
+function withdrawQuotaHint(result) {
+    return result.helpWithdrawLeft != null
+        ? `（帮戒🦌剩余 ${result.helpWithdrawLeft}/${DAILY_HELP_WITHDRAW_QUOTA}）`
+        : '';
+}
+
 /** 失败/拒绝类文案 */
 export function formatErrorMessage(result) {
     switch (result.type) {
@@ -46,10 +67,25 @@ export function formatErrorMessage(result) {
         case 'help_quota':
             return result.message || pickRandom(HELP_QUOTA_MESSAGES)
                 || ERROR_MESSAGES.help_quota(DAILY_HELP_QUOTA, DAILY_HELP_QUOTA);
+        case 'help_withdraw_quota':
+            return pickRandom(HELP_WITHDRAW_QUOTA_MESSAGES)
+                || ERROR_MESSAGES.help_withdraw_quota(DAILY_HELP_WITHDRAW_QUOTA, DAILY_HELP_WITHDRAW_QUOTA);
         case 'withdrawal_dead':
             return ERROR_MESSAGES.withdrawal_dead;
         case 'empty':
             return ERROR_MESSAGES.empty;
+        case 'together_used':
+            return ERROR_MESSAGES.together_used;
+        case 'together_self':
+            return ERROR_MESSAGES.together_self;
+        case 'imperial_used':
+            return ERROR_MESSAGES.imperial_used;
+        case 'imperial_no_king':
+            return ERROR_MESSAGES.imperial_no_king;
+        case 'imperial_is_king':
+            return ERROR_MESSAGES.imperial_is_king;
+        case 'privilege_only':
+            return ERROR_MESSAGES.privilege_only;
         default:
             return result.message || ERROR_MESSAGES.default;
     }
@@ -57,12 +93,13 @@ export function formatErrorMessage(result) {
 
 /** 操作结果文案 */
 export function formatActionMessage(result, ctx = {}) {
-    const { helperName, targetName } = ctx;
+    const { helperName, targetName, dice, diceSide, choice } = ctx;
     const helpKillPct = Math.round(HELP_KILL_CHANCE * 100);
 
     if (!result.ok) return formatErrorMessage(result);
 
     const q = quotaHint(result);
+    const wq = withdrawQuotaHint(result);
 
     switch (result.type) {
         case 'safe':
@@ -85,7 +122,17 @@ export function formatActionMessage(result, ctx = {}) {
         case 'help_miss':
             return `${helperName || '你'} 想拉 ${targetName || 'ta'} 下马，${pickRandom(HELP_FAIL_MESSAGES)}（${helpKillPct}% 未触发）${q}`;
         case 'withdrawal':
-            return `戒🦌成功（剩余 ${result.count} 次）`;
+            return `${pickRandom(WITHDRAWAL_MESSAGES)}（剩余 ${result.count} 次）`;
+        case 'together_fall':
+            return `${pickRandom(TOGETHER_FALL_MESSAGES)}\n你：${result.selfCount} 次 · ${targetName || 'ta'}：${result.targetCount} 次（各 -${result.cost}）`;
+        case 'help_withdraw':
+            return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)}（现 ${result.count} 次，可为负）${wq}`;
+        case 'privilege_revive':
+            return `${pickRandom(PRIVILEGE_REVIVE_MESSAGES)}${result.wasDead ? '' : '（未鹿死亦已重置配额）'}（现 ${result.count} 次）`;
+        case 'imperial_win':
+            return `${pickRandom(IMPERIAL_WIN_MESSAGES)} · ${targetName || '鹿王'} 现 ${result.kingCount} 次`;
+        case 'imperial_lose':
+            return `${pickRandom(IMPERIAL_LOSE_MESSAGES)} · 你现 ${result.challengerCount} 次`;
         default:
             return result.message || '操作完成';
     }
@@ -98,7 +145,10 @@ export function formatStatusMessage(name, status) {
         `📊 ${name} · 今日🦌况`,
         `有效：${status.dead ? `💀 鹿死（失 ${status.lostCount} 次，不计榜）` : `${status.count}/${DAILY_SAFE_LIMIT}`}`,
         `尝试：${status.attempts} 次`,
-        `帮🦌配额：${status.helperHelpUsed}/${DAILY_HELP_QUOTA}（可全给同一人）`,
+        `帮🦌配额：${status.helperHelpUsed}/${DAILY_HELP_QUOTA}`,
+        `帮戒🦌配额：${status.helperWithdrawUsed}/${DAILY_HELP_WITHDRAW_QUOTA}`,
+        `同归鹿尽：${status.togetherUsed ? '今日已用' : '可用 1 次'}`,
+        `皇城鹿：${status.imperialUsed ? '今日已用' : '可用 1 次'}`,
     ];
 
     if (status.dead) {
@@ -116,7 +166,7 @@ export function formatStatusMessage(name, status) {
     }
 
     lines.push(
-        `规则：安全 ${DAILY_SAFE_LIMIT} 次 · 超限 ${status.riskPercent}% 起递增 +${stepPct}%/次 · 帮🦌固定 ${status.helpKillPercent}%`
+        `规则：安全 ${DAILY_SAFE_LIMIT} 次 · 超限递增 · 帮🦌/帮戒🦌各 ${DAILY_HELP_QUOTA}/${DAILY_HELP_WITHDRAW_QUOTA} 次/日`
     );
     return lines.join('\n');
 }
@@ -127,4 +177,32 @@ export function formatViewEmpty(label, isAt) {
 
 export function formatRankEmpty(scope) {
     return UI_MESSAGES.rank_empty(scope);
+}
+
+export function formatFriendAddMessage(myName, targetName) {
+    return [
+        `${myName} 与 ${targetName} ${pickRandom(FRIEND_ADD_MESSAGES)}`,
+        pickRandom(FRIEND_ADD_NOTIFY),
+        '可「帮🦌」「帮戒🦌」「同归鹿尽」等互助',
+    ].join('\n');
+}
+
+export function formatFriendRemoveMessage(myName, targetName) {
+    return `${myName} 与 ${targetName} ${pickRandom(FRIEND_REMOVE_MESSAGES)}`;
+}
+
+export function formatFriendEmpty() {
+    return pickRandom(FRIEND_EMPTY_MESSAGES);
+}
+
+export function formatFriendNotInGroup() {
+    return pickRandom(FRIEND_NOT_IN_GROUP);
+}
+
+export function formatFriendAlready() {
+    return pickRandom(FRIEND_ALREADY_MESSAGES);
+}
+
+export function pickFriendListTitle() {
+    return pickRandom(FRIEND_LIST_TITLES);
 }

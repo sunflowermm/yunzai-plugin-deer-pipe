@@ -1,67 +1,230 @@
 import { QQ_AVATAR } from '../constants/game.js';
+
 import {
+
+    getDayEntry,
+
+    getDayRankInGroup,
+
     getMonthKey,
+
+    getMonthData,
+
     getUserRecord,
-    sumMonthData,
+
+    sumMonthDataForRank,
+
     sumYearData,
+
 } from './data.js';
 
-export function buildRankData(deerData, members, { scope = 'month', date = new Date(), order = 'desc' } = {}) {
+
+
+export function buildRankData(deerData, members, { scope = 'month', date = new Date(), order = 'desc', withdrawal = false } = {}) {
+
     const monthKey = getMonthKey(date);
+
     const year = date.getFullYear();
 
-    const rankData = Object.keys(deerData)
-        .filter(deer => members.includes(parseInt(deer)))
-        .map(deer => {
-            const userRecord = getUserRecord(deerData, deer);
-            if (!userRecord) return null;
+    const upToDay = date.getDate();
 
-            let sum = 0;
-            if (scope === 'year') {
-                sum = sumYearData(userRecord, year);
-            } else {
-                const monthData = userRecord[monthKey];
-                sum = sumMonthData(monthData);
+
+
+    if (scope === 'day') {
+
+        const list = getDayRankInGroup(deerData, members, date);
+
+        if (withdrawal) {
+
+            const wd = members.map(id => {
+
+                const uid = String(id);
+
+                const entry = getDayEntry(getMonthData(getUserRecord(deerData, uid), date), upToDay);
+
+                if (!entry || entry.d) return null;
+
+                return { id: uid, sum: entry.c };
+
+            }).filter(Boolean);
+
+            wd.sort((a, b) => a.sum - b.sum);
+
+            return wd;
+
+        }
+
+        if (order === 'asc') list.sort((a, b) => a.sum - b.sum);
+
+        return list;
+
+    }
+
+
+
+    const rankData = members.map(deer => {
+
+        const uid = String(deer);
+
+        const userRecord = getUserRecord(deerData, uid);
+
+        if (!userRecord) return null;
+
+
+
+        let sum = 0;
+
+        let hasActivity = false;
+
+
+
+        if (scope === 'year') {
+
+            sum = sumYearData(userRecord, year);
+
+            if (withdrawal) {
+
+                hasActivity = sum !== 0 || Object.keys(getYearMonthsForRank(userRecord, year)).length > 0;
+
             }
-            if (sum <= 0) return null;
-            return { id: deer, sum };
-        })
-        .filter(Boolean);
+
+        } else {
+
+            const monthData = userRecord[monthKey];
+
+            const ranked = sumMonthDataForRank(monthData, { withdrawal, upToDay });
+
+            sum = ranked.sum;
+
+            hasActivity = ranked.hasActivity;
+
+        }
+
+
+
+        if (withdrawal) {
+
+            if (!hasActivity && sum === 0) return null;
+
+            return { id: uid, sum };
+
+        }
+
+        if (sum <= 0) return null;
+
+        return { id: uid, sum };
+
+    }).filter(Boolean);
+
+
 
     rankData.sort((a, b) => order === 'asc' ? a.sum - b.sum : b.sum - a.sum);
+
     return rankData;
+
 }
+
+
+
+function getYearMonthsForRank(userRecord, year) {
+
+    const prefix = `${year}-`;
+
+    const result = {};
+
+    for (const [k, v] of Object.entries(userRecord || {})) {
+
+        if (k.startsWith(prefix)) result[k] = v;
+
+    }
+
+    return result;
+
+}
+
+
 
 export async function enrichRankWithMembers(rankData, membersMap) {
+
     return Promise.all(rankData.map(async (item, index) => {
+
         const groupInfo = membersMap.get(parseInt(item.id));
+
         return {
+
             ...item,
+
             user_id: item.id,
+
             avatar: QQ_AVATAR(item.id),
+
             card: groupInfo?.card || groupInfo?.nickname || item.id,
+
             order: index + 1,
+
         };
+
     }));
+
 }
+
+
 
 export function getRankTitle(scope, isWithdrawal, date = new Date()) {
+
     const year = date.getFullYear();
+
     const month = date.getMonth() + 1;
+
+    const day = date.getDate();
+
     const action = isWithdrawal ? '戒鹿' : '鹿管';
+
     if (scope === 'year') return `${year}年${action}年榜`;
-    return `${month}月${action}月榜`;
+
+    if (scope === 'day') return isWithdrawal ? `${month}月${day}日戒鹿日榜` : `${month}月${day}日鹿日榜`;
+
+    return isWithdrawal ? `${month}月${action}月榜` : `${month}月${action}月榜`;
+
 }
+
+
 
 export function getRankMedal(order) {
+
     if (order === 1) return '🥇';
+
     if (order === 2) return '🥈';
+
     if (order === 3) return '🥉';
+
     if (order <= 10) return '🏅';
+
     return '🦌';
+
 }
 
+
+
 export function getRankBarWidth(sum, maxSum) {
-    if (!maxSum) return 0;
-    return Math.max(8, Math.round((sum / maxSum) * 100));
+
+    const abs = Math.abs(sum);
+
+    const maxAbs = Math.abs(maxSum) || 1;
+
+    if (!abs) return 0;
+
+    return Math.max(8, Math.round((abs / maxAbs) * 100));
+
 }
+
+
+
+export function getRankScopeKey(scope, isWithdrawal) {
+
+    if (scope === 'day') return isWithdrawal ? 'day_wd' : 'day';
+
+    return scope;
+
+}
+
