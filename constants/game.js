@@ -10,8 +10,11 @@ export const OVERLIMIT_DEATH_CHANCE_STEP = 0.02;
 /** @deprecated 兼容旧引用，等同 BASE */
 export const OVERLIMIT_DEATH_CHANCE = OVERLIMIT_DEATH_CHANCE_BASE;
 
-/** 帮🦌拉下马 / 误伤：固定概率，不递增 */
-export const HELP_KILL_CHANCE = 0.10;
+/** 帮🦌误伤/拉下马：固定 15%，不递增 */
+export const HELP_KILL_CHANCE = 0.15;
+
+/** 帮戒🦌失手：固定 30%，不扣对方次数但仍消耗配额 */
+export const HELP_WITHDRAW_FAIL_CHANCE = 0.30;
 
 /** 帮🦌者每日总次数（可全部给同一人） */
 export const DAILY_HELP_QUOTA = 3;
@@ -22,9 +25,10 @@ export const DAILY_HELP_WITHDRAW_QUOTA = 3;
 /** 同归鹿尽：双方各扣次数 */
 export const TOGETHER_FALL_COST = 5;
 
-/** 皇城鹿 PK 胜/负扣次 */
+/** 皇城鹿 PK：挑战者赢扣鹿王次数 / 挑战者输扣自己次数 / 鹿王守擂成功奖励 */
 export const IMPERIAL_WIN_DEDUCT = 5;
 export const IMPERIAL_LOSE_DEDUCT = 3;
+export const IMPERIAL_KING_WIN_BONUS = 3;
 
 /** 特权 QQ：回鹿返照 */
 export const PRIVILEGED_QQ = '1814632762';
@@ -74,10 +78,14 @@ export const DEATH_MESSAGES = {
     help: [
         '帮🦌帮过头了！对方被你一手送走了…',
         '这手帮🦌属于医疗事故，对方已鹿死。',
+        '15% 的误伤率终于落到 ta 头上了…',
+        '本想代🦌，结果代送了，鹿友含泪。',
     ],
     pull: [
         '成功拉下马！对方今日🦌绩清零，现已鹿死。',
         '阴招奏效：帮🦌变帮倒忙，ta 被你送走了。',
+        '超限区拉下马，15% 阴招命中！',
+        '一手拉坠鹿坛，今日🦌功尽付东流。',
     ],
 };
 
@@ -113,17 +121,28 @@ export const HELP_SUCCESS_MESSAGES = [
     '代🦌成功，今日进度 +1',
     '鹿友相助，功德 +1',
     '你一臂之力，ta 今日 +1',
+    '这手帮🦌稳如老狗，未触发 15% 误伤',
 ];
 
 export const HELP_WITHDRAW_SUCCESS = [
     '帮戒🦌成功，ta 今日 -1',
     '好🦌友就要互相监督，-1',
     '代戒一手，望 ta 回头是岸',
+    '监督到位，-1 次，戒🦌路上不孤单',
 ];
 
 export const HELP_FAIL_MESSAGES = [
     '帮🦌失手了，ta 还好好的…',
     '没能拉下马，对方躲过一劫',
+    '15% 阴招未中，鹿王巍然不动',
+    '骰子留了一线，ta 逃过误伤判定',
+];
+
+export const HELP_WITHDRAW_FAIL_MESSAGES = [
+    '帮戒🦌失手！ta 次数未变，你的配额照扣',
+    '监督失败，30% 失手率命中，今日白跑一趟',
+    '想帮 ta 戒🦌，手一抖啥也没发生',
+    '代戒未成，鹿瘾依旧，下次再试',
 ];
 
 export const HELP_QUOTA_MESSAGES = [
@@ -159,13 +178,21 @@ export const IMPERIAL_WIN_MESSAGES = [
 ];
 
 export const IMPERIAL_LOSE_MESSAGES = [
-    '皇城鹿惜败…你今日自损 3 次以谢天下',
-    '大小不合天意，你折 3 次🦌功',
+    '皇城鹿惜败…你今日自损 3 次，鹿王守擂 +3',
+    '大小不合天意，你折 3 次，鹿王再添 3 次🦌绩',
+    '骰运不在你这边，-3 奉送，鹿王 +3 犒赏',
 ];
 
 export const PRIVILEGE_REVIVE_MESSAGES = [
-    '回鹿返照！死而复生，帮🦌与帮戒🦌次数已重置',
-    '鹿光逆照，你已还阳，今日配额清零重来',
+    '回鹿返照！今日🦌绩、鹿死、配额、特殊玩法次数全部清空',
+    '鹿光逆照，今日面板归零，从头再🦌',
+    '特权还阳：今日数据已抹平，如同未曾🦌过',
+];
+
+export const IMPERIAL_CLEARANCE_MESSAGES = [
+    '皇城清算！天下鹿民今日皇城鹿机会已重置',
+    '鹿旨下达：今日皇城鹿宣战次数全员清零',
+    '紫禁鹿门重开，众人可再赴皇城鹿一战',
 ];
 
 export const FRIEND_ADD_MESSAGES = [

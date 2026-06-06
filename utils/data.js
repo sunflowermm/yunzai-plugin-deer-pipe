@@ -6,8 +6,10 @@ import {
     DAILY_SAFE_LIMIT,
     DEATH_REASON,
     HELP_KILL_CHANCE,
+    HELP_WITHDRAW_FAIL_CHANCE,
     IMPERIAL_LOSE_DEDUCT,
     IMPERIAL_WIN_DEDUCT,
+    IMPERIAL_KING_WIN_BONUS,
     META_PREFIX,
     OVERLIMIT_DEATH_CHANCE_BASE,
     OVERLIMIT_DEATH_CHANCE_STEP,
@@ -185,6 +187,30 @@ export function resetDailyHelperQuotas(monthData, day) {
     if (!monthData) return;
     delete monthData[helperQuotaKey(day)];
     delete monthData[helperWithdrawQuotaKey(day)];
+}
+
+/** 清空指定日期的签到记录与当日玩法元数据（配额/同归/皇城鹿等） */
+export function resetUserDayState(monthData, day) {
+    if (!monthData) return;
+    delete monthData[String(day)];
+    delete monthData[helperQuotaKey(day)];
+    delete monthData[helperWithdrawQuotaKey(day)];
+    delete monthData[togetherUsedKey(day)];
+    delete monthData[imperialUsedKey(day)];
+}
+
+export function clearImperialUsedForAll(deerData, date, day) {
+    const monthKey = getMonthKey(date);
+    const key = imperialUsedKey(day);
+    let cleared = 0;
+    for (const userRecord of Object.values(deerData || {})) {
+        if (!userRecord || typeof userRecord !== 'object') continue;
+        const monthData = userRecord[monthKey];
+        if (!monthData?.[key]) continue;
+        delete monthData[key];
+        cleared += 1;
+    }
+    return cleared;
 }
 
 export function hasUsedTogether(monthData, day) {
@@ -496,6 +522,7 @@ export function getTodayStatus(monthData, day) {
         riskPercent: formatChancePercent(nextDeathChance),
         deathChanceStep: Math.round(OVERLIMIT_DEATH_CHANCE_STEP * 100),
         helpKillPercent: Math.round(HELP_KILL_CHANCE * 100),
+        helpWithdrawFailPercent: Math.round(HELP_WITHDRAW_FAIL_CHANCE * 100),
         canLu: !dead,
         canHelp: !dead,
         deathReason: dead ? (entry.dr || DEATH_REASON.SELF) : '',
@@ -531,6 +558,10 @@ export function applyDeath(entry, { reason = DEATH_REASON.SELF, killerId = null 
 
 function rollHelpKill() {
     return rollChance(HELP_KILL_CHANCE);
+}
+
+function rollHelpWithdrawFail() {
+    return rollChance(HELP_WITHDRAW_FAIL_CHANCE);
 }
 
 /**
@@ -713,8 +744,21 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day) {
         return { ok: false, type: 'target_dead' };
     }
 
-    adjustDayCount(entry, -1);
     entry.a += 1;
+
+    if (rollHelpWithdrawFail()) {
+        const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
+        return {
+            ok: true,
+            type: 'help_withdraw_fail',
+            entry,
+            count: entry.c,
+            failChance: HELP_WITHDRAW_FAIL_CHANCE,
+            ...quota,
+        };
+    }
+
+    adjustDayCount(entry, -1);
     const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
     return {
         ok: true,
@@ -725,32 +769,36 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day) {
     };
 }
 
-/** 特权：回鹿返照 */
+/** 特权：回鹿返照（清空今日全部次数与玩法状态） */
 export function performPrivilegeRevive(deerData, userId, date, day) {
     if (!isPrivileged(userId)) {
         return { ok: false, type: 'privilege_only' };
     }
     const monthData = ensureMonthData(deerData, userId, date);
-    const entry = ensureDayEntry(monthData, day);
-    const wasDead = !!entry.d;
+    const entry = getDayEntry(monthData, day);
+    const wasDead = !!entry?.d;
 
-    if (entry.d) {
-        entry.d = 0;
-        entry.c = entry.snap || 0;
-        entry.snap = 0;
-        entry.dr = '';
-        entry.dk = '';
-        entry.revived += 1;
-    }
-
-    resetDailyHelperQuotas(monthData, day);
+    resetUserDayState(monthData, day);
 
     return {
         ok: true,
         type: 'privilege_revive',
-        entry,
-        count: entry.c,
+        count: 0,
         wasDead,
+    };
+}
+
+/** 特权：皇城清算（全员当日皇城鹿已用标记重置） */
+export function performImperialClearance(deerData, operatorId, date, day) {
+    if (!isPrivileged(operatorId)) {
+        return { ok: false, type: 'privilege_only' };
+    }
+    const cleared = clearImperialUsedForAll(deerData, date, day);
+    return {
+        ok: true,
+        type: 'imperial_clearance',
+        cleared,
+        day,
     };
 }
 
@@ -783,12 +831,14 @@ export function settleImperialPk(deerData, challengerId, kingId, date, day, { wi
     }
 
     if (!challengerEntry.d) adjustDayCount(challengerEntry, -IMPERIAL_LOSE_DEDUCT);
+    if (!kingEntry.d) adjustDayCount(kingEntry, IMPERIAL_KING_WIN_BONUS);
     return {
         ok: true,
         type: 'imperial_lose',
         kingCount: kingEntry.d ? 0 : kingEntry.c,
         challengerCount: challengerEntry.d ? 0 : challengerEntry.c,
         deduct: IMPERIAL_LOSE_DEDUCT,
+        kingBonus: kingEntry.d ? 0 : IMPERIAL_KING_WIN_BONUS,
         kingId,
     };
 }
@@ -805,4 +855,5 @@ export {
     TOGETHER_FALL_COST,
     IMPERIAL_WIN_DEDUCT,
     IMPERIAL_LOSE_DEDUCT,
+    IMPERIAL_KING_WIN_BONUS,
 };

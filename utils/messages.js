@@ -13,11 +13,14 @@ import {
     HELP_QUOTA_MESSAGES,
     HELP_SUCCESS_MESSAGES,
     HELP_WITHDRAW_SUCCESS,
+    HELP_WITHDRAW_FAIL_MESSAGES,
+    HELP_WITHDRAW_FAIL_CHANCE,
     HELP_WITHDRAW_QUOTA_MESSAGES,
     HELPER_DEAD_MESSAGES,
     IMPERIAL_LOSE_MESSAGES,
     IMPERIAL_WIN_MESSAGES,
     IMPERIAL_PK_HINTS,
+    IMPERIAL_CLEARANCE_MESSAGES,
     ACTOR_DEAD_MESSAGES,
     TARGET_DEAD_MESSAGES,
     OVERLIMIT_DEATH_CHANCE_STEP,
@@ -138,12 +141,22 @@ export function formatActionMessage(result, ctx = {}) {
             return `${pickRandom(TOGETHER_FALL_MESSAGES)}\n你：${result.selfCount} 次 · ${targetName || 'ta'}：${result.targetCount} 次（各 -${result.cost}）`;
         case 'help_withdraw':
             return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)}（现 ${result.count} 次，可为负）${wq}`;
+        case 'help_withdraw_fail': {
+            const failPct = Math.round((result.failChance ?? HELP_WITHDRAW_FAIL_CHANCE) * 100);
+            return `${helperName || '你'} 帮戒 ${targetName || 'ta'} ${pickRandom(HELP_WITHDRAW_FAIL_MESSAGES)}（${failPct}% 失手 · 仍为 ${result.count} 次）${wq}`;
+        }
         case 'privilege_revive':
-            return `${pickRandom(PRIVILEGE_REVIVE_MESSAGES)}${result.wasDead ? '' : '（未鹿死亦已重置配额）'}（现 ${result.count} 次）`;
+            return `${pickRandom(PRIVILEGE_REVIVE_MESSAGES)}${result.wasDead ? '（原鹿死状态已解除）' : ''}（今日 0 次，可重新🦌）`;
+        case 'imperial_clearance':
+            return `${pickRandom(IMPERIAL_CLEARANCE_MESSAGES)}（${result.cleared} 人可再战皇城鹿）`;
         case 'imperial_win':
             return `${pickRandom(IMPERIAL_WIN_MESSAGES)} · ${targetName || '鹿王'} 现 ${result.kingCount} 次`;
-        case 'imperial_lose':
-            return `${pickRandom(IMPERIAL_LOSE_MESSAGES)} · 你现 ${result.challengerCount} 次`;
+        case 'imperial_lose': {
+            const kingPart = result.kingBonus
+                ? ` · ${targetName || '鹿王'} +${result.kingBonus} 现 ${result.kingCount} 次`
+                : ` · ${targetName || '鹿王'} 现 ${result.kingCount} 次`;
+            return `${pickRandom(IMPERIAL_LOSE_MESSAGES)} · 你现 ${result.challengerCount} 次${kingPart}`;
+        }
         default:
             return result.message || '操作完成';
     }
@@ -178,7 +191,7 @@ export function formatStatusMessage(name, status) {
     }
 
     lines.push(
-        `规则：安全 ${DAILY_SAFE_LIMIT} 次 · 超限递增 · 帮🦌/帮戒🦌各 ${DAILY_HELP_QUOTA}/${DAILY_HELP_WITHDRAW_QUOTA} 次/日`
+        `规则：安全 ${DAILY_SAFE_LIMIT} 次 · 超限递增 · 帮🦌误伤/拉下马 ${status.helpKillPercent}% · 帮戒失手 ${status.helpWithdrawFailPercent}% · 配额各 ${DAILY_HELP_QUOTA}/${DAILY_HELP_WITHDRAW_QUOTA} 次/日`
     );
     return lines.join('\n');
 }
