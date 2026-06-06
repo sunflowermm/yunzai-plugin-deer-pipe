@@ -249,6 +249,13 @@ export function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** 0~1 概率 → 整型百分比（不含 %），0 或无效则返回空串 */
+export function formatChancePercent(chance) {
+    const n = Number(chance);
+    if (!Number.isFinite(n) || n <= 0) return '';
+    return String(Math.round(n * 100));
+}
+
 /** 自🦌超限区：第 4 次 BASE，之后每次 +STEP，上限 100% */
 export function calcOverlimitDeathChance(currentCount) {
     if (currentCount < DAILY_SAFE_LIMIT) return 0;
