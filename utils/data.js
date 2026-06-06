@@ -224,6 +224,42 @@ export function sumMonthDataForRank(monthData, { withdrawal = false, upToDay = 3
     return { sum, hasActivity };
 }
 
+export function isUserDeadToday(deerData, userId, date, day) {
+    const entry = getDayEntry(getMonthData(getUserRecord(deerData, userId), date), day);
+    return !!entry?.d;
+}
+
+/** 发起互助/特殊玩法前：操作者须存活 */
+export function rejectIfActorDead(deerData, userId, date, day) {
+    if (isUserDeadToday(deerData, userId, date, day)) {
+        return { ok: false, type: 'actor_dead' };
+    }
+    return null;
+}
+
+/** 皇城鹿宣战校验（不含标记消耗） */
+export function validateImperialStart(deerData, userId, date, day, members) {
+    const dead = rejectIfActorDead(deerData, userId, date, day);
+    if (dead) return dead;
+
+    const userMonth = getMonthData(getUserRecord(deerData, userId), date);
+    if (hasUsedImperial(userMonth, day)) {
+        return { ok: false, type: 'imperial_used' };
+    }
+
+    const rank = getDayRankInGroup(deerData, members, date);
+    if (!rank.length) {
+        return { ok: false, type: 'imperial_no_king' };
+    }
+
+    const king = rank[0];
+    if (String(king.id) === String(userId)) {
+        return { ok: false, type: 'imperial_is_king' };
+    }
+
+    return { ok: true, king };
+}
+
 export function getDayRankInGroup(deerData, members, date = new Date()) {
     const day = date.getDate();
     const list = members.map(id => {
@@ -471,6 +507,10 @@ export function getTodayStatus(monthData, day) {
         helperWithdrawLeft: getHelperWithdrawQuotaLeft(monthData, day),
         togetherUsed: hasUsedTogether(monthData, day),
         imperialUsed: hasUsedImperial(monthData, day),
+        canUseSpecial: !dead,
+        canHelpOthers: !dead,
+        canTogether: !dead && !hasUsedTogether(monthData, day),
+        canImperial: !dead && !hasUsedImperial(monthData, day),
     };
 }
 
@@ -534,11 +574,10 @@ export function performLu(deerData, userId, date, day) {
  * 帮🦌者每日共 DAILY_HELP_QUOTA 次，可全部用于同一人
  */
 export function performHelpLu(deerData, helperId, targetId, date, day) {
+    const dead = rejectIfActorDead(deerData, helperId, date, day);
+    if (dead) return dead;
+
     const helperMonth = ensureMonthData(deerData, helperId, date);
-    const helperEntry = getDayEntry(helperMonth, day);
-    if (helperEntry?.d) {
-        return { ok: false, type: 'helper_dead' };
-    }
 
     const quotaLeft = getHelperQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
@@ -617,11 +656,15 @@ export function performWithdrawal(deerData, userId, date, day, { pastDay = false
     return { ok: true, type: 'withdrawal', entry, count: entry.c };
 }
 
-/** 同归鹿尽：双方各 -5，发起者每日一次，次数可负 */
+/** 同归鹿尽：双方各 -5，发起者每日一次，次数可负；鹿死者不可发起或成为目标 */
 export function performTogetherFall(deerData, userId, targetId, date, day) {
     if (String(userId) === String(targetId)) {
         return { ok: false, type: 'together_self' };
     }
+
+    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    if (actorDead) return actorDead;
+
     const initiatorMonth = ensureMonthData(deerData, userId, date);
     if (hasUsedTogether(initiatorMonth, day)) {
         return { ok: false, type: 'together_used' };
@@ -630,8 +673,8 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
     const selfEntry = ensureDayEntry(initiatorMonth, day);
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
 
-    if (selfEntry.d || targetEntry.d) {
-        return { ok: false, type: 'dead' };
+    if (targetEntry.d) {
+        return { ok: false, type: 'target_dead' };
     }
 
     adjustDayCount(selfEntry, -TOGETHER_FALL_COST);
@@ -649,11 +692,10 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
 
 /** 帮戒🦌：帮🦌友 -1，每日 3 次，可负 */
 export function performHelpWithdrawal(deerData, helperId, targetId, date, day) {
+    const dead = rejectIfActorDead(deerData, helperId, date, day);
+    if (dead) return dead;
+
     const helperMonth = ensureMonthData(deerData, helperId, date);
-    const helperEntry = getDayEntry(helperMonth, day);
-    if (helperEntry?.d) {
-        return { ok: false, type: 'helper_dead' };
-    }
 
     const quotaLeft = getHelperWithdrawQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
@@ -668,7 +710,7 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day) {
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(targetMonth, day);
     if (entry.d) {
-        return { ok: false, type: 'withdrawal_dead' };
+        return { ok: false, type: 'target_dead' };
     }
 
     adjustDayCount(entry, -1);
@@ -722,6 +764,9 @@ export function markImperialUsed(deerData, userId, date, day) {
 
 /** 皇城鹿 PK 结算（不含标记，标记在宣战时完成） */
 export function settleImperialPk(deerData, challengerId, kingId, date, day, { win }) {
+    const dead = rejectIfActorDead(deerData, challengerId, date, day);
+    if (dead) return dead;
+
     const kingEntry = ensureDayEntry(ensureMonthData(deerData, kingId, date), day);
     const challengerEntry = ensureDayEntry(ensureMonthData(deerData, challengerId, date), day);
 

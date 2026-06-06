@@ -68,6 +68,10 @@ export class DeerPipe extends plugin {
         const day = date.getDate();
         const deerData = await loadDeerData();
         const result = performLu(deerData, user_id, date, day);
+        if (!result.ok) {
+            await e.reply(formatErrorMessage(result), true);
+            return;
+        }
         await saveDeerData(deerData);
         const text = formatActionMessage(result);
         await this.replyWithPanel(e, date, card || nickname, user_id, deerData, text, day);

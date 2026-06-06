@@ -208,9 +208,39 @@ export const FRIEND_LIST_TITLES = [
 ];
 
 export const HELPER_DEAD_MESSAGES = [
-    '你都🦌死了还怎么帮别人？先等🦌友救活你吧',
-    '💀 自身难保，今日无法帮🦌（救活也不行，先自救）',
-    '帮🦌失败：帮🦌者已鹿死，请先被救活',
+    '你都🦌死了还怎么帮别人？先等🦌友「帮🦌」救活',
+    '💀 自身难保，今日无法发起帮🦌/帮戒/同归/皇城鹿',
+    '鹿魂未归位，只能等🦌友救活，不能操作特殊玩法',
+];
+
+export const ACTOR_DEAD_MESSAGES = [
+    '💀 鹿死状态下无法使用特殊玩法，请先被🦌友「帮🦌」救活',
+    '你已🦌死，同归鹿尽/帮戒🦌/皇城鹿均不可用',
+    '尸体还在地上，特殊指令全部封印，等救活再说',
+];
+
+export const TARGET_DEAD_MESSAGES = [
+    '对方已🦌死，无法对其使用此指令，请先帮 ta 救活',
+    'ta 今日鹿死作废中，等「帮🦌」救活后再来',
+    '目标处于鹿死状态，帮戒/同归等需双方存活',
+];
+
+export const IMPERIAL_PK_HINTS = [
+    '🎲 骰开！',
+    '⚔️ 鹿王对决，天意难违',
+    '🏯 紫禁鹿门，一骰定乾坤',
+];
+
+export const IMPERIAL_TIMEOUT_MESSAGES = [
+    '皇城鹿决斗超时，今日机会已消耗',
+    '90 秒已过，鹿鼓声息，明日再战',
+    '宣战后久未应答，鹿王收兵，今日皇城鹿作废',
+];
+
+export const IMPERIAL_CHOICE_PROMPTS = [
+    '请回复「大」或「小」',
+    '只认「大」「小」二字，莫要犹豫',
+    '快选大或小，骰子不等人',
 ];
 
 /** 业务错误文案（data 层只返回 type，文案由此读取） */
@@ -224,10 +254,14 @@ export const ERROR_MESSAGES = {
     not_friend: 'ta 还不是你的🦌友！\n「添加🦌友@ta」一次添加，双方互见名单并可互助',
     together_used: '今日已用过同归鹿尽，明天再来殉情吧',
     together_self: '不能对自己同归鹿尽',
+    together_target_dead: '对方已鹿死，同归鹿尽需双方存活',
     imperial_used: '今日皇城鹿机会已用完',
     imperial_no_king: '今日群内尚无鹿王（🦌日榜第一），先去🦌一发',
     imperial_is_king: '你已是今日鹿王，无需向自己宣战',
     imperial_need_group: '皇城鹿仅在群内可用',
+    imperial_dead: '鹿死状态下无法参与皇城鹿，请先被救活',
+    target_dead: '对方已鹿死，请先帮 ta「帮🦌」救活',
+    actor_dead: '你已鹿死，无法发起互助或特殊玩法，请先被救活',
     privilege_only: '此指令为特权鹿使专属',
     default: '操作失败',
 };

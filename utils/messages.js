@@ -17,6 +17,9 @@ import {
     HELPER_DEAD_MESSAGES,
     IMPERIAL_LOSE_MESSAGES,
     IMPERIAL_WIN_MESSAGES,
+    IMPERIAL_PK_HINTS,
+    ACTOR_DEAD_MESSAGES,
+    TARGET_DEAD_MESSAGES,
     OVERLIMIT_DEATH_CHANCE_STEP,
     PRIVILEGE_REVIVE_MESSAGES,
     TOGETHER_FALL_MESSAGES,
@@ -62,8 +65,12 @@ export function formatErrorMessage(result) {
     switch (result.type) {
         case 'dead':
             return pickRandom(ALREADY_DEAD_MESSAGES);
+        case 'actor_dead':
+            return pickRandom(ACTOR_DEAD_MESSAGES) || ERROR_MESSAGES.actor_dead;
         case 'helper_dead':
             return pickRandom(HELPER_DEAD_MESSAGES) || ERROR_MESSAGES.helper_dead;
+        case 'target_dead':
+            return pickRandom(TARGET_DEAD_MESSAGES) || ERROR_MESSAGES.target_dead;
         case 'help_quota':
             return result.message || pickRandom(HELP_QUOTA_MESSAGES)
                 || ERROR_MESSAGES.help_quota(DAILY_HELP_QUOTA, DAILY_HELP_QUOTA);
@@ -84,6 +91,10 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.imperial_no_king;
         case 'imperial_is_king':
             return ERROR_MESSAGES.imperial_is_king;
+        case 'imperial_need_group':
+            return ERROR_MESSAGES.imperial_need_group;
+        case 'imperial_dead':
+            return pickRandom(ACTOR_DEAD_MESSAGES) || ERROR_MESSAGES.imperial_dead;
         case 'privilege_only':
             return ERROR_MESSAGES.privilege_only;
         default:
@@ -147,13 +158,14 @@ export function formatStatusMessage(name, status) {
         `尝试：${status.attempts} 次`,
         `帮🦌配额：${status.helperHelpUsed}/${DAILY_HELP_QUOTA}`,
         `帮戒🦌配额：${status.helperWithdrawUsed}/${DAILY_HELP_WITHDRAW_QUOTA}`,
-        `同归鹿尽：${status.togetherUsed ? '今日已用' : '可用 1 次'}`,
-        `皇城鹿：${status.imperialUsed ? '今日已用' : '可用 1 次'}`,
+        `同归鹿尽：${status.dead ? '💀 鹿死不可用' : (status.togetherUsed ? '今日已用' : '可用 1 次')}`,
+        `皇城鹿：${status.dead ? '💀 鹿死不可用' : (status.imperialUsed ? '今日已用' : '可用 1 次')}`,
     ];
 
     if (status.dead) {
         lines.push(`状态：💀 ${status.deathReasonText}，等「帮🦌」救活`);
-        lines.push(`帮🦌：今日不可帮他人（自身鹿死）`);
+        lines.push(`互助：今日不可帮他人 · 不可发起特殊玩法`);
+        lines.push(`可用：🦌况 / 看🦌 / 排行榜 · 特权「回鹿返照」`);
         if (status.killedByName) lines.push(`凶手：${status.killedByName}`);
     } else if (status.inRiskZone) {
         lines.push(`状态：⚠️ 高危区，再🦌 ${status.riskPercent}% 鹿死（每多发 +${stepPct}%）`);
