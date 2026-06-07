@@ -1012,16 +1012,17 @@ export function performPrivilegeRevive(deerData, userId, date, day) {
         return { ok: false, type: 'privilege_only' };
     }
     const monthData = ensureMonthData(deerData, userId, date);
-    const entry = getDayEntry(monthData, day);
-    const wasDead = !!entry?.d;
-    let count = entry?.c ?? 0;
+    const entry = ensureDayEntry(monthData, day);
+    const wasDead = !!entry.d;
+    let count = entry.c;
 
-    if (entry?.d) {
+    if (entry.d) {
         entry.d = 0;
         entry.c = entry.snap || 0;
         entry.snap = 0;
         entry.dr = '';
         entry.dk = '';
+        entry.cur = 0;
         count = entry.c;
     }
 

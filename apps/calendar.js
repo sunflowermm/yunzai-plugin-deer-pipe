@@ -15,6 +15,7 @@ export class CalendarApp extends plugin {
             dsc: "查看年度/历史🦌历",
             event: "message",
             priority: 5000,
+            bypassThrottle: true,
             rule: [
                 { reg: REG.calendarYear, fnc: "yearCalendar" },
                 { reg: REG.calendarView, fnc: "viewYearCalendar" },

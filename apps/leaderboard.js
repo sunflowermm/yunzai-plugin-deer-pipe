@@ -30,6 +30,7 @@ export class LeaderboardApp extends plugin {
             dsc: "一个🦌管排行榜",
             event: "message",
             priority: 5000,
+            bypassThrottle: true,
             rule: [
                 { reg: REG.rank, fnc: "leaderboard" },
                 { reg: REG.rankYear, fnc: "yearLeaderboard" },

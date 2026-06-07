@@ -68,3 +68,8 @@ export function clearAllArenaSessions() {
     }
     arenaChallengeSessions.clear();
 }
+
+/** @returns {ArenaSession[]} */
+export function listArenaSessions() {
+    return [...arenaChallengeSessions.values()];
+}

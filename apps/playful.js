@@ -23,6 +23,7 @@ export class DeerPlayful extends plugin {
             dsc: '偷/咒/献祭/诈戒/催/鸣/倒贴/群溅（鹿与🦌等价）',
             event: 'message',
             priority: 5002,
+            bypassThrottle: true,
             rule: [
                 { reg: REG.steal, fnc: 'stealDeer' },
                 { reg: REG.curse, fnc: 'curseDeer' },

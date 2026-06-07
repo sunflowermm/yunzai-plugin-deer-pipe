@@ -28,6 +28,7 @@ export class DeerPipe extends plugin {
             dsc: '鹿/🦌 签到与互助',
             event: 'message',
             priority: 5000,
+            bypassThrottle: true,
             rule: [
                 { reg: REG.lu, fnc: 'lu' },
                 { reg: REG.withdraw, fnc: 'withdrawalLu' },

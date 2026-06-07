@@ -26,6 +26,7 @@ export class Friends extends plugin {
             dsc: "添加🦌友，一次添加双向结缘",
             event: "message",
             priority: 5000,
+            bypassThrottle: true,
             rule: [
                 { reg: REG.addFriend, fnc: "addDeerFriend" },
                 { reg: REG.delFriend, fnc: "delDeerFriend" },

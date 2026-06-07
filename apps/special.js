@@ -74,9 +74,9 @@ import {
 
     findArenaSessionForTarget,
 
-    hasArenaSessionsInGroup,
-
     isArenaTargetBusy,
+
+    listArenaSessions,
 
 } from '../utils/arena-session.js';
 
@@ -88,7 +88,7 @@ import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
  * 皇城鹿：setContext('imperialPkChoice') — 宣战者本人猜大小（用户级上下文）
 
- * 擂台鹿：setContext('arenaRespond', true) — 群内被挑战者回复冲/拒（群级上下文 + session Map）
+ * 擂台鹿：bindUserContext(被挑战者) + arenaRespond — 仅被点名者监听冲/拒
 
  * loader 在 processRules 之前调用 handleContext，与本体 plugin 行为一致
 
@@ -167,6 +167,7 @@ export class DeerSpecial extends plugin {
             event: 'message',
 
             priority: 5001,
+            bypassThrottle: true,
 
             rule: [
 
@@ -192,31 +193,13 @@ export class DeerSpecial extends plugin {
 
 
 
-    /** 群级擂台上下文：无 timer（由 session 单独过期），避免多战书时群上下文先到期 */
-
-    ensureArenaGroupContext() {
-
-        if (!this.getContext('arenaRespond', true)) {
-
-            this.setContext('arenaRespond', true, 0);
-
+    clearArenaUserContexts() {
+        const sessions = listArenaSessions();
+        clearAllArenaSessions();
+        for (const s of sessions) {
+            plugin.finishUserContext(this.name, this.e.self_id, s.targetId, 'arenaRespond');
         }
-
     }
-
-
-
-    finishArenaGroupContextIfEmpty() {
-
-        if (!hasArenaSessionsInGroup(this.e.group_id)) {
-
-            this.finish('arenaRespond', true);
-
-        }
-
-    }
-
-
 
     async togetherFall() {
 
@@ -480,11 +463,7 @@ export class DeerSpecial extends plugin {
 
         clearAllImperialSessions();
 
-        clearAllArenaSessions();
-
-        this.finish('arenaRespond', true);
-
-
+        this.clearArenaUserContexts();
 
         await this.reply(formatActionMessage(result, { helperName: card || nickname }), true);
 
@@ -547,32 +526,31 @@ export class DeerSpecial extends plugin {
 
 
         const challengerName = card || nickname;
-
         const targetName = await getMemberName(this.e, targetId);
-
-
+        const pluginName = this.name;
+        const selfId = this.e.self_id;
 
         armArenaSession(this.e.group_id, targetId, {
-
             challengerId: user_id,
-
             challengerName,
-
             targetId,
-
             targetName,
-
             date,
-
             day,
-
+        }, {
+            onExpire: () => {
+                plugin.finishUserContext(pluginName, selfId, targetId, 'arenaRespond');
+            },
         });
 
-
-
-        this.ensureArenaGroupContext();
-
-
+        plugin.bindUserContext(
+            pluginName,
+            selfId,
+            targetId,
+            'arenaRespond',
+            this.e,
+            ARENA_PK_TIMEOUT_SEC,
+        );
 
         await this.reply([
 
@@ -591,59 +569,29 @@ export class DeerSpecial extends plugin {
 
 
     /**
-
-     * 群级上下文：被挑战者回复冲/拒（handleContext 优先于 rule 匹配）
-
-     * @returns {boolean|'continue'|false}
-
+     * 用户级上下文：仅被挑战者回复冲/拒（handleContext 优先于 rule，且跳过群 CD）
      */
-
     async arenaRespond() {
-
-        if (!this.e.isGroup) return false;
-
-
-
-        if (!hasArenaSessionsInGroup(this.e.group_id)) {
-
-            this.finish('arenaRespond', true);
-
-            return false;
-
-        }
-
-
-
         const session = findArenaSessionForTarget(this.e);
-
-        if (!session) return false;
-
-
+        if (!session) {
+            plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'arenaRespond');
+            return false;
+        }
 
         const msg = this.e.msg?.trim();
-
         if (msg === '冲') {
-
+            plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'arenaRespond');
             await this.settleArenaAccept(session);
-
             return true;
-
         }
-
         if (msg === '拒') {
-
+            plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'arenaRespond');
             await this.settleArenaDecline(session);
-
             return true;
-
         }
-
-
 
         await this.reply(pickRandom(ARENA_CHOICE_PROMPTS), true);
-
         return true;
-
     }
 
 
@@ -651,8 +599,6 @@ export class DeerSpecial extends plugin {
     async settleArenaAccept(session) {
 
         clearArenaSession(this.e.group_id, this.e.user_id);
-
-        this.finishArenaGroupContextIfEmpty();
 
 
 
@@ -719,8 +665,6 @@ export class DeerSpecial extends plugin {
     async settleArenaDecline(session) {
 
         clearArenaSession(this.e.group_id, this.e.user_id);
-
-        this.finishArenaGroupContextIfEmpty();
 
 
 
