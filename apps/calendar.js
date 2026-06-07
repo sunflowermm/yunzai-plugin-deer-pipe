@@ -5,6 +5,7 @@ import {
     parseMonthInput,
 } from "../utils/data.js";
 import { generateImage, generateYearImage } from "../utils/core.js";
+import { REG } from "../constants/commands.js";
 import { loadDeerData } from "../utils/store.js";
 
 export class CalendarApp extends plugin {
@@ -15,20 +16,11 @@ export class CalendarApp extends plugin {
             event: "message",
             priority: 5000,
             rule: [
-                {
-                    reg: "^(🦌|鹿)历$",
-                    fnc: "yearCalendar",
-                },
-                {
-                    reg: "^看(🦌|鹿)历$",
-                    fnc: "viewYearCalendar",
-                },
-                {
-                    reg: "^(🦌|鹿)历(\\d{4}-\\d{1,2}|\\d{1,2})$",
-                    fnc: "monthCalendar",
-                },
-            ]
-        })
+                { reg: REG.calendarYear, fnc: "yearCalendar" },
+                { reg: REG.calendarView, fnc: "viewYearCalendar" },
+                { reg: REG.calendarMonth, fnc: "monthCalendar" },
+            ],
+        });
     }
 
     resolveTargetUser(e) {

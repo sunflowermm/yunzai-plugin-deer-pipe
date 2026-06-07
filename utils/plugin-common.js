@@ -1,0 +1,53 @@
+/**
+ * 鹿插件共用：目标解析与群成员名（loader 调用 fnc 前会注入 plugin.e）
+ */
+import { D } from '../constants/commands.js';
+
+const TARGET_PREFIX_RE = new RegExp(
+    `^(?:同归${D}尽|帮戒${D}|擂台${D}|偷${D}|${D}咒|献祭${D}|催${D}|倒贴${D})`,
+);
+
+const HELP_PREFIX_RE = new RegExp(`^帮${D}`);
+
+const FRIEND_ADD_RE = new RegExp(`^添加${D}友`);
+
+const FRIEND_DEL_RE = new RegExp(`^绝交${D}友`);
+
+/** @鹿/🦌 互害、擂台、同归等 @目标 指令 */
+export async function resolveTargetId(e) {
+    if (e.at) return e.at;
+    if (e?.reply_id !== undefined) {
+        const reply = await e.getReply();
+        return reply?.user_id ?? null;
+    }
+    const stripped = String(e.msg).trim().replace(TARGET_PREFIX_RE, '').trim();
+    return stripped || null;
+}
+
+/** 帮🦌/帮鹿 */
+export async function resolveHelpTargetId(e) {
+    if (e.at) return e.at;
+    if (e?.reply_id !== undefined) {
+        const reply = await e.getReply();
+        return reply?.user_id ?? null;
+    }
+    const stripped = String(e.msg).trim().replace(HELP_PREFIX_RE, '').trim();
+    return stripped || null;
+}
+
+export async function resolveFriendTargetId(e, { remove = false } = {}) {
+    if (e.at) return e.at;
+    if (e?.reply_id !== undefined) {
+        const reply = await e.getReply();
+        return reply?.user_id ?? null;
+    }
+    const re = remove ? FRIEND_DEL_RE : FRIEND_ADD_RE;
+    const stripped = String(e.msg).trim().replace(re, '').trim();
+    return stripped || null;
+}
+
+export async function getMemberName(e, userId) {
+    const map = await (e.group || Bot?.pickGroup(e.group_id))?.getMemberMap();
+    const info = map?.get(parseInt(userId, 10));
+    return info?.card || info?.nickname || String(userId);
+}

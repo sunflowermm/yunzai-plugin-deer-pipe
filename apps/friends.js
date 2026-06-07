@@ -15,6 +15,8 @@ import {
     formatFriendRemoveMessage,
     pickFriendListTitle,
 } from "../utils/messages.js";
+import { REG } from "../constants/commands.js";
+import { resolveFriendTargetId } from "../utils/plugin-common.js";
 import { loadFriends, saveFriends } from "../utils/store.js";
 
 export class Friends extends plugin {
@@ -25,9 +27,9 @@ export class Friends extends plugin {
             event: "message",
             priority: 5000,
             rule: [
-                { reg: "^添加(🦌|鹿)友(.*)", fnc: "addDeerFriend" },
-                { reg: "^绝交(🦌|鹿)友(.*)", fnc: "delDeerFriend" },
-                { reg: "^我的(🦌|鹿)友$", fnc: "myDeerFriend" },
+                { reg: REG.addFriend, fnc: "addDeerFriend" },
+                { reg: REG.delFriend, fnc: "delDeerFriend" },
+                { reg: REG.myFriend, fnc: "myDeerFriend" },
             ],
         });
     }
@@ -35,12 +37,6 @@ export class Friends extends plugin {
     async getGroupUserInfo(e) {
         const curGroup = e.group || Bot?.pickGroup(e.group_id);
         return curGroup?.getMemberMap();
-    }
-
-    async resolveTargetId(e, cmdPattern) {
-        if (e.at) return e.at;
-        if (e?.reply_id !== undefined) return (await e.getReply()).user_id;
-        return e.msg.replace(cmdPattern, "").trim() || null;
     }
 
     extractDeerNickname(membersMap, userId) {
@@ -58,7 +54,7 @@ export class Friends extends plugin {
 
     async addDeerFriend(e) {
         const { user_id, card, nickname } = e.sender;
-        const targetId = await this.resolveTargetId(e, /添加(🦌|鹿)友/g);
+        const targetId = await resolveFriendTargetId(e);
 
         if (!targetId || !isNumeric(String(targetId))) {
             e.reply("无法获取🦌友信息，请 @ 或引用对方消息", true);
@@ -92,7 +88,7 @@ export class Friends extends plugin {
 
     async delDeerFriend(e) {
         const { user_id, card, nickname } = e.sender;
-        const targetId = await this.resolveTargetId(e, /绝交(🦌|鹿)友/g);
+        const targetId = await resolveFriendTargetId(e, { remove: true });
 
         if (!targetId || !isNumeric(String(targetId))) {
             e.reply("无法获取🦌友信息，请 @ 或引用对方消息", true);

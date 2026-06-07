@@ -20,54 +20,22 @@ import {
 
 import { formatRankEmpty } from "../utils/messages.js";
 
+import { REG } from "../constants/commands.js";
 import { loadDeerData } from "../utils/store.js";
 
-
-
 export class LeaderboardApp extends plugin {
-
     constructor() {
-
         super({
-
             name: "🦌管排行榜",
-
             dsc: "一个🦌管排行榜",
-
             event: "message",
-
             priority: 5000,
-
             rule: [
-
-                {
-
-                    reg: "^(🦌|鹿|戒🦌|戒鹿)榜$",
-
-                    fnc: "leaderboard",
-
-                },
-
-                {
-
-                    reg: "^(🦌|鹿|戒🦌|戒鹿)年榜$",
-
-                    fnc: "yearLeaderboard",
-
-                },
-
-                {
-
-                    reg: "^(🦌|鹿|戒🦌|戒鹿)日榜$",
-
-                    fnc: "dayLeaderboard",
-
-                },
-
-            ]
-
-        })
-
+                { reg: REG.rank, fnc: "leaderboard" },
+                { reg: REG.rankYear, fnc: "yearLeaderboard" },
+                { reg: REG.rankDay, fnc: "dayLeaderboard" },
+            ],
+        });
     }
 
 
