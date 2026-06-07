@@ -511,6 +511,13 @@ export const IMPERIAL_CHOICE_PROMPTS = [
     '快选大或小，骰子不等人',
 ];
 
+/** 擂台应战上下文提示（被挑战者 setContext 内回复） */
+export const ARENA_CHOICE_PROMPTS = [
+    '请回复「冲」应战或「拒」认怂（-1 次）',
+    '战书在握：冲 = 开打，拒 = 懦夫税',
+    '只认「冲」「拒」二字，过期战书作废',
+];
+
 /** 业务错误文案（data 层只返回 type，文案由此读取） */
 export const ERROR_MESSAGES = {
     withdrawal_dead: '🦌死状态下请先被救活再戒🦌',

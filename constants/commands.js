@@ -21,8 +21,7 @@ export const REG = {
     imperialClearance: `^皇城清算$`,
     deerClearance: `^${D}清算$`,
     arena: `^擂台${D}`,
-    arenaAccept: `^冲$`,
-    arenaDecline: `^拒$`,
+    /** 擂台「冲/拒」由 setContext('arenaRespond') 监听，勿加裸规则（避免误吞他人消息） */
     imperial: `^(皇城${D}|皇城)$`,
     steal: `^偷${D}`,
     curse: `^${D}咒`,
