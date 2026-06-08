@@ -9,6 +9,10 @@ export const D = '(🦌|鹿)';
 /** 帮助图展示：🦌/鹿 可互换 */
 export const D_SHOW = '🦌/鹿';
 
+/** 查鹿林天象（不与通用「天气」插件抢匹配） */
+export const WEATHER_CMD_SHOW = `${D_SHOW}环境 / 天气${D_SHOW}`;
+export const WEATHER_CMD_HINT = '鹿环境 / 天气鹿';
+
 export const REG = {
     lu: `^${D}$`,
     withdraw: `^戒${D}[0-9]*$`,
@@ -37,7 +41,8 @@ export const REG = {
     borrow: `^借${D}`,
     bumper: `^碰瓷${D}`,
     lottery: `^抽${D}签$`,
-    weatherToday: `^(?:今日)?${D}天气$|^${D}天气$`,
+    /** 主：鹿环境 / 今日鹿环境 · 别名：天气鹿 / 今日天气鹿 */
+    weatherToday: `^(?:今日)?(?:${D}环境|天气${D})$`,
     deerGodBless: '^鹿神赐福',
     blessDeer: `^${D}福`,
     cleanseBless: `^解${D}福`,

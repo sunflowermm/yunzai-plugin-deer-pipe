@@ -2,6 +2,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import { pathToFileURL } from 'node:url';
 import { CHECK_IMG, DEERPIPE_IMG, MISANS_FONT } from '../constants/core.js';
+import { WEATHER_CMD_HINT } from '../constants/commands.js';
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
 import {
     calcMonthStats,
@@ -525,7 +526,7 @@ export async function generateStatusImage(now, name, status) {
 
     const txt = 'filter="url(#txtShadow)" font-family="MiSans,sans-serif"';
     const footer = dead
-        ? '冥界玩法见上 · 活人帮🦌可救活 · 鹿天气看天象'
+        ? `冥界玩法见上 · 活人帮🦌可救活 · ${WEATHER_CMD_HINT}看天象`
         : `同归 ${status.togetherUsed ? '已用' : '可用'} · 献祭 ${status.sacrificeUsed ? '已用' : '可用'} · 倒贴 ${status.greedUsed ? '已用' : '可用'}`;
 
     const svg = `

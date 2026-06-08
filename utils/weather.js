@@ -9,6 +9,7 @@ import {
     resolveWeatherId,
 } from '../constants/weather.js';
 import { pickRandom } from '../constants/game.js';
+import { WEATHER_CMD_HINT } from '../constants/commands.js';
 import hub, { resolveBroadcastGroupIds, sleepMs } from '../lib/deer-hub.js';
 
 async function redisGetJson(key) {
@@ -130,7 +131,7 @@ export function formatWeatherAnnouncement(state, date = new Date()) {
         pickRandom(def.announce) || def.tip,
         `效果：${def.tip}`,
         formatWeatherEffectsDetail(effects),
-        '发送「鹿天气」查看详情',
+        `发送「${WEATHER_CMD_HINT}」查看详情`,
     ].join('\n');
 }
 

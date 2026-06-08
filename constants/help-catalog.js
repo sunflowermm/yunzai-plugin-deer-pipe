@@ -1,7 +1,7 @@
 /**
  * 鹿插件指令与生态说明（帮助图唯一数据源）
  */
-import { D_SHOW } from './commands.js';
+import { D_SHOW, WEATHER_CMD_SHOW } from './commands.js';
 import { PRIVILEGED_QQ } from './game.js';
 import {
     ARENA_STAKE,
@@ -99,7 +99,7 @@ export const HELP_SECTIONS = {
         title: '鹿林天象',
         emoji: '🌤',
         items: [
-            { cmd: `${D_SHOW}天气 / 今日${D_SHOW}天气`, desc: '半天场次天象 + 15 维玩法修正明细', quota: '00:00 / 12:00 换场 · 群播见「鹿管配置」' },
+            { cmd: `${WEATHER_CMD_SHOW}`, desc: '半天场次天象 + 15 维玩法修正明细', quota: '00:00 / 12:00 换场 · 群播见「鹿管配置」' },
             { cmd: '鹿神赐福 [天气]', desc: '特权鹿使覆写天象（8 种可点名）', quota: `仅 QQ ${PRIVILEGED_QQ} · 非群管 · 至换场/再赐福` },
             { cmd: '天象一览', desc: '☀️晴 🌧️细雨 ❄️瑞雪 ⛈️雷暴 🌫️鹿雾 🍃祥风 🌑阴霾 🌈鹿虹', quota: '晴/鹿虹偏吉 · 阴霾/雷暴偏凶 · 细雨偷鹿狂' },
         ],
@@ -111,7 +111,7 @@ export const HELP_SECTIONS = {
             { cmd: '机制·安全/超限', desc: `前 ${DAILY_SAFE_LIMIT} 次低风险，之后每次 +2% 鹿死`, quota: '天象 deathDelta · 鹿福每层 -5% 对冲' },
             { cmd: '机制·咒福叠层', desc: `咒 ${CURSE_MAX_STACKS} 层上限 · 福 ${BLESS_MAX_STACKS} 层 · 可互解`, quota: `${CURSE_MAX_ROUNDS} 回合内生效 · ${CURSE_ASCENDED_STACKS} 层称天咒` },
             { cmd: '机制·催更符', desc: '对被催的 0 次者，下次自🦌/被帮 +1', quota: '催带咒目标 = 咒回合 -1' },
-            { cmd: '机制·全局联动', desc: '偷/帮/碰瓷/倒贴/鸣/溅/签/救活/叠咒概率均吃天气', quota: '鹿况图与天气指令可看实时修正' },
+            { cmd: '机制·全局联动', desc: '偷/帮/碰瓷/倒贴/鸣/溅/签/救活/叠咒概率均吃天象', quota: `鹿况图与「${WEATHER_CMD_SHOW}」可看实时修正` },
         ],
     },
     pvp: {
