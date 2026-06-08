@@ -1,7 +1,7 @@
 import fs from 'fs';
 import sharp from 'sharp';
 import { DEERPIPE_IMG } from '../constants/core.js';
-import { escapeXml } from './svg-base.js';
+import { escapeXml, truncText } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
     HELP_FOOTER,
@@ -13,10 +13,28 @@ import { pickRandom } from '../constants/game.js';
 
 const IMG_W = 720;
 const PAD = 20;
+const DESC_X = PAD + 208;
+const DESC_MAX = 34;
 const LINE_H = 32;
-const ITEM_EXTRA = 22;
+const ITEM_EXTRA = 24;
 const SECTION_GAP = 10;
 const HEADER_H = 188;
+
+let deerBaseBuf = null;
+
+async function loadDeerAsset() {
+    if (deerBaseBuf) return deerBaseBuf;
+    deerBaseBuf = await sharp(fs.readFileSync(DEERPIPE_IMG))
+        .ensureAlpha()
+        .trim({ threshold: 12 })
+        .png()
+        .toBuffer();
+    return deerBaseBuf;
+}
+
+function truncDesc(text) {
+    return truncText(text, DESC_MAX);
+}
 
 function sectionsForPage(pageDef) {
     return pageDef.sectionKeys.map((key) => HELP_SECTIONS[key]).filter(Boolean);
@@ -40,7 +58,7 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
         <text x="${IMG_W / 2}" y="34" font-size="28" font-family="MiSans,sans-serif" fill="#ff6b35" text-anchor="middle" font-weight="bold">${escapeXml(HELP_TAGLINE)}</text>
         <text x="${IMG_W / 2}" y="62" font-size="20" font-family="MiSans,sans-serif" fill="#5c3d2e" text-anchor="middle" font-weight="bold">${escapeXml(pageDef.title)}</text>
         <text x="${IMG_W / 2}" y="88" font-size="15" font-family="MiSans,sans-serif" fill="#8b5a3c" text-anchor="middle">${escapeXml(pageDef.subtitle)}</text>
-        <text x="${PAD}" y="118" font-size="13" font-family="MiSans,sans-serif" fill="#a07050">${escapeXml(pickRandom(HELP_EASTER_FOOTNOTES) || '')}</text>
+        <text x="${PAD}" y="118" font-size="13" font-family="MiSans,sans-serif" fill="#a07050">${truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52)}</text>
     `);
     for (const sec of sections) {
         y += LINE_H;
@@ -53,10 +71,10 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
             const tag = item.tag ? ` [${item.tag}]` : '';
             blocks.push(`
                 <text x="${PAD + 6}" y="${y}" font-size="16" font-family="MiSans,sans-serif" fill="#3d2914" font-weight="bold">${escapeXml(item.cmd)}${escapeXml(tag)}</text>
-                <text x="${PAD + 210}" y="${y}" font-size="15" font-family="MiSans,sans-serif" fill="#6b4a32">${escapeXml(item.desc)}</text>
-                <text x="${PAD + 6}" y="${y + 16}" font-size="13" font-family="MiSans,sans-serif" fill="#a07050">└ ${escapeXml(item.quota)}</text>
+                <text x="${DESC_X}" y="${y}" font-size="15" font-family="MiSans,sans-serif" fill="#6b4a32">${truncDesc(item.desc)}</text>
+                <text x="${PAD + 6}" y="${y + 18}" font-size="13" font-family="MiSans,sans-serif" fill="#a07050">└ ${truncText(item.quota, 42)}</text>
             `);
-            y += ITEM_EXTRA - 10;
+            y += ITEM_EXTRA;
         }
         y += SECTION_GAP;
     }
@@ -83,14 +101,14 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
 
 async function composePage(pageDef, pageIndex, totalPages) {
     const imgH = estimatePageHeight(pageDef);
-    const deerBuf = fs.readFileSync(DEERPIPE_IMG);
-    const deerBig = await sharp(deerBuf)
-        .resize(pageIndex === 0 ? 150 : 120, pageIndex === 0 ? 124 : 99)
+    const deerSrc = await loadDeerAsset();
+    const deerBig = await sharp(deerSrc)
+        .resize(pageIndex === 0 ? 150 : 120, pageIndex === 0 ? 124 : 99, { fit: 'inside' })
         .rotate(pageIndex === 0 ? -8 : 10, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
-    const deerSmall = await sharp(deerBuf)
-        .resize(64, 52)
+    const deerSmall = await sharp(deerSrc)
+        .resize(64, 52, { fit: 'inside' })
         .rotate(-12, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();

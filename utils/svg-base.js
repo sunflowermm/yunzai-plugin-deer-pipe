@@ -21,14 +21,29 @@ function svgFontFace() {
     return `@font-face{font-family:'MiSans';src:url('${uri}') format('truetype');}`;
 }
 
+export const SVG_FONT = 'font-family="MiSans,sans-serif"';
+/** 标题级阴影（略轻，减轻重影） */
+export const TXT = `${SVG_FONT} filter="url(#txtShadow)"`;
+/** 正文 / chip 轻阴影 */
+export const TXT_SOFT = `${SVG_FONT} filter="url(#txtSoft)"`;
+/** 无阴影（emoji、高对比小字） */
+export const TXT_PLAIN = SVG_FONT;
+
+const SVG_FILTER_DEFS = `
+    <filter id="txtShadow" x="-4%" y="-4%" width="108%" height="108%">
+        <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity="0.42"/>
+    </filter>
+    <filter id="txtSoft" x="-2%" y="-2%" width="104%" height="104%">
+        <feDropShadow dx="0" dy="0.6" stdDeviation="0.5" flood-color="#000" flood-opacity="0.22"/>
+    </filter>
+`;
+
 /** 带 MiSans + 文字阴影的 SVG 包装 */
 export function svgTextStyled(content, width, height, extra = '') {
     return Buffer.from(
         `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
             <defs>
-                <filter id="txtShadow" x="-8%" y="-8%" width="116%" height="116%">
-                    <feDropShadow dx="0" dy="1.2" stdDeviation="2.2" flood-color="#000" flood-opacity="0.75"/>
-                </filter>
+                ${SVG_FILTER_DEFS}
                 <style>${svgFontFace()}</style>
                 ${extra}
             </defs>
@@ -216,7 +231,7 @@ export function buildVsBadge(cx, cy, theme, label = 'VS') {
     return `
         <circle cx="${cx}" cy="${cy}" r="24" fill="${theme.accent}" opacity="0.95"/>
         <circle cx="${cx}" cy="${cy}" r="28" fill="none" stroke="${theme.title}" stroke-width="2" opacity="0.45"/>
-        <text filter="url(#txtShadow)" x="${cx}" y="${cy + 6}" font-size="15" font-family="MiSans,sans-serif" fill="#fff" text-anchor="middle" font-weight="bold">${escapeXml(label)}</text>
+        <text ${TXT_PLAIN} x="${cx}" y="${cy + 6}" font-size="15" fill="#fff" text-anchor="middle" font-weight="bold">${escapeXml(label)}</text>
     `;
 }
 
@@ -234,16 +249,18 @@ export function buildRibbonBadge(cx, y, text, kind = 'win') {
     const w = Math.max(48, String(text).length * 14 + 18);
     return `
         <rect x="${cx - w / 2}" y="${y}" width="${w}" height="24" rx="12" fill="${bg}" opacity="0.95"/>
-        <text filter="url(#txtShadow)" x="${cx}" y="${y + 17}" font-size="13" font-family="MiSans,sans-serif" fill="${fg}" text-anchor="middle" font-weight="bold">${escapeXml(text)}</text>
+        <text ${TXT_SOFT} x="${cx}" y="${y + 17}" font-size="13" fill="${fg}" text-anchor="middle" font-weight="bold">${escapeXml(text)}</text>
     `;
 }
 
-/** 统计 chip（圆角条） */
+/** 统计 chip（圆角条，值侧截断防溢出） */
 export function buildStatChip(x, y, label, value, color, theme) {
+    const chipW = 152;
+    const val = truncText(String(value ?? ''), 10);
     return `
-        <rect x="${x}" y="${y - 18}" width="152" height="32" rx="9" fill="${theme.panel}" stroke="${color}" stroke-width="1.2" opacity="0.92"/>
-        <text filter="url(#txtShadow)" x="${x + 10}" y="${y + 2}" font-size="12" font-family="MiSans,sans-serif" fill="${theme.muted}">${escapeXml(label)}</text>
-        <text filter="url(#txtShadow)" x="${x + 142}" y="${y + 2}" font-size="14" font-family="MiSans,sans-serif" fill="${color}" text-anchor="end" font-weight="bold">${escapeXml(String(value))}</text>
+        <rect x="${x}" y="${y - 18}" width="${chipW}" height="34" rx="9" fill="${theme.panel}" stroke="${color}" stroke-width="1.2" opacity="0.92"/>
+        <text ${TXT_SOFT} x="${x + 10}" y="${y + 1}" font-size="11" fill="${theme.muted}">${escapeXml(label)}</text>
+        <text ${TXT_SOFT} x="${x + chipW - 10}" y="${y + 1}" font-size="13" fill="${color}" text-anchor="end" font-weight="bold">${val}</text>
     `;
 }
 

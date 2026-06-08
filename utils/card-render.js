@@ -28,13 +28,19 @@ import {
     buildStatChip,
     buildMiniBar,
     buildDuelSpark,
+    TXT,
+    TXT_SOFT,
+    TXT_PLAIN,
 } from './svg-base.js';
 
 const CARD_W = 700;
-const TXT = 'filter="url(#txtShadow)" font-family="MiSans,sans-serif"';
 const AVATAR_SIZE = 68;
 const AVATAR_LEFT = 36;
 const AVATAR_TOP = 28;
+const DUEL_PANEL_TOP = 24;
+const DUEL_PANEL_H = 100;
+const STAT_COL_W = 168;
+const STAT_GAP_Y = 42;
 
 function truncPlain(text, max = 16) {
     const s = String(text ?? '');
@@ -50,22 +56,22 @@ function pct(n) {
 /** 天象八象图鉴 */
 export async function generateWeatherCatalogImage(currentWeatherId = null) {
     const theme = CARD_THEMES.weather;
-    const rowH = 54;
+    const rowH = 58;
     const headerH = 118;
-    const footerH = 40;
+    const footerH = 52;
     const H = headerH + WEATHER_IDS.length * rowH + footerH;
     let rows = '';
-    let y = headerH + 8;
+    let y = headerH + 10;
     for (const id of WEATHER_IDS) {
         const def = WEATHER_CATALOG[id];
         const active = id === currentWeatherId;
         const bg = active ? theme.highlight : 'transparent';
         rows += `
-            <rect x="16" y="${y - 22}" width="${CARD_W - 32}" height="${rowH - 6}" rx="10" fill="${bg}" stroke="${active ? theme.accent : 'transparent'}" stroke-width="2"/>
-            <text ${TXT} x="28" y="${y}" font-size="22" fill="${theme.line}">${def.emoji}</text>
-            <text ${TXT} x="62" y="${y}" font-size="17" fill="${theme.title}" font-weight="bold">${escapeXml(def.name)}${active ? ' · 当前' : ''}</text>
-            <text ${TXT} x="160" y="${y}" font-size="13" fill="${theme.muted}">权重 ${def.weight}</text>
-            <text ${TXT} x="28" y="${y + 20}" font-size="13" fill="${theme.sub}">${truncText(def.tip, 52)}</text>
+            <rect x="16" y="${y - 24}" width="${CARD_W - 32}" height="${rowH - 8}" rx="10" fill="${bg}" stroke="${active ? theme.accent : 'transparent'}" stroke-width="2"/>
+            <text ${TXT_PLAIN} x="28" y="${y}" font-size="20">${def.emoji}</text>
+            <text ${TXT} x="58" y="${y}" font-size="17" fill="${theme.title}" font-weight="bold">${escapeXml(def.name)}${active ? ' · 当前' : ''}</text>
+            <text ${TXT_SOFT} x="${CARD_W - 28}" y="${y}" font-size="13" fill="${theme.muted}" text-anchor="end">权重 ${def.weight}</text>
+            <text ${TXT_SOFT} x="28" y="${y + 22}" font-size="13" fill="${theme.sub}">${truncText(def.tip, 48)}</text>
         `;
         y += rowH;
     }
@@ -75,9 +81,10 @@ export async function generateWeatherCatalogImage(currentWeatherId = null) {
         ${buildCardDecorations(CARD_W, H, theme, hashSeed('weather-catalog'))}
         <rect x="12" y="12" width="${CARD_W - 24}" height="${H - 24}" rx="14" fill="none" stroke="${theme.accent}" stroke-width="2" stroke-dasharray="6 5"/>
         <text ${TXT} x="28" y="44" font-size="26" fill="${theme.title}" font-weight="bold">🌤 天象一览 · 鹿林八象</text>
-        <text ${TXT} x="28" y="72" font-size="14" fill="${theme.muted}">00:00 / 12:00 换场 · 查本场「${escapeXml(WEATHER_CMD_HINT)}」</text>
+        <text ${TXT_SOFT} x="28" y="72" font-size="14" fill="${theme.muted}">00:00 / 12:00 换场 · 查本场「${escapeXml(WEATHER_CMD_HINT)}」</text>
         ${rows}
-        <text ${TXT} x="${CARD_W / 2}" y="${H - 14}" font-size="12" fill="${theme.muted}" text-anchor="middle">晴/鹿虹偏吉 · 阴霾/雷暴偏凶 · 细雨偷鹿狂</text>
+        <text ${TXT_SOFT} x="${CARD_W / 2}" y="${H - 30}" font-size="12" fill="${theme.muted}" text-anchor="middle">晴/鹿虹偏吉 · 阴霾/雷暴偏凶</text>
+        <text ${TXT_SOFT} x="${CARD_W / 2}" y="${H - 14}" font-size="12" fill="${theme.muted}" text-anchor="middle">细雨偷鹿狂 · 换场见分晓</text>
     `;
     return renderStyledCard(CARD_W, H, inner, 'weather');
 }
@@ -105,7 +112,7 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, hashSeed('weather-detail', state?.weatherId))}
         <rect x="16" y="16" width="${CARD_W - 32}" height="88" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1"/>
-        <text x="48" y="58" font-size="42" font-family="MiSans,sans-serif">${def.emoji}</text>
+        <text ${TXT_PLAIN} x="48" y="58" font-size="42">${def.emoji}</text>
         <text ${TXT} x="110" y="52" font-size="24" fill="${theme.title}" font-weight="bold">${escapeXml(period)} · ${escapeXml(def.name)}</text>
         <text ${TXT} x="110" y="78" font-size="14" fill="${theme.sub}">来源：${escapeXml(src)}</text>
         <text ${TXT} x="28" y="130" font-size="15" fill="${theme.line}" font-weight="bold">玩法修正</text>
@@ -398,36 +405,42 @@ function resolveDuelWinner(result) {
 }
 
 function parseCountRatio(value) {
-    const m = String(value).match(/(-?\d+)/);
+    const m = String(value).trim().match(/^(-?\d+)\s*次$/);
     if (!m) return null;
     const n = parseInt(m[1], 10);
     return Math.min(1, Math.abs(n) / (DAILY_SAFE_LIMIT + 4));
+}
+
+function duelHeaderBottom(subtitle) {
+    const titleY = DUEL_PANEL_TOP + DUEL_PANEL_H + 20;
+    return subtitle ? titleY + 20 : titleY;
 }
 
 function buildDuelHeaderSvg({ leftName, rightName, meta, theme, subtitle, winnerSide, outcomeBadge }) {
     const lx = AVATAR_LEFT + AVATAR_SIZE / 2;
     const rx = CARD_W - AVATAR_LEFT - AVATAR_SIZE / 2;
     const cy = AVATAR_TOP + AVATAR_SIZE / 2;
+    const nameY = AVATAR_TOP + AVATAR_SIZE + 16;
+    const titleY = DUEL_PANEL_TOP + DUEL_PANEL_H + 20;
     const crown = (side) => (winnerSide === side
-        ? `<text x="${side === 'left' ? lx : rx}" y="${AVATAR_TOP - 6}" font-size="20" font-family="MiSans,sans-serif" text-anchor="middle">👑</text>`
+        ? `<text ${TXT_PLAIN} x="${side === 'left' ? lx : rx}" y="${AVATAR_TOP - 4}" font-size="20" text-anchor="middle">👑</text>`
         : '');
     const badge = outcomeBadge
-        ? buildRibbonBadge(CARD_W / 2, 8, outcomeBadge[0], outcomeBadge[1])
+        ? buildRibbonBadge(CARD_W / 2, 14, outcomeBadge[0], outcomeBadge[1])
         : '';
     return `
         ${badge}
-        <rect x="16" y="20" width="${CARD_W - 32}" height="100" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.5"/>
+        <rect x="16" y="${DUEL_PANEL_TOP}" width="${CARD_W - 32}" height="${DUEL_PANEL_H}" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.5"/>
         ${buildDuelSpark(CARD_W / 2, cy, theme)}
         ${buildVsBadge(CARD_W / 2, cy, theme)}
         ${crown('left')}
         ${crown('right')}
         <circle cx="${lx}" cy="${cy}" r="${AVATAR_SIZE / 2 + 2}" fill="none" stroke="${winnerSide === 'left' ? '#ffd700' : theme.accent}" stroke-width="${winnerSide === 'left' ? 3 : 2}" opacity="0.9"/>
         <circle cx="${rx}" cy="${cy}" r="${AVATAR_SIZE / 2 + 2}" fill="none" stroke="${winnerSide === 'right' ? '#ffd700' : theme.accent}" stroke-width="${winnerSide === 'right' ? 3 : 2}" opacity="0.9"/>
-        <text ${TXT} x="${lx}" y="${AVATAR_TOP + AVATAR_SIZE + 18}" font-size="12" fill="${theme.sub}" text-anchor="middle" font-weight="${winnerSide === 'left' ? 'bold' : 'normal'}">${truncPlain(leftName, 8)}</text>
-        <text ${TXT} x="${rx}" y="${AVATAR_TOP + AVATAR_SIZE + 18}" font-size="12" fill="${theme.sub}" text-anchor="middle" font-weight="${winnerSide === 'right' ? 'bold' : 'normal'}">${truncPlain(rightName, 8)}</text>
-        <text filter="url(#glow)" x="${CARD_W / 2}" y="${AVATAR_TOP + AVATAR_SIZE + 38}" font-size="14" font-family="MiSans,sans-serif" text-anchor="middle">${meta.emoji}</text>
-        <text ${TXT} x="${CARD_W / 2}" y="${AVATAR_TOP + AVATAR_SIZE + 58}" font-size="16" fill="${theme.title}" text-anchor="middle" font-weight="bold">${escapeXml(meta.title)}</text>
-        ${subtitle ? `<text ${TXT} x="${CARD_W / 2}" y="${AVATAR_TOP + AVATAR_SIZE + 76}" font-size="11" fill="${theme.muted}" text-anchor="middle">${truncText(subtitle, 42)}</text>` : ''}
+        <text ${TXT_SOFT} x="${lx}" y="${nameY}" font-size="12" fill="${theme.sub}" text-anchor="middle" font-weight="${winnerSide === 'left' ? 'bold' : 'normal'}">${truncPlain(leftName, 9)}</text>
+        <text ${TXT_SOFT} x="${rx}" y="${nameY}" font-size="12" fill="${theme.sub}" text-anchor="middle" font-weight="${winnerSide === 'right' ? 'bold' : 'normal'}">${truncPlain(rightName, 9)}</text>
+        <text ${TXT} x="${CARD_W / 2}" y="${titleY}" font-size="15" fill="${theme.title}" text-anchor="middle" font-weight="bold">${meta.emoji} ${escapeXml(meta.title)}</text>
+        ${subtitle ? `<text ${TXT_SOFT} x="${CARD_W / 2}" y="${titleY + 18}" font-size="11" fill="${theme.muted}" text-anchor="middle">${truncText(subtitle, 40)}</text>` : ''}
     `;
 }
 
@@ -438,9 +451,9 @@ function buildSimpleHeaderSvg({ meta, theme, typeLabel, outcomeBadge }) {
     return `
         ${badge}
         <rect x="16" y="16" width="${CARD_W - 32}" height="76" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.5"/>
-        <text filter="url(#glow)" x="36" y="62" font-size="36" font-family="MiSans,sans-serif">${meta.emoji}</text>
+        <text ${TXT_PLAIN} x="36" y="62" font-size="36">${meta.emoji}</text>
         <text ${TXT} x="88" y="48" font-size="22" fill="${theme.title}" font-weight="bold">${escapeXml(meta.title)}</text>
-        <text ${TXT} x="88" y="72" font-size="12" fill="${theme.muted}">${escapeXml(typeLabel)}</text>
+        <text ${TXT_SOFT} x="88" y="72" font-size="12" fill="${theme.muted}">${escapeXml(typeLabel)}</text>
     `;
 }
 
@@ -462,18 +475,16 @@ async function buildAvatarOverlays(helperId, targetId, winnerSide = null) {
 }
 
 function buildStatGrid(rows, theme, statsTop) {
-    const colW = 168;
-    const gapY = 44;
     let grid = '';
     rows.forEach((row, i) => {
         const col = i % 2;
         const rowIdx = Math.floor(i / 2);
-        const x = 24 + col * (colW + 16);
-        const y = statsTop + rowIdx * gapY;
+        const x = 24 + col * (STAT_COL_W + 16);
+        const y = statsTop + rowIdx * STAT_GAP_Y;
         grid += buildStatChip(x, y, row.label, row.value, row.color || theme.line, theme);
         const ratio = parseCountRatio(row.value);
         if (ratio != null) {
-            grid += buildMiniBar(x + 10, y + 18, 132, ratio, row.color || theme.accent);
+            grid += buildMiniBar(x + 10, y + 16, 132, ratio, row.color || theme.accent);
         }
     });
     return grid;
@@ -498,26 +509,26 @@ export async function generateInteractionCard({
     const winnerSide = isDuel ? resolveDuelWinner(result) : null;
     const outcomeBadge = resolveOutcomeBadge(result?.type);
     const decoSeed = hashSeed(result?.type, helperId, targetId, headline);
-    const statsTop = isDuel ? 148 : 112;
+    const statsTop = isDuel ? duelHeaderBottom(subtitle) + 16 : 112;
     const statGrid = buildStatGrid(rows, theme, statsTop);
     const statRows = Math.ceil(rows.length / 2);
-    let y = statsTop + statRows * 44 + 12;
+    const statsBottom = statsTop + statRows * STAT_GAP_Y;
+    let y = statsBottom + 14;
     let extraBlock = '';
-    for (const line of extraLines.slice(0, 5)) {
-        extraBlock += `<text ${TXT} x="28" y="${y}" font-size="13" fill="${theme.sub}">· ${truncText(line, 48)}</text>`;
+    if (headline) {
+        extraBlock += `<text ${TXT} x="28" y="${y}" font-size="14" fill="${theme.line}">${truncText(headline, 54)}</text>`;
         y += 22;
     }
-
-    if (headline) {
-        extraBlock = `<text ${TXT} x="28" y="${y}" font-size="14" fill="${theme.line}">${truncText(headline, 56)}</text>${extraBlock}`;
-        y += 24;
+    for (const line of extraLines.slice(0, 5)) {
+        extraBlock += `<text ${TXT_SOFT} x="28" y="${y}" font-size="13" fill="${theme.sub}">· ${truncText(line, 46)}</text>`;
+        y += 20;
     }
 
     const flavor = pickCardFlavor(result?.type);
-    const footerY = Math.max(y + 8, (isDuel ? 280 : 240));
+    const footerY = Math.max(y + 10, statsBottom + (headline || extraLines.length ? 28 : 12));
     const flavorBlock = `
         <rect x="20" y="${footerY - 8}" width="${CARD_W - 40}" height="28" rx="8" fill="${theme.highlight || theme.panel}" opacity="0.55"/>
-        <text ${TXT} x="${CARD_W / 2}" y="${footerY + 10}" font-size="12" fill="${theme.muted}" text-anchor="middle" font-style="italic">${truncText(flavor, 52)}</text>
+        <text ${TXT_SOFT} x="${CARD_W / 2}" y="${footerY + 10}" font-size="12" fill="${theme.muted}" text-anchor="middle" font-style="italic">${truncText(flavor, 50)}</text>
     `;
     const H = footerY + 36;
     const header = isDuel
