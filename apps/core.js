@@ -12,7 +12,7 @@ import {
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
 import { loadGameContext } from '../utils/context.js';
-import { replyDeerPanel, replyInteractionResult } from '../utils/panel.js';
+import { replyDeerPanel, replyInteractionResult, replyStatusPanel } from '../utils/panel.js';
 import {
     formatActionMessage,
     formatErrorMessage,
