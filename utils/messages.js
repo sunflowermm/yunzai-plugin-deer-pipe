@@ -9,6 +9,13 @@ import {
     ARENA_DECLINE_MESSAGES,
     CURSE_MESSAGES,
     CURSED_LU_MESSAGES,
+    BLESS_MESSAGES,
+    BLESSED_LU_MESSAGES,
+    CLEANSE_BLESS_MESSAGES,
+    DAILY_BLESS_QUOTA,
+    DAILY_CLEANSE_BLESS_QUOTA,
+    BLESS_MAX_ROUNDS,
+    BLESS_DEATH_REDUCE,
     DAILY_ARENA_QUOTA,
     DAILY_CURSE_QUOTA,
     DAILY_CLEANSE_CURSE_QUOTA,
@@ -48,6 +55,24 @@ import {
     DAILY_BORROW_QUOTA,
     DAILY_BUMPER_QUOTA,
     DAILY_LOTTERY_QUOTA,
+    DAILY_SPECTRAL_CURSE_QUOTA,
+    DAILY_VENGEANCE_QUOTA,
+    DAILY_DREAM_QUOTA,
+    DAILY_REVIVE_LOTTERY_QUOTA,
+    ALIVE_ONLY_MESSAGES,
+    SPECTRAL_CURSE_MESSAGES,
+    VENGEANCE_CURSE_MESSAGES,
+    VENGEANCE_DEDUCT_MESSAGES,
+    VENGEANCE_FAIL_MESSAGES,
+    VENGEANCE_SUBSTITUTE_MESSAGES,
+    DREAM_URGE_MESSAGES,
+    DREAM_SOOTHE_MESSAGES,
+    REVIVE_LOTTERY_FULL_MESSAGES,
+    REVIVE_LOTTERY_WEAK_MESSAGES,
+    REVIVE_LOTTERY_BLANK_MESSAGES,
+    TOMBSTONE_HEADER,
+    HOWL_DEAD_HAUNT_MESSAGES,
+    getDeathReasonText,
     URGE_BUFF_MESSAGES,
     URGE_MESSAGES,
     pickHowlMessage,
@@ -111,6 +136,17 @@ function riskHint(result) {
     return `，再🦌 ${pct}% 鹿死`;
 }
 
+function weatherHint(result) {
+    return result.weatherTip ? ` · 天象：${result.weatherTip}` : '';
+}
+
+function modifierDeathNote(result) {
+    const parts = [];
+    if (result.curseStacks) parts.push(`${result.curseStacks} 层咒`);
+    if (result.blessStacks) parts.push(`${result.blessStacks} 层福`);
+    return parts.length ? `（含${parts.join('·')}）` : '';
+}
+
 function withdrawQuotaHint(result) {
     return result.helpWithdrawLeft != null
         ? `（帮戒🦌剩余 ${result.helpWithdrawLeft}/${DAILY_HELP_WITHDRAW_QUOTA}）`
@@ -124,6 +160,8 @@ export function formatErrorMessage(result) {
             return pickRandom(ALREADY_DEAD_MESSAGES);
         case 'actor_dead':
             return pickRandom(ACTOR_DEAD_MESSAGES) || ERROR_MESSAGES.actor_dead;
+        case 'alive_only':
+            return pickRandom(ALIVE_ONLY_MESSAGES) || ERROR_MESSAGES.alive_only;
         case 'helper_dead':
             return pickRandom(HELPER_DEAD_MESSAGES) || ERROR_MESSAGES.helper_dead;
         case 'target_dead':
@@ -179,6 +217,24 @@ export function formatErrorMessage(result) {
             );
         case 'cleanse_no_curse':
             return ERROR_MESSAGES.cleanse_no_curse;
+        case 'bless_used':
+            return ERROR_MESSAGES.bless_used(
+                result.blessUsed ?? DAILY_BLESS_QUOTA,
+                DAILY_BLESS_QUOTA,
+            );
+        case 'bless_self':
+            return ERROR_MESSAGES.bless_self;
+        case 'cleanse_bless_used':
+            return ERROR_MESSAGES.cleanse_bless_used(
+                result.cleanseBlessUsed ?? DAILY_CLEANSE_BLESS_QUOTA,
+                DAILY_CLEANSE_BLESS_QUOTA,
+            );
+        case 'cleanse_no_bless':
+            return ERROR_MESSAGES.cleanse_no_bless;
+        case 'weather_unknown':
+            return ERROR_MESSAGES.weather_unknown(result.token);
+        case 'weather_privilege_only':
+            return ERROR_MESSAGES.weather_privilege_only;
         case 'sacrifice_used':
             return ERROR_MESSAGES.sacrifice_used;
         case 'sacrifice_self':
@@ -226,6 +282,30 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.bumper_self;
         case 'lottery_used':
             return ERROR_MESSAGES.lottery_used;
+        case 'spectral_curse_used':
+            return ERROR_MESSAGES.spectral_curse_used(
+                result.spectralCurseUsed ?? DAILY_SPECTRAL_CURSE_QUOTA,
+                DAILY_SPECTRAL_CURSE_QUOTA,
+            );
+        case 'spectral_curse_self':
+            return ERROR_MESSAGES.spectral_curse_self;
+        case 'vengeance_used':
+            return ERROR_MESSAGES.vengeance_used(
+                result.vengeanceUsed ?? DAILY_VENGEANCE_QUOTA,
+                DAILY_VENGEANCE_QUOTA,
+            );
+        case 'vengeance_self':
+            return ERROR_MESSAGES.vengeance_self;
+        case 'vengeance_not_killer':
+            return ERROR_MESSAGES.vengeance_not_killer;
+        case 'dream_used':
+            return ERROR_MESSAGES.dream_used;
+        case 'dream_self':
+            return ERROR_MESSAGES.dream_self;
+        case 'revive_lottery_used':
+            return ERROR_MESSAGES.revive_lottery_used;
+        case 'tombstone_alive':
+            return ERROR_MESSAGES.tombstone_alive;
         case 'urge_self':
             return ERROR_MESSAGES.urge_self;
         case 'imperial_no_king':
@@ -255,23 +335,38 @@ export function formatActionMessage(result, ctx = {}) {
 
     switch (result.type) {
         case 'safe':
-            return `${pickRandom(SAFE_MESSAGES)}（${result.count}/${DAILY_SAFE_LIMIT}）`;
+            return `${pickRandom(SAFE_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
         case 'safe_urged':
-            return `${pickRandom(SAFE_MESSAGES)} ${pickRandom(URGE_BUFF_MESSAGES)}（${result.count}/${DAILY_SAFE_LIMIT}）`;
+            return `${pickRandom(SAFE_MESSAGES)} ${pickRandom(URGE_BUFF_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
         case 'risky':
-            return `${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}`;
+            return `${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
         case 'risky_cursed':
-            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}`;
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
+        case 'risky_blessed':
+            return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
+        case 'risky_mixed':
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(BLESSED_LU_MESSAGES)} 福咒对冲！今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
         case 'death': {
             const pct = formatChancePercent(result.deathChance ?? 0);
             const pctText = pct ? `（触发 ${pct}% 判定）` : '';
-            return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）`;
+            return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
         }
         case 'death_cursed': {
             const pct = formatChancePercent(result.deathChance ?? 0);
             const stackNote = result.curseStacks ? ` · ${result.curseStacks} 层咒` : '';
             const pctText = pct ? `（含鹿咒${stackNote}，触发 ${pct}% 判定）` : '';
-            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）`;
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
+        }
+        case 'death_blessed': {
+            const pct = formatChancePercent(result.deathChance ?? 0);
+            const stackNote = result.blessStacks ? ` · ${result.blessStacks} 层福` : '';
+            const pctText = pct ? `（含鹿福${stackNote}，触发 ${pct}% 判定）` : '';
+            return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
+        }
+        case 'death_mixed': {
+            const pct = formatChancePercent(result.deathChance ?? 0);
+            const pctText = pct ? `（福咒对冲${modifierDeathNote(result)}，触发 ${pct}% 判定）` : '';
+            return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
         }
         case 'revive':
             return `${helperName || '🦌友'} 救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 咒印尽散）${q}`;
@@ -342,6 +437,12 @@ export function formatActionMessage(result, ctx = {}) {
         }
         case 'cleanse_curse':
             return `${helperName || '你'} 为 ${targetName || 'ta'} ${pickRandom(CLEANSE_CURSE_MESSAGES)}（撕掉 ${result.clearedStacks} 层 · ${result.cleanseUsed}/${DAILY_CLEANSE_CURSE_QUOTA}）`;
+        case 'bless': {
+            const pct = Math.round((result.reduce ?? BLESS_DEATH_REDUCE) * result.blessStacks * 100);
+            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(BLESS_MESSAGES)}（${result.blessStacks} 层 · 剩 ${result.blessRounds}/${BLESS_MAX_ROUNDS} 回合 · 减鹿死 -${pct}%）（${result.blessUsed}/${DAILY_BLESS_QUOTA}）`;
+        }
+        case 'cleanse_bless':
+            return `${helperName || '你'} 为 ${targetName || 'ta'} ${pickRandom(CLEANSE_BLESS_MESSAGES)}（撕掉 ${result.clearedStacks} 层 · ${result.cleanseBlessUsed}/${DAILY_CLEANSE_BLESS_QUOTA}）`;
         case 'sacrifice': {
             const purge = result.cursePurged ? ' · 顺带净化 1 层咒' : '';
             return `${helperName || '你'} ${pickRandom(SACRIFICE_MESSAGES)}${purge}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次`;
@@ -368,6 +469,8 @@ export function formatActionMessage(result, ctx = {}) {
         }
         case 'howl_dead':
             return `${pickHowlMessage(0, true)}（${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
+        case 'howl_dead_haunt':
+            return `${pickHowlMessage(0, true)}\n${pickRandom(HOWL_DEAD_HAUNT_MESSAGES)}（鸣魂 ${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
         case 'greed_success': {
             const strip = result.curseStripped ? ' · 顺手撕 1 层咒' : '';
             return `${helperName || '你'} ${pickRandom(GREED_SUCCESS_MESSAGES)}${strip}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次`;
@@ -410,6 +513,46 @@ export function formatActionMessage(result, ctx = {}) {
                 : '';
             return `${pickRandom(msgs)} 现 ${result.count} 次${curseNote}（鹿签 ${result.lotteryUsed}/${DAILY_LOTTERY_QUOTA}）`;
         }
+        case 'spectral_curse': {
+            const asc = result.ascended ? ` ${pickRandom(CURSE_ASCENDED_MESSAGES)}` : '';
+            return `${helperName || '亡魂'} 对 ${targetName || 'ta'} ${pickRandom(SPECTRAL_CURSE_MESSAGES)}（${result.curseStacks} 层 · 剩 ${result.curseRounds}/${CURSE_MAX_ROUNDS} 回合）${asc}（冥咒 ${result.spectralCurseUsed}/${DAILY_SPECTRAL_CURSE_QUOTA}）`;
+        }
+        case 'vengeance_curse':
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_CURSE_MESSAGES)}（${targetName || '凶手'} 现 ${result.targetCount} 次 · 咒 ${result.curseStacks} 层 · 索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+        case 'vengeance_deduct':
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_DEDUCT_MESSAGES)}（${targetName || '凶手'} 现 ${result.targetCount} 次 · 索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+        case 'vengeance_substitute':
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_SUBSTITUTE_MESSAGES)}（${targetName || '替身'} 现 ${result.targetCount} 次 · 咒 ${result.curseStacks} 层 · 索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+        case 'vengeance_fail':
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_FAIL_MESSAGES)}（索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+        case 'dream': {
+            const effectMsg = result.dreamEffect === 'soothe'
+                ? pickRandom(DREAM_SOOTHE_MESSAGES)
+                : pickRandom(DREAM_URGE_MESSAGES);
+            const curseNote = result.curseStacks > 0
+                ? ` · 咒剩 ${result.curseRounds} 回合`
+                : '';
+            return `${helperName || '亡魂'} 托梦 ${targetName || '🦌友'}：${effectMsg}${curseNote}（托梦 ${result.dreamUsed}/${DAILY_DREAM_QUOTA}）`;
+        }
+        case 'revive_lottery_full':
+            return `${pickRandom(REVIVE_LOTTERY_FULL_MESSAGES)} 恢复 ${result.restored} 次（还阳签 ${result.reviveLotteryUsed}/${DAILY_REVIVE_LOTTERY_QUOTA}）`;
+        case 'revive_lottery_weak':
+            return `${pickRandom(REVIVE_LOTTERY_WEAK_MESSAGES)} 现 ${result.count} 次（还阳签 ${result.reviveLotteryUsed}/${DAILY_REVIVE_LOTTERY_QUOTA}）`;
+        case 'revive_lottery_blank':
+            return `${pickRandom(REVIVE_LOTTERY_BLANK_MESSAGES)} 仍丢失 ${result.lostCount} 次（还阳签 ${result.reviveLotteryUsed}/${DAILY_REVIVE_LOTTERY_QUOTA}）`;
+        case 'tombstone': {
+            const reason = getDeathReasonText(result.deathReason);
+            const killerLine = targetName
+                ? `凶手：${targetName}`
+                : (result.killerId ? `凶手 QQ：${result.killerId}` : '凶手：无（过🦌/自尽等）');
+            return [
+                TOMBSTONE_HEADER,
+                `丢失：${result.lostCount} 次 · 死因：${reason}`,
+                killerLine,
+                `今日尝试 ${result.attempts} · 累计鹿死 ${result.deathCount} · 被帮 ${result.helped} · 被救 ${result.revived}`,
+                '冥界可用：冥咒/索命/托梦/还阳签 · 活人请帮🦌救活',
+            ].join('\n');
+        }
         default:
             return result.message || '操作完成';
     }
@@ -427,7 +570,7 @@ export function formatFriendAddMessage(myName, targetName) {
     return [
         `${myName} 与 ${targetName} ${pickRandom(FRIEND_ADD_MESSAGES)}`,
         pickRandom(FRIEND_ADD_NOTIFY),
-        '可「帮🦌」「借鹿」「偷鹿」「鹿咒」「碰瓷鹿」「抽鹿签」等互助/互害',
+        '可「帮🦌」「借鹿」「鹿福」「偷鹿」「鹿咒」「碰瓷鹿」「抽鹿签」等互助/互害',
     ].join('\n');
 }
 

@@ -54,13 +54,12 @@ import {
 
     IMPERIAL_TIMEOUT_MESSAGES,
 
-    isPrivileged,
-
     rollDiceBigSmall,
 
     pickRandom,
 
 } from '../constants/game.js';
+import { isDeerPrivileged } from '../utils/privilege.js';
 
 import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 
@@ -87,6 +86,8 @@ import {
 } from '../utils/arena-session.js';
 
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
+
+import { loadGameContext } from '../utils/context.js';
 
 import plugin from '../../../lib/plugins/plugin.js';
 
@@ -221,7 +222,7 @@ export class DeerSpecial extends plugin {
     /** 特权指令统一入口 */
     async runPrivilege(performFn, afterSave) {
         const { user_id, card, nickname } = this.e.sender;
-        if (!isPrivileged(user_id)) {
+        if (!isDeerPrivileged(user_id)) {
             await this.reply(formatErrorMessage({ type: 'privilege_only' }), true);
             return;
         }
@@ -380,7 +381,9 @@ export class DeerSpecial extends plugin {
 
         const deerData = await loadDeerData();
 
-        const result = performHelpWithdrawal(deerData, user_id, targetId, date, day);
+        const ctx = await loadGameContext(date);
+
+        const result = performHelpWithdrawal(deerData, user_id, targetId, date, day, ctx);
 
         if (!result.ok) {
 

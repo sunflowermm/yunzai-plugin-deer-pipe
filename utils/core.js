@@ -1,6 +1,8 @@
 import sharp from 'sharp';
 import fs from 'fs';
-import { CHECK_IMG, DEERPIPE_IMG } from '../constants/core.js';
+import { pathToFileURL } from 'node:url';
+import { CHECK_IMG, DEERPIPE_IMG, MISANS_FONT } from '../constants/core.js';
+import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
 import {
     calcMonthStats,
     calcYearStats,
@@ -29,6 +31,15 @@ import {
     DAILY_SAFE_LIMIT,
     DAILY_STEAL_QUOTA,
     DAILY_URGE_QUOTA,
+    DAILY_SPECTRAL_CURSE_QUOTA,
+    DAILY_VENGEANCE_QUOTA,
+    DAILY_DREAM_QUOTA,
+    DAILY_REVIVE_LOTTERY_QUOTA,
+    DAILY_BLESS_QUOTA,
+    DAILY_CLEANSE_BLESS_QUOTA,
+    DAILY_BORROW_QUOTA,
+    DAILY_BUMPER_QUOTA,
+    DAILY_LOTTERY_QUOTA,
     STATUS_TAGLINES,
     getDeathCellLabel,
     getDeathReasonText,
@@ -91,9 +102,93 @@ function truncName(name, max = 16) {
 
 function pickStatusTagline(status) {
     if (status.dead) return pickRandom(STATUS_TAGLINES.dead);
+    if (status.cursed && status.blessed) return '福咒对冲，今日命格分裂';
     if (status.cursed) return pickRandom(STATUS_TAGLINES.cursed);
+    if (status.blessed) return pickRandom(STATUS_TAGLINES.blessed);
     if (status.inRiskZone) return pickRandom(STATUS_TAGLINES.risk);
     return pickRandom(STATUS_TAGLINES.safe);
+}
+
+function statusTheme(status) {
+    const { dead, cursed, blessed, inRiskZone } = status;
+    if (dead) {
+        return {
+            bgStops: '<stop offset="0%" style="stop-color:#1a0a0a"/><stop offset="100%" style="stop-color:#0d0404"/>',
+            title: '#ffffff',
+            sub: '#ffe4e4',
+            line: '#fff8f8',
+            muted: '#ffcaca',
+            accent: '#ff7070',
+            barBg: '#4a2828',
+            panel: 'rgba(0,0,0,0.55)',
+        };
+    }
+    if (cursed) {
+        return {
+            bgStops: '<stop offset="0%" style="stop-color:#1f1230"/><stop offset="100%" style="stop-color:#120a1c"/>',
+            title: '#f5ebff',
+            sub: '#e8d4ff',
+            line: '#faf5ff',
+            muted: '#d4b8ff',
+            accent: '#c39bff',
+            barBg: '#3d2a55',
+            panel: 'rgba(0,0,0,0.4)',
+        };
+    }
+    if (blessed) {
+        return {
+            bgStops: '<stop offset="0%" style="stop-color:#1a2818"/><stop offset="100%" style="stop-color:#0f1a0d"/>',
+            title: '#f0fff0',
+            sub: '#d8ffd8',
+            line: '#f5fff5',
+            muted: '#b8f0b8',
+            accent: '#7dffb0',
+            barBg: '#2a4030',
+            panel: 'rgba(0,0,0,0.35)',
+        };
+    }
+    if (inRiskZone) {
+        return {
+            bgStops: '<stop offset="0%" style="stop-color:#3d2818"/><stop offset="100%" style="stop-color:#2a1508"/>',
+            title: '#fff5eb',
+            sub: '#ffe0c8',
+            line: '#fffaf5',
+            muted: '#ffcc99',
+            accent: '#ff9a56',
+            barBg: '#5c4030',
+            panel: 'rgba(0,0,0,0.35)',
+        };
+    }
+    return {
+        bgStops: '<stop offset="0%" style="stop-color:#fff8f0"/><stop offset="100%" style="stop-color:#ffe8d6"/>',
+        title: '#3d2818',
+        sub: '#5c3d2e',
+        line: '#2a1a10',
+        muted: '#7a4e32',
+        accent: '#e67e22',
+        barBg: '#e8d5c4',
+        panel: 'rgba(255,255,255,0.55)',
+    };
+}
+
+function svgFontFace() {
+    const uri = pathToFileURL(MISANS_FONT).href;
+    return `@font-face{font-family:'MiSans';src:url('${uri}') format('truetype');}`;
+}
+
+function svgTextStyled(content, width, height, extra = '') {
+    return Buffer.from(
+        `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <filter id="txtShadow" x="-8%" y="-8%" width="116%" height="116%">
+                    <feDropShadow dx="0" dy="1.2" stdDeviation="2.2" flood-color="#000" flood-opacity="0.75"/>
+                </filter>
+                <style>${svgFontFace()}</style>
+                ${extra}
+            </defs>
+            ${content}
+        </svg>`,
+    );
 }
 
 function quotaBar(used, total, width = 200) {
@@ -144,21 +239,21 @@ export async function generateImage(now, name, monthData, options = {}) {
         left: 0,
     }];
 
-    const titleColor = todayDead ? '#ffcccc' : '#5c3d2e';
-    const subColor = todayDead ? '#ffb3b3' : '#8b5a3c';
-    const metaColor = todayDead ? '#ff9999' : '#a07050';
+    const titleColor = todayDead ? '#ffffff' : '#2a1a10';
+    const subColor = todayDead ? '#ffe8e8' : '#4a3020';
+    const metaColor = todayDead ? '#ffd0d0' : '#6b4423';
     const deadBanner = todayDead
         ? ` · 💀今日鹿死（失${todaySnap}次·${getDeathReasonText(todayReason)}）`
         : '';
 
     compositeArray.push({
-        input: svgText(`
-            <text x="20" y="42" font-size="28" font-family="MiSans" fill="${titleColor}" font-weight="bold">
+        input: svgTextStyled(`
+            <text filter="url(#txtShadow)" x="20" y="42" font-size="28" font-family="MiSans,sans-serif" fill="${titleColor}" font-weight="bold">
                 ${todayDead ? '💀' : '🦌'} ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')} 鹿历
             </text>
-            <text x="20" y="78" font-size="24" font-family="MiSans" fill="${subColor}">${truncName(name)}</text>
-            <text x="20" y="102" font-size="15" font-family="MiSans" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
-            <text x="20" y="122" font-size="16" font-family="MiSans" fill="${metaColor}">
+            <text filter="url(#txtShadow)" x="20" y="78" font-size="24" font-family="MiSans,sans-serif" fill="${subColor}">${truncName(name)}</text>
+            <text filter="url(#txtShadow)" x="20" y="102" font-size="15" font-family="MiSans,sans-serif" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
+            <text filter="url(#txtShadow)" x="20" y="122" font-size="16" font-family="MiSans,sans-serif" fill="${metaColor}">
                 本月 ${stats.total} 次 · 活跃 ${stats.activeDays} 天 · 连击 ${stats.streak} 天
                 ${stats.deathDays > 0 ? ` · 💀${stats.deathDays}天` : ''}${deadBanner}
             </text>
@@ -349,100 +444,124 @@ export async function generateYearImage(now, name, userRecord) {
 /** 今日鹿况渲染图 */
 export async function generateStatusImage(now, name, status) {
     now = ensureDate(now);
-    const W = 720;
-    const H = 560;
+    const W = 740;
+    const H = 680;
+    const theme = statusTheme(status);
     const dead = status.dead;
-    const cursed = status.cursed;
-    const risk = status.inRiskZone;
     const tagline = pickStatusTagline(status);
-    const moodEmoji = dead ? '💀' : (cursed ? '☠️' : (risk ? '🔥' : '🦌'));
-    const bgStops = dead
-        ? `<stop offset="0%" style="stop-color:#2d1515"/><stop offset="100%" style="stop-color:#120606"/>`
-        : (cursed
-            ? `<stop offset="0%" style="stop-color:#2a1a3d"/><stop offset="100%" style="stop-color:#1a0f28"/>`
-            : (risk
-                ? `<stop offset="0%" style="stop-color:#3d2818"/><stop offset="100%" style="stop-color:#2a1508"/>`
-                : `<stop offset="0%" style="stop-color:#fff5eb"/><stop offset="100%" style="stop-color:#ffe0c8"/>`));
+    const moodEmoji = dead ? '💀' : (status.cursed ? '☠️' : (status.blessed ? '✨' : (status.inRiskZone ? '🔥' : '🦌')));
+    const safeLimit = status.safeLimit ?? DAILY_SAFE_LIMIT;
+    const countText = dead ? `鹿死 · 丢失 ${status.lostCount}` : `${status.count} / ${safeLimit}`;
+    const riskLine = dead
+        ? `死因：${escapeXml(status.deathReasonText || '未知')}${status.killedByName ? ` · 凶手 ${escapeXml(status.killedByName)}` : ''}`
+        : (status.inRiskZone
+            ? `⚠️ 高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
+            : `✅ 安全区 · 还可 🦌 ${status.safeLeft} 次`);
 
-    const titleColor = dead ? '#ffbbbb' : '#5c3d2e';
-    const subColor = dead ? '#ff9999' : '#7a4e32';
-    const lineColor = dead ? '#ffcccc' : '#4a3528';
+    const wx = status.weather?.weatherId
+        ? (WEATHER_CATALOG[status.weather.weatherId] || WEATHER_CATALOG.sunny)
+        : null;
+    const periodLabel = status.weather?.periodKey
+        ? parseWeatherPeriodSlot(status.weather.periodKey)
+        : '';
+    const weatherLine = wx
+        ? `${wx.emoji} ${periodLabel}${wx.name}${status.weather?.source === 'admin' ? '·赐福' : ''} · ${escapeXml(wx.tip)}`
+        : '天象：加载中…';
+
+    let auraLine = '';
+    if (status.cursed && status.blessed) {
+        auraLine = `☠️咒 ×${status.curseStacks} · ✨福 ×${status.blessStacks} · 对冲中`;
+    } else if (status.cursed) {
+        auraLine = `咒印 ×${status.curseStacks} · 剩 ${status.curseRounds} 回合 · 叠毒 +${status.curseBonusPct}%${status.curseAscended ? ' · ⚡天咒' : ''}`;
+    } else if (status.blessed) {
+        auraLine = `鹿福 ×${status.blessStacks} · 剩 ${status.blessRounds} 回合 · 减鹿死 -${status.blessReducePct}%`;
+    } else if (status.urgeBuff) {
+        auraLine = '📣 被催更：下次安全自🦌 +1';
+    } else {
+        auraLine = '咒福：无 · 今日气运看天';
+    }
 
     const helpBar = quotaBar(status.helperHelpUsed, DAILY_HELP_QUOTA);
     const wdBar = quotaBar(status.helperWithdrawUsed, DAILY_HELP_WITHDRAW_QUOTA);
 
-    const countText = dead ? `鹿死 · 丢失 ${status.lostCount}` : `${status.count} / ${DAILY_SAFE_LIMIT}`;
-    const riskLine = dead
-        ? `死因：${escapeXml(status.deathReasonText || '未知')}${status.killedByName ? ` · 凶手 ${escapeXml(status.killedByName)}` : ''}`
-        : (risk
-            ? `⚠️ 高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
-            : `✅ 安全区 · 还可 🦌 ${status.safeLeft} 次`);
-
-    const curseLine = cursed
-        ? `咒印 ×${status.curseStacks} · 剩 ${status.curseRounds} 回合 · 叠毒 +${status.curseBonusPct}%${status.curseAscended ? ' · ⚡天咒' : ''}`
-        : (status.urgeBuff ? '📣 被催更：下次安全自🦌 +1' : '咒印：无 · 今日气运尚可');
-
-    const rows = [
-        ['偷鹿', `${status.stealUsed}/${DAILY_STEAL_QUOTA}`, '#e67e22'],
-        ['鹿咒', `${status.curseUsed}/${DAILY_CURSE_QUOTA}`, '#9b59b6'],
-        ['解咒', `${status.cleanseUsed ?? 0}/${DAILY_CLEANSE_CURSE_QUOTA}`, '#27ae60'],
-        ['催鹿', `${status.urgeUsed}/${DAILY_URGE_QUOTA}`, '#3498db'],
-        ['擂台', `${status.arenaUsed}/${DAILY_ARENA_QUOTA}`, '#c0392b'],
-        ['皇城', `${status.imperialUsed}/${DAILY_IMPERIAL_QUOTA}`, '#d4ac0d'],
-        ['群溅', status.groupSplashUsed ? '已用' : '可用', '#16a085'],
-        ['诈戒', `${status.fakeWithdrawUsed}/${DAILY_FAKE_WITHDRAW_QUOTA}`, '#8e44ad'],
-        ['鹿鸣', `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, '#2ecc71'],
+    const rows = dead ? [
+        ['冥咒', `${status.spectralCurseUsed ?? 0}/${DAILY_SPECTRAL_CURSE_QUOTA}`, '#e8b4ff'],
+        ['索命', `${status.vengeanceUsed ?? 0}/${DAILY_VENGEANCE_QUOTA}`, '#ff8888'],
+        ['托梦', status.dreamUsed ? '已用' : '可用', '#88c8ff'],
+        ['还阳签', status.reviveLotteryUsed ? '已用' : '可用', '#88ffaa'],
+        ['鹿鸣', `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, '#88ffcc'],
+        ['鹿碑', '可用', '#cccccc'],
+    ] : [
+        ['偷鹿', `${status.stealUsed}/${DAILY_STEAL_QUOTA}`, '#ffb347'],
+        ['鹿咒', `${status.curseUsed}/${DAILY_CURSE_QUOTA}`, '#d4a5ff'],
+        ['鹿福', `${status.blessUsed ?? 0}/${DAILY_BLESS_QUOTA}`, '#7dffb0'],
+        ['解咒', `${status.cleanseUsed ?? 0}/${DAILY_CLEANSE_CURSE_QUOTA}`, '#88ffaa'],
+        ['解福', `${status.cleanseBlessUsed ?? 0}/${DAILY_CLEANSE_BLESS_QUOTA}`, '#aaffcc'],
+        ['催鹿', `${status.urgeUsed}/${DAILY_URGE_QUOTA}`, '#88c8ff'],
+        ['擂台', `${status.arenaUsed}/${DAILY_ARENA_QUOTA}`, '#ff8888'],
+        ['皇城', `${status.imperialUsed}/${DAILY_IMPERIAL_QUOTA}`, '#ffd700'],
+        ['群溅', status.groupSplashUsed ? '已用' : '可用', '#66ddcc'],
+        ['诈戒', `${status.fakeWithdrawUsed}/${DAILY_FAKE_WITHDRAW_QUOTA}`, '#cc99ff'],
+        ['借鹿', status.borrowUsed ? '已用' : '可用', '#ffcc88'],
+        ['碰瓷', `${status.bumperUsed ?? 0}/${DAILY_BUMPER_QUOTA}`, '#ffaa88'],
+        ['鹿签', status.lotteryUsed ? '已用' : '可用', '#ffee88'],
+        ['献祭', status.sacrificeUsed ? '已用' : '可用', '#ff9966'],
+        ['倒贴', status.greedUsed ? '已用' : '可用', '#ff7788'],
+        ['鹿鸣', `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, '#88ffaa'],
     ];
 
     let grid = '';
-    const gx0 = 24;
-    const gy0 = 300;
-    const colW = 220;
+    const gx0 = 20;
+    const gy0 = 390;
+    const colW = 175;
+    const cols = 4;
     rows.forEach((row, i) => {
-        const col = i % 3;
-        const rowIdx = Math.floor(i / 3);
+        const col = i % cols;
+        const rowIdx = Math.floor(i / cols);
         const x = gx0 + col * colW;
-        const y = gy0 + rowIdx * 52;
-        grid += `<text x="${x}" y="${y}" font-size="15" font-family="MiSans" fill="${lineColor}">${row[0]} <tspan fill="${row[2]}" font-weight="bold">${escapeXml(row[1])}</tspan></text>`;
+        const y = gy0 + rowIdx * 44;
+        grid += `<text filter="url(#txtShadow)" x="${x}" y="${y}" font-size="15" font-family="MiSans,sans-serif" fill="${theme.line}">${row[0]} <tspan fill="${row[2]}" font-weight="bold">${escapeXml(row[1])}</tspan></text>`;
     });
 
-    const cursePills = cursed
-        ? Array.from({ length: Math.min(status.curseStacks, 5) }, (_, i) =>
-            `<circle cx="${520 + i * 28}" cy="200" r="11" fill="#9b59b6" stroke="#ffd700" stroke-width="2"/>`
-        ).join('')
-        : '';
+    const txt = 'filter="url(#txtShadow)" font-family="MiSans,sans-serif"';
+    const footer = dead
+        ? '冥界玩法见上 · 活人帮🦌可救活 · 鹿天气看天象'
+        : `同归 ${status.togetherUsed ? '已用' : '可用'} · 献祭 ${status.sacrificeUsed ? '已用' : '可用'} · 倒贴 ${status.greedUsed ? '已用' : '可用'}`;
 
     const svg = `
-        <defs>
-            <linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${bgStops}</linearGradient>
-        </defs>
         <rect width="${W}" height="${H}" rx="16" fill="url(#sbg)"/>
-        <text x="36" y="48" font-size="30" font-family="MiSans" fill="${titleColor}" font-weight="bold">📊 今日鹿况</text>
-        <text x="36" y="78" font-size="22" font-family="MiSans" fill="${subColor}">${truncName(name)}</text>
-        <text x="36" y="104" font-size="15" font-family="MiSans" fill="${subColor}" font-style="italic">${escapeXml(tagline)}</text>
-        <text x="120" y="175" font-size="72" font-family="MiSans">${moodEmoji}</text>
-        <text x="220" y="155" font-size="34" font-family="MiSans" fill="${titleColor}" font-weight="bold">${escapeXml(countText)}</text>
-        <text x="220" y="188" font-size="16" font-family="MiSans" fill="${subColor}">尝试 ${status.attempts} 次</text>
-        <text x="220" y="212" font-size="15" font-family="MiSans" fill="${lineColor}">${riskLine}</text>
-        <text x="36" y="248" font-size="15" font-family="MiSans" fill="${cursed ? '#e8b4ff' : lineColor}">${escapeXml(curseLine)}</text>
-        ${cursePills}
-        <text x="36" y="278" font-size="14" font-family="MiSans" fill="${subColor}">帮🦌配额</text>
-        <rect x="120" y="266" width="${helpBar.width}" height="14" rx="7" fill="${dead ? '#442222' : '#e8d5c4'}"/>
-        <rect x="120" y="266" width="${helpBar.fill}" height="14" rx="7" fill="#e67e22"/>
-        <text x="330" y="278" font-size="14" font-family="MiSans" fill="${subColor}">${helpBar.label}</text>
-        <text x="400" y="278" font-size="14" font-family="MiSans" fill="${subColor}">帮戒</text>
-        <rect x="450" y="266" width="${wdBar.width}" height="14" rx="7" fill="${dead ? '#442222' : '#e8d5c4'}"/>
-        <rect x="450" y="266" width="${wdBar.fill}" height="14" rx="7" fill="#3498db"/>
-        <text x="660" y="278" font-size="14" font-family="MiSans" fill="${subColor}" text-anchor="end">${wdBar.label}</text>
+        <rect x="16" y="118" width="${W - 32}" height="44" rx="10" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1"/>
+        <text ${txt} x="28" y="146" font-size="14" fill="${theme.line}">${weatherLine}</text>
+        <text ${txt} x="36" y="48" font-size="30" fill="${theme.title}" font-weight="bold">📊 今日鹿况</text>
+        <text ${txt} x="36" y="78" font-size="22" fill="${theme.sub}">${truncName(name)}</text>
+        <text ${txt} x="36" y="102" font-size="14" fill="${theme.muted}" font-style="italic">${escapeXml(tagline)}</text>
+        <text x="110" y="195" font-size="68" font-family="MiSans,sans-serif">${moodEmoji}</text>
+        <text ${txt} x="210" y="175" font-size="34" fill="${theme.title}" font-weight="bold">${escapeXml(countText)}</text>
+        <text ${txt} x="210" y="205" font-size="16" fill="${theme.sub}">尝试 ${status.attempts} 次</text>
+        <text ${txt} x="210" y="230" font-size="15" fill="${theme.line}">${riskLine}</text>
+        <text ${txt} x="36" y="268" font-size="15" fill="${status.cursed ? '#f0d0ff' : (status.blessed ? '#d0ffd8' : theme.line)}">${escapeXml(auraLine)}</text>
+        <text ${txt} x="36" y="300" font-size="14" fill="${theme.muted}">帮🦌配额</text>
+        <rect x="110" y="288" width="${helpBar.width}" height="14" rx="7" fill="${theme.barBg}"/>
+        <rect x="110" y="288" width="${helpBar.fill}" height="14" rx="7" fill="#e67e22"/>
+        <text ${txt} x="320" y="300" font-size="14" fill="${theme.line}">${helpBar.label}</text>
+        <text ${txt} x="390" y="300" font-size="14" fill="${theme.muted}">帮戒</text>
+        <rect x="440" y="288" width="${wdBar.width}" height="14" rx="7" fill="${theme.barBg}"/>
+        <rect x="440" y="288" width="${wdBar.fill}" height="14" rx="7" fill="#3498db"/>
+        <text ${txt} x="650" y="300" font-size="14" fill="${theme.line}" text-anchor="end">${wdBar.label}</text>
+        <text ${txt} x="36" y="368" font-size="14" fill="${theme.muted}" font-weight="bold">玩法配额</text>
         ${grid}
-        <text x="36" y="${H - 24}" font-size="13" font-family="MiSans" fill="${subColor}">同归：${status.togetherUsed ? '已用' : '可用'} · 献祭：${status.sacrificeUsed ? '已用' : '可用'} · 倒贴：${status.greedUsed ? '已用' : '可用'} · 详单：鹿帮助</text>
-        <text x="${W - 36}" y="${H - 24}" font-size="12" font-family="MiSans" fill="${subColor}" text-anchor="end">${now.getMonth() + 1}/${now.getDate()} · deer-pipe</text>
+        <text ${txt} x="36" y="${H - 28}" font-size="13" fill="${theme.muted}">${footer}</text>
+        <text ${txt} x="${W - 36}" y="${H - 28}" font-size="12" fill="${theme.muted}" text-anchor="end">${now.getMonth() + 1}/${now.getDate()} · deer-pipe</text>
     `;
 
     return sharp({
         create: { width: W, height: H, channels: 4, background: { r: 255, g: 245, b: 235, alpha: 1 } },
     })
-        .composite([{ input: svgText(svg, W, H), top: 0, left: 0 }])
+        .composite([{
+            input: svgTextStyled(svg, W, H, `<linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>`),
+            top: 0,
+            left: 0,
+        }])
         .png()
         .toBuffer();
 }

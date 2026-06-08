@@ -57,6 +57,13 @@ export const CURSE_ASCENDED_STACKS = 3;
 /** 解鹿咒：🦌友互助清咒 */
 export const DAILY_CLEANSE_CURSE_QUOTA = 1;
 
+/** 鹿福（正面咒）：每层 -5% 鹿死，最多 3 层 3 回合 */
+export const DAILY_BLESS_QUOTA = 2;
+export const BLESS_DEATH_REDUCE = 0.05;
+export const BLESS_MAX_STACKS = 3;
+export const BLESS_MAX_ROUNDS = 3;
+export const DAILY_CLEANSE_BLESS_QUOTA = 1;
+
 /** 偷鹿：对带咒目标每层 +5% 成功率 */
 export const STEAL_CURSE_BONUS_PER_STACK = 0.05;
 
@@ -94,6 +101,23 @@ export const BUMPER_CURSE_ON_WIN_CHANCE = 0.18;
 /** 抽鹿签：单人每日运势签 */
 export const DAILY_LOTTERY_QUOTA = 1;
 
+/** 死亡生态：仅鹿死可用 */
+export const DAILY_SPECTRAL_CURSE_QUOTA = 2;
+export const DAILY_VENGEANCE_QUOTA = 2;
+/** 索命凶手：叠咒 / 扣次 / 落空 */
+export const VENGEANCE_CURSE_CHANCE = 0.35;
+export const VENGEANCE_DEDUCT_CHANCE = 0.25;
+/** 无凶手时冤魂替身索命叠咒率 */
+export const VENGEANCE_SUBSTITUTE_CURSE_CHANCE = 0.20;
+export const DAILY_DREAM_QUOTA = 1;
+export const DAILY_REVIVE_LOTTERY_QUOTA = 1;
+/** 还阳签：满血还阳 / 残魂还阳(1次) */
+export const REVIVE_LOTTERY_FULL_CHANCE = 0.12;
+export const REVIVE_LOTTERY_WEAK_CHANCE = 0.18;
+export const REVIVE_LOTTERY_WEAK_COUNT = 1;
+/** 鹿鸣·鸣魂：10% 给凶手叠咒 */
+export const GHOST_HOWL_KILLER_CURSE_CHANCE = 0.10;
+
 /** 群鹿溅：仅溅日榜 Top N */
 export const DAILY_GROUP_SPLASH_QUOTA = 1;
 export const GROUP_SPLASH_TOP_N = 5;
@@ -103,7 +127,7 @@ export const GROUP_SPLASH_CURSE_CHANCE = 0.20;
 /** 带咒目标被溅到时额外伤害（咒印引爆） */
 export const GROUP_SPLASH_CURSE_BURST_DAMAGE = 1;
 
-/** 特权 QQ：回鹿返照 */
+/** 特权 QQ：鹿神赐福 / 鹿使后门（非群管、非机器人主人） */
 export const PRIVILEGED_QQ = '1814632762';
 
 export const META_PREFIX = {
@@ -115,6 +139,8 @@ export const META_PREFIX = {
     STEAL: '_st_',
     CURSE: '_cu_',
     CLEANSE: '_cl_',
+    BLESS: '_ble_',
+    CLEANSE_BLESS: '_cbl_',
     SACRIFICE: '_sc_',
     FAKE_WD: '_fw_',
     URGE: '_ur_',
@@ -125,6 +151,10 @@ export const META_PREFIX = {
     BORROW: '_bw_',
     BUMPER: '_bp_',
     LOTTERY: '_lt_',
+    SPECTRAL_CURSE: '_spc_',
+    VENGEANCE: '_vg_',
+    DREAM: '_dm_',
+    REVIVE_LOT: '_rl_',
 };
 
 /** QQ 头像 */
@@ -377,9 +407,15 @@ export const HELPER_DEAD_MESSAGES = [
 ];
 
 export const ACTOR_DEAD_MESSAGES = [
-    '💀 鹿死状态下无法使用特殊玩法，请先被🦌友「帮🦌」救活',
-    '你已🦌死，同归鹿尽/帮戒🦌/皇城鹿均不可用',
-    '尸体还在地上，特殊指令全部封印，等救活再说',
+    '💀 活人玩法已封印，冥界可用：冥咒/索命/托梦/还阳签/鹿碑',
+    '你已鹿死，可「鹿碑」看死因，或走死亡生态搞事',
+    '尸体不能自🦌，但能冥咒索命托梦，详见鹿帮助「死亡生态」',
+];
+
+export const ALIVE_ONLY_MESSAGES = [
+    '你还活着呢，别抢冥界业务',
+    '此指令仅鹿死可用，请先把自己🦌死（不是建议）',
+    '阳间人请走正常玩法，冥咒留给尸体',
 ];
 
 export const TARGET_DEAD_MESSAGES = [
@@ -481,10 +517,27 @@ export const CURSED_LU_MESSAGES = [
     '背后一凉——是咒印还在生效',
 ];
 
+export const BLESSED_LU_MESSAGES = [
+    '鹿福护体！减伤已计入判定',
+    '金光一闪——福咒还在生效',
+];
+
 export const CLEANSE_CURSE_MESSAGES = [
     '解鹿咒成！层数尽散，冤孽暂消',
     '🦌友替你撕了咒印，今日又能安心🦌了',
     '一道清光掠过，鹿咒层数归零',
+];
+
+export const BLESS_MESSAGES = [
+    '鹿福降临！金光护体，层数 +1',
+    '正面咒贴脸：三回合内每层自🦌鹿死 -5%',
+    '你往 ta 账上叠了一层「鹿福」，今日欧气+1',
+];
+
+export const CLEANSE_BLESS_MESSAGES = [
+    '解鹿福成！福运层数尽散',
+    '🦌友替你收了福咒，回归平常心',
+    '福光散去，不再自带欧皇光环',
 ];
 
 export const SACRIFICE_MESSAGES = [
@@ -616,6 +669,65 @@ export const LOTTERY_BLANK_MESSAGES = [
     '谢谢惠顾，下次再来抽',
 ];
 
+export const SPECTRAL_CURSE_MESSAGES = [
+    '冥咒贴脸！亡魂出手，层数 +1',
+    '尸体没凉透，咒先从坟里爬出来了',
+    '冥界包邮诅咒，收件人今日印堂发黑',
+];
+
+export const VENGEANCE_CURSE_MESSAGES = [
+    '索命成功！怨念缠上凶手，咒印 +1',
+    '冤魂锁喉，凶手背后一凉',
+];
+
+export const VENGEANCE_DEDUCT_MESSAGES = [
+    '索命得手！从凶手账上抠走 1 次🦌绩',
+    '亡魂讨债，凶手今日 -1',
+];
+
+export const VENGEANCE_FAIL_MESSAGES = [
+    '索命落空…凶手今天八字挺硬',
+    '怨念散了，啥也没发生',
+    '阎王说证据不足，本次索命驳回',
+];
+
+export const VENGEANCE_SUBSTITUTE_MESSAGES = [
+    '冤魂找替身！晦气沾到 ta 身上，咒 +1',
+    '无凶手可索，随便抓个活人当替身',
+];
+
+export const DREAM_URGE_MESSAGES = [
+    '托梦成功！🦌友梦里听见：该🦌了',
+    '夜访托梦，催更符已贴到 ta 枕边',
+];
+
+export const DREAM_SOOTHE_MESSAGES = [
+    '托梦抚怨，替🦌友撕缓 1 层咒压',
+    '梦里递了张符，咒回合 -1',
+];
+
+export const REVIVE_LOTTERY_FULL_MESSAGES = [
+    '还阳签·大吉！满血复活，丢失次数全回',
+    '冥府退票成功，今日🦌绩原样奉还',
+];
+
+export const REVIVE_LOTTERY_WEAK_MESSAGES = [
+    '还阳签·小吉…残魂还阳，仅回 1 次',
+    '半条命捞回来了，别贪心',
+];
+
+export const REVIVE_LOTTERY_BLANK_MESSAGES = [
+    '还阳签·凶…冥府今日不办加急',
+    '签文：宜躺尸，忌强求',
+];
+
+export const TOMBSTONE_HEADER = '═══ 鹿 碑 ═══';
+
+export const HOWL_DEAD_HAUNT_MESSAGES = [
+    '鸣魂震彻！凶手背后一凉，咒印 +1',
+    '尸体这一嗓子，直接咒到凶手头上',
+];
+
 export const GROUP_SPLASH_MESSAGES = [
     '群鹿溅！日榜前五精准溅射，🦌汁乱飞',
     '你锁定了今日日榜 Top5，范围性社死启动',
@@ -677,6 +789,12 @@ export const ERROR_MESSAGES = {
     curse_self: '不能给自己下鹿咒（缺德也有底线）',
     cleanse_used: (used, total) => `今日解鹿咒次数已用完（${used}/${total}）`,
     cleanse_no_curse: 'ta 身上没有生效中的鹿咒，无需解咒',
+    bless_used: (used, total) => `今日鹿福已用完（${used}/${total}）`,
+    bless_self: '不能给自己贴鹿福（自恋请直接🦌）',
+    cleanse_bless_used: (used, total) => `今日解鹿福次数已用完（${used}/${total}）`,
+    cleanse_no_bless: 'ta 身上没有生效中的鹿福',
+    weather_unknown: (token) => `未知天气「${token || ''}」，可用：晴朗/细雨/瑞雪/雷暴/鹿雾/祥风/阴霾/鹿虹`,
+    weather_privilege_only: '鹿神赐福为特权鹿使专属（非群管理员/主人通道）',
     sacrifice_used: '今日献祭鹿已用过，鹿神不收二手供',
     sacrifice_self: '不能献祭给自己，自恋请走普通🦌',
     fake_withdraw_used: (used, total) => `今日诈戒次数已用完（${used}/${total}）`,
@@ -696,17 +814,28 @@ export const ERROR_MESSAGES = {
     bumper_used: (used, total) => `今日碰瓷鹿已用完（${used}/${total}）`,
     bumper_self: '不能碰瓷自己，自恋请直接🦌',
     lottery_used: '今日鹿签已抽过，鹿神不接复读机',
+    alive_only: '此指令仅鹿死状态可用',
+    spectral_curse_used: (used, total) => `今日冥咒已用完（${used}/${total}）`,
+    spectral_curse_self: '不能给自己下冥咒',
+    vengeance_used: (used, total) => `今日索命已用完（${used}/${total}）`,
+    vengeance_self: '不能索自己的命',
+    vengeance_not_killer: '有凶手记录时必须 @ 凶手本人（看鹿碑查 dk）',
+    dream_used: '今日托梦已用过',
+    dream_self: '不能托梦给自己',
+    revive_lottery_used: '今日还阳签已抽过',
+    tombstone_alive: '你还活着，别提前给自己立碑',
     target_dead: '对方已鹿死，请先帮 ta「帮🦌」救活',
     actor_dead: '你已鹿死，无法发起互助或特殊玩法，请先被救活',
-    privilege_only: '此指令为特权鹿使专属',
+    privilege_only: '此指令为特权鹿使专属（非群管理员/主人）',
     default: '操作失败',
 };
 
 export const STATUS_TAGLINES = {
-    dead: ['鹿灵已散，今日不计榜', '社死现场，等🦌友捞人', '功德归零，明日再战'],
+    dead: ['鹿灵已散，冥界业务照常营业', '社死现场，可索命托梦还阳签', '功德归零，尸体仍能搞事'],
     risk: ['鞭刑预备役，再🦌可能当场去世', '高危赌徒，鹿神在盯着你', '超限区蹦迪，谨慎发🦌'],
     safe: ['荤素搭配区，鹿德尚充沛', '优雅选手，尚未丧心病狂', '今日人设：节制鹿'],
     cursed: ['咒印缠身，自🦌如走钢丝', '叠毒生效中，别手贱', '天咒候选席请入座'],
+    blessed: ['鹿福护体，今日欧气在线', '金光护体，超限也敢试探', '福咒加身，阎王爷让三分'],
 };
 
 export const CALENDAR_TAGLINES = [

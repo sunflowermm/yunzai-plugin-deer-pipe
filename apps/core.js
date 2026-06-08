@@ -11,6 +11,7 @@ import {
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
+import { loadGameContext } from '../utils/context.js';
 import { replyDeerPanel, replyStatusPanel } from '../utils/panel.js';
 import {
     formatActionMessage,
@@ -43,7 +44,8 @@ export class DeerPipe extends plugin {
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const result = performLu(deerData, user_id, date, day);
+        const ctx = await loadGameContext(date);
+        const result = performLu(deerData, user_id, date, day, ctx);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;
@@ -99,7 +101,12 @@ export class DeerPipe extends plugin {
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const status = getTodayStatus(getMonthData(getUserRecord(deerData, subject.userId), date), day);
+        const ctx = await loadGameContext(date);
+        const status = getTodayStatus(
+            getMonthData(getUserRecord(deerData, subject.userId), date),
+            day,
+            { weather: ctx.weatherState, weatherEffects: ctx.weatherEffects },
+        );
         if (status.killerId) {
             status.killedByName = await getMemberName(this.e, status.killerId);
         }
@@ -129,7 +136,8 @@ export class DeerPipe extends plugin {
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const result = performHelpLu(deerData, user_id, targetId, date, day);
+        const ctx = await loadGameContext(date);
+        const result = performHelpLu(deerData, user_id, targetId, date, day, ctx);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;

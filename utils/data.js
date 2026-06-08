@@ -15,7 +15,23 @@ import {
     BUMPER_FAIL_PENALTY,
     BUMPER_CURSE_ON_WIN_CHANCE,
     DAILY_LOTTERY_QUOTA,
+    DAILY_SPECTRAL_CURSE_QUOTA,
+    DAILY_VENGEANCE_QUOTA,
+    VENGEANCE_CURSE_CHANCE,
+    VENGEANCE_DEDUCT_CHANCE,
+    VENGEANCE_SUBSTITUTE_CURSE_CHANCE,
+    DAILY_DREAM_QUOTA,
+    DAILY_REVIVE_LOTTERY_QUOTA,
+    REVIVE_LOTTERY_FULL_CHANCE,
+    REVIVE_LOTTERY_WEAK_CHANCE,
+    REVIVE_LOTTERY_WEAK_COUNT,
+    GHOST_HOWL_KILLER_CURSE_CHANCE,
     DAILY_CLEANSE_CURSE_QUOTA,
+    DAILY_BLESS_QUOTA,
+    BLESS_DEATH_REDUCE,
+    BLESS_MAX_STACKS,
+    BLESS_MAX_ROUNDS,
+    DAILY_CLEANSE_BLESS_QUOTA,
     DAILY_CURSE_QUOTA,
     DAILY_FAKE_WITHDRAW_QUOTA,
     DAILY_GREED_QUOTA,
@@ -56,15 +72,18 @@ import {
     calcOverlimitDeathChance,
     formatChancePercent,
     isPrivileged,
+    getDeathReasonText,
 } from '../constants/game.js';
-import { getDeathReasonText } from '../constants/game.js';
 
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 const DAY_KEY_RE = /^\d{1,2}$/;
 
-/** 单日: c=有效次数 a=尝试 d=鹿死 snap=快照 dc=鹿死次数 dr=死因 dk=凶手 helped revived helpBy cur=咒层 curR=咒剩余回合 */
+/** 单日: c/a/d/snap/dc/dr/dk/... cur/curR 咒 ble/bleR 福 */
 export function createDayEntry(count = 0) {
-    return { c: count, a: count, d: 0, snap: 0, dc: 0, dr: '', dk: '', helped: 0, revived: 0, helpBy: {}, cur: 0, curR: 0 };
+    return {
+        c: count, a: count, d: 0, snap: 0, dc: 0, dr: '', dk: '',
+        helped: 0, revived: 0, helpBy: {}, cur: 0, curR: 0, ble: 0, bleR: 0,
+    };
 }
 
 export function normalizeDayEntry(raw) {
@@ -87,6 +106,8 @@ export function normalizeDayEntry(raw) {
             helpBy: raw.helpBy ?? {},
             cur: raw.cur ?? 0,
             curR: raw.curR ?? (raw.cur ? CURSE_MAX_ROUNDS : 0),
+            ble: raw.ble ?? 0,
+            bleR: raw.bleR ?? (raw.ble ? BLESS_MAX_ROUNDS : 0),
         };
     }
     return null;
@@ -217,6 +238,14 @@ function cleanseUsedKey(day) {
     return `${META_PREFIX.CLEANSE}${day}`;
 }
 
+function blessUsedKey(day) {
+    return `${META_PREFIX.BLESS}${day}`;
+}
+
+function cleanseBlessUsedKey(day) {
+    return `${META_PREFIX.CLEANSE_BLESS}${day}`;
+}
+
 function sacrificeUsedKey(day) {
     return `${META_PREFIX.SACRIFICE}${day}`;
 }
@@ -255,6 +284,22 @@ function bumperUsedKey(day) {
 
 function lotteryUsedKey(day) {
     return `${META_PREFIX.LOTTERY}${day}`;
+}
+
+function spectralCurseUsedKey(day) {
+    return `${META_PREFIX.SPECTRAL_CURSE}${day}`;
+}
+
+function vengeanceUsedKey(day) {
+    return `${META_PREFIX.VENGEANCE}${day}`;
+}
+
+function dreamUsedKey(day) {
+    return `${META_PREFIX.DREAM}${day}`;
+}
+
+function reviveLotteryUsedKey(day) {
+    return `${META_PREFIX.REVIVE_LOT}${day}`;
 }
 
 function stripOneCurseStack(entry) {
@@ -335,6 +380,12 @@ export function resetUserDayMeta(monthData, day) {
     delete monthData[borrowUsedKey(day)];
     delete monthData[bumperUsedKey(day)];
     delete monthData[lotteryUsedKey(day)];
+    delete monthData[spectralCurseUsedKey(day)];
+    delete monthData[vengeanceUsedKey(day)];
+    delete monthData[dreamUsedKey(day)];
+    delete monthData[reviveLotteryUsedKey(day)];
+    delete monthData[blessUsedKey(day)];
+    delete monthData[cleanseBlessUsedKey(day)];
 }
 
 const PLAYFUL_META_KEYS = [
@@ -353,6 +404,12 @@ const PLAYFUL_META_KEYS = [
     borrowUsedKey,
     bumperUsedKey,
     lotteryUsedKey,
+    spectralCurseUsedKey,
+    vengeanceUsedKey,
+    dreamUsedKey,
+    reviveLotteryUsedKey,
+    blessUsedKey,
+    cleanseBlessUsedKey,
 ];
 
 function rejectUnlessPrivileged(operatorId) {
@@ -391,6 +448,8 @@ function reviveDayEntry(entry) {
     entry.dk = '';
     entry.cur = 0;
     entry.curR = 0;
+    entry.ble = 0;
+    entry.bleR = 0;
     return true;
 }
 
@@ -537,6 +596,14 @@ export function rejectIfActorDead(deerData, userId, date, day) {
     return null;
 }
 
+/** 死亡生态：操作者须鹿死 */
+export function rejectUnlessActorDead(deerData, userId, date, day) {
+    if (!isUserDeadToday(deerData, userId, date, day)) {
+        return { ok: false, type: 'alive_only' };
+    }
+    return null;
+}
+
 /** 皇城鹿宣战校验（不含标记消耗） */
 export function validateImperialStart(deerData, userId, date, day, members) {
     const dead = rejectIfActorDead(deerData, userId, date, day);
@@ -622,6 +689,64 @@ export function applyCurseStacks(entry, layers = 1) {
 export function clearCurse(entry) {
     entry.cur = 0;
     entry.curR = 0;
+}
+
+export function getActiveBlessStacks(entry) {
+    if (!entry?.ble || !entry?.bleR) return 0;
+    return entry.ble;
+}
+
+export function getBlessInfo(entry) {
+    const stacks = getActiveBlessStacks(entry);
+    const rounds = stacks > 0 ? (entry.bleR || 0) : 0;
+    const active = stacks > 0 && rounds > 0;
+    return {
+        stacks,
+        rounds,
+        active,
+        deathReduce: active ? BLESS_DEATH_REDUCE * stacks : 0,
+    };
+}
+
+export function applyBlessStacks(entry, layers = 1) {
+    entry.ble = Math.min(BLESS_MAX_STACKS, (entry.ble || 0) + layers);
+    entry.bleR = BLESS_MAX_ROUNDS;
+    return entry.ble;
+}
+
+export function clearBless(entry) {
+    entry.ble = 0;
+    entry.bleR = 0;
+}
+
+export function consumeBlessRound(entry) {
+    if (!entry?.ble || !entry?.bleR) return getBlessInfo(entry);
+    entry.bleR -= 1;
+    if (entry.bleR <= 0) clearBless(entry);
+    return getBlessInfo(entry);
+}
+
+function clampDeathChance(v) {
+    return Math.min(1, Math.max(0, v));
+}
+
+function resolvePlayModifiers(entry, weatherEffects = null) {
+    const curse = getCurseInfo(entry);
+    const bless = getBlessInfo(entry);
+    const wx = weatherEffects || {};
+    return {
+        curse,
+        bless,
+        wx,
+        safeLimit: Math.max(1, DAILY_SAFE_LIMIT + (wx.safeBonus || 0)),
+        deathDelta: (wx.deathDelta || 0) - (bless.deathReduce || 0) + (curse.deathBonus || 0),
+        stealDelta: wx.stealDelta || 0,
+        helpFailDelta: wx.helpFailDelta || 0,
+    };
+}
+
+function wxOf(gameContext) {
+    return gameContext?.weatherEffects || {};
 }
 
 /** 自🦌一次消耗一回合咒效 */
@@ -856,12 +981,18 @@ export function calcYearStats(userRecord, year, now = new Date()) {
 }
 
 /** 今日状态摘要 */
-export function getTodayStatus(monthData, day) {
+export function getTodayStatus(monthData, day, { weather = null, weatherEffects = null } = {}) {
     const entry = getDayEntry(monthData, day) || createDayEntry(0);
     const dead = !!entry.d;
-    const safeLeft = Math.max(0, DAILY_SAFE_LIMIT - entry.c);
-    const inRiskZone = entry.c >= DAILY_SAFE_LIMIT && !dead;
-    const nextDeathChance = dead ? 0 : calcOverlimitDeathChance(entry.c);
+    const mods = resolvePlayModifiers(entry, weatherEffects);
+    const safeLimit = mods.safeLimit;
+    const safeLeft = Math.max(0, safeLimit - entry.c);
+    const inRiskZone = entry.c >= safeLimit && !dead;
+    let nextDeathChance = dead ? 0 : calcOverlimitDeathChance(entry.c);
+    if (!dead && inRiskZone) {
+        nextDeathChance = clampDeathChance(nextDeathChance + mods.deathDelta);
+    }
+    const bi = getBlessInfo(entry);
     return {
         entry,
         count: dead ? 0 : entry.c,
@@ -869,12 +1000,15 @@ export function getTodayStatus(monthData, day) {
         attempts: entry.a,
         dead,
         safeLeft: dead ? 0 : safeLeft,
+        safeLimit,
         inRiskZone,
         nextDeathChance,
         riskPercent: formatChancePercent(nextDeathChance),
         deathChanceStep: Math.round(OVERLIMIT_DEATH_CHANCE_STEP * 100),
-        helpKillPercent: Math.round(HELP_FAIL_CHANCE * 100),
-        helpWithdrawFailPercent: Math.round(HELP_WITHDRAW_FAIL_CHANCE * 100),
+        helpKillPercent: Math.round((HELP_FAIL_CHANCE + mods.helpFailDelta) * 100),
+        helpWithdrawFailPercent: Math.round(
+            (HELP_WITHDRAW_FAIL_CHANCE + (weatherEffects?.helpWithdrawFailDelta || 0)) * 100,
+        ),
         canLu: !dead,
         canHelp: !dead,
         deathReason: dead ? (entry.dr || DEATH_REASON.SELF) : '',
@@ -891,6 +1025,7 @@ export function getTodayStatus(monthData, day) {
         arenaLeft: getArenaQuotaLeft(monthData, day),
         stealUsed: readDailyUsed(monthData, day, stealUsedKey),
         curseUsed: readDailyUsed(monthData, day, curseUsedKey),
+        blessUsed: readDailyUsed(monthData, day, blessUsedKey),
         sacrificeUsed: readDailyUsed(monthData, day, sacrificeUsedKey),
         fakeWithdrawUsed: readDailyUsed(monthData, day, fakeWithdrawUsedKey),
         urgeUsed: readDailyUsed(monthData, day, urgeUsedKey),
@@ -898,9 +1033,16 @@ export function getTodayStatus(monthData, day) {
         greedUsed: readDailyUsed(monthData, day, greedUsedKey),
         groupSplashUsed: readDailyUsed(monthData, day, groupSplashUsedKey),
         cleanseUsed: readDailyUsed(monthData, day, cleanseUsedKey),
+        cleanseBlessUsed: readDailyUsed(monthData, day, cleanseBlessUsedKey),
         borrowUsed: readDailyUsed(monthData, day, borrowUsedKey),
         bumperUsed: readDailyUsed(monthData, day, bumperUsedKey),
         lotteryUsed: readDailyUsed(monthData, day, lotteryUsedKey),
+        spectralCurseUsed: readDailyUsed(monthData, day, spectralCurseUsedKey),
+        vengeanceUsed: readDailyUsed(monthData, day, vengeanceUsedKey),
+        dreamUsed: readDailyUsed(monthData, day, dreamUsedKey),
+        reviveLotteryUsed: readDailyUsed(monthData, day, reviveLotteryUsedKey),
+        weather,
+        weatherEffects: weatherEffects || null,
         ...(() => {
             const ci = getCurseInfo(entry);
             return {
@@ -911,8 +1053,15 @@ export function getTodayStatus(monthData, day) {
                 curseAscended: ci.ascended,
             };
         })(),
+        ...(() => ({
+            blessed: bi.active,
+            blessStacks: bi.stacks,
+            blessRounds: bi.rounds,
+            blessReducePct: Math.round(bi.deathReduce * 100),
+        }))(),
         urgeBuff: !!monthData?.[urgeBuffKey(day)],
         canUseSpecial: !dead,
+        canUseDeathEcology: dead,
         canHelpOthers: !dead,
         canTogether: !dead && !hasUsedTogether(monthData, day),
         canImperial: !dead && getImperialQuotaLeft(monthData, day) > 0,
@@ -935,19 +1084,19 @@ export function applyDeath(entry, { reason = DEATH_REASON.SELF, killerId = null 
     return entry.snap;
 }
 
-function rollHelpFail() {
-    return rollChance(HELP_FAIL_CHANCE);
+function rollHelpFail(extra = 0) {
+    return rollChance(clampDeathChance(HELP_FAIL_CHANCE + extra));
 }
 
-function rollHelpWithdrawFail() {
-    return rollChance(HELP_WITHDRAW_FAIL_CHANCE);
+function rollHelpWithdrawFail(extra = 0) {
+    return rollChance(clampDeathChance(HELP_WITHDRAW_FAIL_CHANCE + extra));
 }
 
 /**
  * 自己🦌
- * @returns {{ ok: boolean, type?: string, message?: string, entry?: object }}
+ * @param {object} [gameContext] weatherEffects 等
  */
-export function performLu(deerData, userId, date, day) {
+export function performLu(deerData, userId, date, day, gameContext = {}) {
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
 
@@ -956,12 +1105,16 @@ export function performLu(deerData, userId, date, day) {
     }
 
     entry.a += 1;
-    const curseBefore = getCurseInfo(entry);
+    const mods = resolvePlayModifiers(entry, gameContext.weatherEffects);
+    const curseBefore = mods.curse;
+    const blessBefore = mods.bless;
     const hadActiveCurse = curseBefore.active;
+    const hadActiveBless = blessBefore.active;
     const hadUrgeBuff = !!monthData[urgeBuffKey(day)];
+    const safeLimit = mods.safeLimit;
     let urgeBonus = 0;
 
-    if (entry.c < DAILY_SAFE_LIMIT) {
+    if (entry.c < safeLimit) {
         entry.c += 1;
         if (hadUrgeBuff) {
             entry.c += 1;
@@ -969,62 +1122,86 @@ export function performLu(deerData, userId, date, day) {
             delete monthData[urgeBuffKey(day)];
         }
         if (hadActiveCurse) consumeCurseRound(entry);
+        if (hadActiveBless) consumeBlessRound(entry);
         const curseAfter = getCurseInfo(entry);
+        const blessAfter = getBlessInfo(entry);
         return {
             ok: true,
             type: urgeBonus ? 'safe_urged' : 'safe',
             entry,
             count: entry.c,
-            safeLeft: DAILY_SAFE_LIMIT - entry.c,
+            safeLeft: safeLimit - entry.c,
+            safeLimit,
             urgeBonus,
             hadCurse: hadActiveCurse,
+            hadBless: hadActiveBless,
             curseStacks: curseBefore.stacks,
+            blessStacks: blessBefore.stacks,
             curseRoundsLeft: curseAfter.rounds,
+            blessRoundsLeft: blessAfter.rounds,
             curseBonus: curseBefore.deathBonus,
+            blessReduce: blessBefore.deathReduce,
+            weatherTip: gameContext.weatherEffects?.tip || '',
         };
     }
 
-    let deathChance = calcOverlimitDeathChance(entry.c);
-    if (hadActiveCurse) {
-        deathChance = Math.min(1, deathChance + curseBefore.deathBonus);
-    }
+    let deathChance = clampDeathChance(calcOverlimitDeathChance(entry.c) + mods.deathDelta);
     if (rollChance(deathChance)) {
         const snap = applyDeath(entry, { reason: DEATH_REASON.SELF });
         if (hadActiveCurse) consumeCurseRound(entry);
+        if (hadActiveBless) consumeBlessRound(entry);
+        let type = 'death';
+        if (hadActiveCurse && hadActiveBless) type = 'death_mixed';
+        else if (hadActiveCurse) type = 'death_cursed';
+        else if (hadActiveBless) type = 'death_blessed';
         return {
             ok: true,
-            type: hadActiveCurse ? 'death_cursed' : 'death',
+            type,
             entry,
             snap,
             deathChance,
             hadCurse: hadActiveCurse,
+            hadBless: hadActiveBless,
             curseStacks: curseBefore.stacks,
+            blessStacks: blessBefore.stacks,
             curseBonus: curseBefore.deathBonus,
+            blessReduce: blessBefore.deathReduce,
+            weatherTip: gameContext.weatherEffects?.tip || '',
         };
     }
 
     entry.c += 1;
     if (hadActiveCurse) consumeCurseRound(entry);
+    if (hadActiveBless) consumeBlessRound(entry);
     const curseAfter = getCurseInfo(entry);
+    const blessAfter = getBlessInfo(entry);
+    let type = 'risky';
+    if (hadActiveCurse && hadActiveBless) type = 'risky_mixed';
+    else if (hadActiveCurse) type = 'risky_cursed';
+    else if (hadActiveBless) type = 'risky_blessed';
     return {
         ok: true,
-        type: hadActiveCurse ? 'risky_cursed' : 'risky',
+        type,
         entry,
         count: entry.c,
         deathChance,
-        nextDeathChance: calcOverlimitDeathChance(entry.c),
+        nextDeathChance: clampDeathChance(calcOverlimitDeathChance(entry.c) + mods.deathDelta),
         hadCurse: hadActiveCurse,
+        hadBless: hadActiveBless,
         curseStacks: curseBefore.stacks,
+        blessStacks: blessBefore.stacks,
         curseRoundsLeft: curseAfter.rounds,
+        blessRoundsLeft: blessAfter.rounds,
         curseBonus: curseBefore.deathBonus,
+        blessReduce: blessBefore.deathReduce,
+        weatherTip: gameContext.weatherEffects?.tip || '',
     };
 }
 
 /**
  * 帮🦌 / 救活 / 拉下马
- * 帮🦌者每日共 DAILY_HELP_QUOTA 次，可全部用于同一人
  */
-export function performHelpLu(deerData, helperId, targetId, date, day) {
+export function performHelpLu(deerData, helperId, targetId, date, day, gameContext = {}) {
     const dead = rejectIfActorDead(deerData, helperId, date, day);
     if (dead) return dead;
 
@@ -1042,17 +1219,23 @@ export function performHelpLu(deerData, helperId, targetId, date, day) {
 
     const monthData = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(monthData, day);
+    const targetMods = resolvePlayModifiers(entry, gameContext.weatherEffects);
+    const helpFailChance = clampDeathChance(HELP_FAIL_CHANCE + targetMods.helpFailDelta);
     const helpKey = String(helperId);
     let result;
 
     if (entry.d) {
-        if (rollHelpFail()) {
+        const wx = wxOf(gameContext);
+        const reviveFail = clampDeathChance(
+            HELP_FAIL_CHANCE + targetMods.helpFailDelta + (wx.reviveFailDelta || 0),
+        );
+        if (rollChance(reviveFail)) {
             const quota = consumeHelperQuota(helperMonth, day, targetId);
             return attachQuota({
                 ok: true,
                 type: 'help_revive_fail',
                 entry,
-                failChance: HELP_FAIL_CHANCE,
+                failChance: reviveFail,
             }, quota);
         }
         entry.d = 0;
@@ -1061,6 +1244,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day) {
         entry.dr = '';
         entry.dk = '';
         clearCurse(entry);
+        clearBless(entry);
         entry.revived += 1;
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
@@ -1070,23 +1254,23 @@ export function performHelpLu(deerData, helperId, targetId, date, day) {
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
         entry.a += 1;
 
-        if (entry.c > 0 && rollHelpFail()) {
-            const reason = entry.c >= DAILY_SAFE_LIMIT ? DEATH_REASON.PULL : DEATH_REASON.HELP;
+        if (entry.c > 0 && rollChance(helpFailChance)) {
+            const reason = entry.c >= targetMods.safeLimit ? DEATH_REASON.PULL : DEATH_REASON.HELP;
             const snap = applyDeath(entry, { reason, killerId: helperId });
             result = {
                 ok: true,
                 type: reason === DEATH_REASON.PULL ? 'help_pull' : 'help_kill',
                 entry,
                 snap,
-                helpKillChance: HELP_FAIL_CHANCE,
+                helpKillChance: helpFailChance,
             };
-        } else if (entry.c >= DAILY_SAFE_LIMIT) {
+        } else if (entry.c >= targetMods.safeLimit) {
             result = {
                 ok: true,
                 type: 'help_miss',
                 entry,
                 count: entry.c,
-                helpKillChance: HELP_FAIL_CHANCE,
+                helpKillChance: helpFailChance,
             };
         } else {
             entry.c += 1;
@@ -1156,11 +1340,15 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
 }
 
 /** 帮戒🦌：帮🦌友 -1，每日 3 次，可负 */
-export function performHelpWithdrawal(deerData, helperId, targetId, date, day) {
+export function performHelpWithdrawal(deerData, helperId, targetId, date, day, gameContext = {}) {
     const dead = rejectIfActorDead(deerData, helperId, date, day);
     if (dead) return dead;
 
     const helperMonth = ensureMonthData(deerData, helperId, date);
+    const wx = wxOf(gameContext);
+    const withdrawFail = clampDeathChance(
+        HELP_WITHDRAW_FAIL_CHANCE + (wx.helpWithdrawFailDelta || 0),
+    );
 
     const quotaLeft = getHelperWithdrawQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
@@ -1180,14 +1368,14 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day) {
 
     entry.a += 1;
 
-    if (rollHelpWithdrawFail()) {
+    if (rollHelpWithdrawFail(wx.helpWithdrawFailDelta || 0)) {
         const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
         return {
             ok: true,
             type: 'help_withdraw_fail',
             entry,
             count: entry.c,
-            failChance: HELP_WITHDRAW_FAIL_CHANCE,
+            failChance: withdrawFail,
             ...quota,
         };
     }
@@ -1361,8 +1549,8 @@ export function settleArenaPk(deerData, challengerId, targetId, date, day) {
     };
 }
 
-/** 偷鹿：35% 得手 / 25% 反噬 / 40% 空手 */
-export function performStealDeer(deerData, thiefId, targetId, date, day) {
+/** 偷鹿：35% 得手 / 反噬 / 空手（含天气修正） */
+export function performStealDeer(deerData, thiefId, targetId, date, day, gameContext = {}) {
     if (String(thiefId) === String(targetId)) {
         return { ok: false, type: 'steal_self' };
     }
@@ -1384,9 +1572,10 @@ export function performStealDeer(deerData, thiefId, targetId, date, day) {
     thiefEntry.a += 1;
 
     const curseStacks = getActiveCurseStacks(targetEntry);
-    const stealBonus = curseStacks * STEAL_CURSE_BONUS_PER_STACK;
-    const successCap = Math.min(0.95, STEAL_SUCCESS_CHANCE + stealBonus);
-    const backfireCap = successCap + STEAL_BACKFIRE_CHANCE;
+    const wx = wxOf(gameContext);
+    const stealBonus = curseStacks * STEAL_CURSE_BONUS_PER_STACK + (wx.stealDelta || 0);
+    const successCap = Math.min(0.95, Math.max(0.05, STEAL_SUCCESS_CHANCE + stealBonus));
+    const backfireCap = successCap + Math.max(0.05, STEAL_BACKFIRE_CHANCE + (wx.stealBackfireDelta || 0));
 
     const roll = Math.random();
     if (roll < successCap) {
@@ -1441,7 +1630,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day) {
 }
 
 /** 鹿咒：叠层 + 三回合内每层 +10% 鹿死 */
-export function performCurseDeer(deerData, casterId, targetId, date, day) {
+export function performCurseDeer(deerData, casterId, targetId, date, day, gameContext = {}) {
     if (String(casterId) === String(targetId)) {
         return { ok: false, type: 'curse_self' };
     }
@@ -1458,7 +1647,11 @@ export function performCurseDeer(deerData, casterId, targetId, date, day) {
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
 
     casterMonth[curseUsedKey(day)] = used + 1;
-    const stacks = applyCurseStacks(targetEntry, 1);
+    let stacks = applyCurseStacks(targetEntry, 1);
+    const wx = wxOf(gameContext);
+    if ((wx.curseExtraChance || 0) > 0 && rollChance(wx.curseExtraChance)) {
+        stacks = applyCurseStacks(targetEntry, 1);
+    }
 
     return {
         ok: true,
@@ -1501,6 +1694,70 @@ export function performCleanseCurse(deerData, helperId, targetId, date, day) {
         type: 'cleanse_curse',
         cleanseUsed: used + 1,
         cleanseLeft: DAILY_CLEANSE_CURSE_QUOTA - used - 1,
+        clearedStacks,
+    };
+}
+
+/** 鹿福：正面咒，叠层减鹿死 */
+export function performBlessDeer(deerData, casterId, targetId, date, day) {
+    if (String(casterId) === String(targetId)) {
+        return { ok: false, type: 'bless_self' };
+    }
+    const actorDead = rejectIfActorDead(deerData, casterId, date, day);
+    if (actorDead) return actorDead;
+
+    const casterMonth = ensureMonthData(deerData, casterId, date);
+    const used = readDailyUsed(casterMonth, day, blessUsedKey);
+    if (used >= DAILY_BLESS_QUOTA) {
+        return { ok: false, type: 'bless_used', blessUsed: used, blessLeft: 0 };
+    }
+
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+
+    casterMonth[blessUsedKey(day)] = used + 1;
+    const stacks = applyBlessStacks(targetEntry, 1);
+
+    return {
+        ok: true,
+        type: 'bless',
+        blessUsed: used + 1,
+        blessLeft: DAILY_BLESS_QUOTA - used - 1,
+        blessStacks: stacks,
+        blessRounds: targetEntry.bleR,
+        reduce: BLESS_DEATH_REDUCE,
+    };
+}
+
+/** 解鹿福：🦌友清除全部福咒 */
+export function performCleanseBless(deerData, helperId, targetId, date, day) {
+    if (String(helperId) === String(targetId)) {
+        return { ok: false, type: 'bless_self' };
+    }
+    const actorDead = rejectIfActorDead(deerData, helperId, date, day);
+    if (actorDead) return actorDead;
+
+    const helperMonth = ensureMonthData(deerData, helperId, date);
+    const used = readDailyUsed(helperMonth, day, cleanseBlessUsedKey);
+    if (used >= DAILY_CLEANSE_BLESS_QUOTA) {
+        return { ok: false, type: 'cleanse_bless_used', cleanseBlessUsed: used, cleanseBlessLeft: 0 };
+    }
+
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+    if (!getBlessInfo(targetEntry).active) {
+        return { ok: false, type: 'cleanse_no_bless' };
+    }
+
+    const clearedStacks = getActiveBlessStacks(targetEntry);
+    clearBless(targetEntry);
+    helperMonth[cleanseBlessUsedKey(day)] = used + 1;
+
+    return {
+        ok: true,
+        type: 'cleanse_bless',
+        cleanseBlessUsed: used + 1,
+        cleanseBlessLeft: DAILY_CLEANSE_BLESS_QUOTA - used - 1,
         clearedStacks,
     };
 }
@@ -1618,7 +1875,7 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
 }
 
 /** 鹿鸣：恶趣味喊话，小概率 ±1 */
-export function performDeerHowl(deerData, userId, date, day) {
+export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
     const used = readDailyUsed(monthData, day, howlUsedKey);
@@ -1629,21 +1886,42 @@ export function performDeerHowl(deerData, userId, date, day) {
     monthData[howlUsedKey(day)] = used + 1;
 
     if (entry.d) {
+        let ghostEffect = 'none';
+        const killerId = entry.dk || '';
+        if (killerId) {
+            const killerMonth = getMonthData(getUserRecord(deerData, killerId), date);
+            if (killerMonth) {
+                const killerEntry = ensureDayEntry(killerMonth, day);
+                if (!killerEntry.d && rollChance(GHOST_HOWL_KILLER_CURSE_CHANCE)) {
+                    applyCurseStacks(killerEntry, 1);
+                    ghostEffect = 'haunt_killer';
+                }
+            }
+        }
         return {
             ok: true,
-            type: 'howl_dead',
+            type: ghostEffect === 'haunt_killer' ? 'howl_dead_haunt' : 'howl_dead',
             count: 0,
+            lostCount: entry.snap ?? 0,
             howlUsed: used + 1,
             howlLeft: DAILY_HOWL_QUOTA - used - 1,
+            ghostEffect,
+            killerId,
+            curseStacks: killerId && ghostEffect === 'haunt_killer'
+                ? getActiveCurseStacks(ensureDayEntry(getMonthData(getUserRecord(deerData, killerId), date), day))
+                : 0,
         };
     }
 
     let howlEffect = 'none';
     let curseDispelled = 0;
-    if (rollChance(HOWL_TRAP_CHANCE)) {
+    const wx = wxOf(gameContext);
+    const trapChance = clampDeathChance(HOWL_TRAP_CHANCE + (wx.howlTrapDelta || 0));
+    const bonusChance = clampDeathChance(HOWL_BONUS_CHANCE + (wx.howlBonusDelta || 0));
+    if (rollChance(trapChance)) {
         adjustDayCount(entry, -1);
         howlEffect = 'trap';
-    } else if (rollChance(HOWL_BONUS_CHANCE)) {
+    } else if (rollChance(bonusChance)) {
         entry.c += 1;
         howlEffect = 'bonus';
         if (getCurseInfo(entry).active) {
@@ -1667,7 +1945,7 @@ export function performDeerHowl(deerData, userId, date, day) {
 }
 
 /** 倒贴鹿：50% 你 +1 对方 -1，失败你 -2 */
-export function performGreedDeer(deerData, userId, targetId, date, day) {
+export function performGreedDeer(deerData, userId, targetId, date, day, gameContext = {}) {
     if (String(userId) === String(targetId)) {
         return { ok: false, type: 'greed_self' };
     }
@@ -1686,7 +1964,9 @@ export function performGreedDeer(deerData, userId, targetId, date, day) {
     const selfEntry = ensureDayEntry(selfMonth, day);
     selfEntry.a += 1;
 
-    if (rollChance(GREED_SUCCESS_CHANCE)) {
+    const wx = wxOf(gameContext);
+    const greedChance = clampDeathChance(GREED_SUCCESS_CHANCE + (wx.greedSuccessDelta || 0));
+    if (rollChance(greedChance)) {
         adjustDayCount(selfEntry, 1);
         adjustDayCount(targetEntry, -1);
         let curseStripped = 0;
@@ -1715,7 +1995,7 @@ export function performGreedDeer(deerData, userId, targetId, date, day) {
 }
 
 /** 群鹿溅：日榜 Top5 各 -1，带咒者额外引爆，20% 叠咒，施术者反噬 -2 */
-export function performGroupSplash(deerData, casterId, memberIds, date, day) {
+export function performGroupSplash(deerData, casterId, memberIds, date, day, gameContext = {}) {
     const actorDead = rejectIfActorDead(deerData, casterId, date, day);
     if (actorDead) return actorDead;
 
@@ -1736,6 +2016,9 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day) {
     }
 
     const victims = [];
+    const wx = wxOf(gameContext);
+    const splashDamage = Math.max(1, GROUP_SPLASH_DAMAGE + (wx.splashDamageBonus || 0));
+    const splashCurseChance = clampDeathChance(GROUP_SPLASH_CURSE_CHANCE + (wx.splashCurseDelta || 0));
     for (const uid of targets) {
         const entry = getDayEntry(getMonthData(getUserRecord(deerData, uid), date), day);
         if (entry?.d) continue;
@@ -1743,7 +2026,7 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day) {
         const targetMonth = ensureMonthData(deerData, uid, date);
         const targetEntry = ensureDayEntry(targetMonth, day);
         const hadCurse = getCurseInfo(targetEntry).active;
-        adjustDayCount(targetEntry, -GROUP_SPLASH_DAMAGE);
+        adjustDayCount(targetEntry, -splashDamage);
         let burst = false;
         if (hadCurse) {
             adjustDayCount(targetEntry, -GROUP_SPLASH_CURSE_BURST_DAMAGE);
@@ -1751,7 +2034,7 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day) {
         }
         targetEntry.a += 1;
         let cursed = false;
-        if (rollChance(GROUP_SPLASH_CURSE_CHANCE)) {
+        if (rollChance(splashCurseChance)) {
             applyCurseStacks(targetEntry, 1);
             cursed = true;
         }
@@ -1782,7 +2065,7 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day) {
         burstCount: victims.filter((v) => v.burst).length,
         cursedCount: victims.filter((v) => v.cursed).length,
         recoil: GROUP_SPLASH_RECOIL,
-        damage: GROUP_SPLASH_DAMAGE,
+        damage: splashDamage,
         burstDamage: GROUP_SPLASH_CURSE_BURST_DAMAGE,
         casterCount: casterEntry.c,
         splashUsed: used + 1,
@@ -1830,7 +2113,7 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
 }
 
 /** 碰瓷鹿：38% 你+1ta-1 / 32% 双-1 / 30% 你只-2，碰瓷成功小概率叠咒 */
-export function performBumperDeer(deerData, actorId, targetId, date, day) {
+export function performBumperDeer(deerData, actorId, targetId, date, day, gameContext = {}) {
     if (String(actorId) === String(targetId)) {
         return { ok: false, type: 'bumper_self' };
     }
@@ -1851,8 +2134,10 @@ export function performBumperDeer(deerData, actorId, targetId, date, day) {
     actorEntry.a += 1;
     targetEntry.a += 1;
 
+    const wx = wxOf(gameContext);
+    const winChance = clampDeathChance(BUMPER_WIN_CHANCE + (wx.bumperWinDelta || 0));
     const roll = Math.random();
-    if (roll < BUMPER_WIN_CHANCE) {
+    if (roll < winChance) {
         adjustDayCount(actorEntry, 1);
         adjustDayCount(targetEntry, -1);
         let curseApplied = false;
@@ -1870,7 +2155,7 @@ export function performBumperDeer(deerData, actorId, targetId, date, day) {
             bumperLeft: DAILY_BUMPER_QUOTA - used - 1,
         };
     }
-    if (roll < BUMPER_WIN_CHANCE + BUMPER_DRAW_CHANCE) {
+    if (roll < winChance + BUMPER_DRAW_CHANCE) {
         adjustDayCount(actorEntry, -1);
         adjustDayCount(targetEntry, -1);
         return {
@@ -1895,7 +2180,7 @@ export function performBumperDeer(deerData, actorId, targetId, date, day) {
 }
 
 /** 抽鹿签：单人每日运势（+1/-1/催更符/自咒/撕咒/空签） */
-export function performDeerLottery(deerData, userId, date, day) {
+export function performDeerLottery(deerData, userId, date, day, gameContext = {}) {
     const actorDead = rejectIfActorDead(deerData, userId, date, day);
     if (actorDead) return actorDead;
 
@@ -1909,7 +2194,9 @@ export function performDeerLottery(deerData, userId, date, day) {
     const entry = ensureDayEntry(monthData, day);
     entry.a += 1;
 
-    const roll = Math.random();
+    const wx = wxOf(gameContext);
+    let roll = Math.random() - (wx.lotteryLuckDelta || 0);
+    roll = Math.max(0, Math.min(0.999, roll));
     let outcome;
     if (roll < 0.28) outcome = 'plus';
     else if (roll < 0.48) outcome = 'minus';
@@ -1955,6 +2242,234 @@ export function performDeerLottery(deerData, userId, date, day) {
         curseRounds: ci.rounds,
         lotteryUsed: used + 1,
         lotteryLeft: DAILY_LOTTERY_QUOTA - used - 1,
+    };
+}
+
+/** 冥咒：鹿死专属，对活人叠咒 */
+export function performSpectralCurse(deerData, ghostId, targetId, date, day) {
+    if (String(ghostId) === String(targetId)) {
+        return { ok: false, type: 'spectral_curse_self' };
+    }
+    const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
+    if (mustDead) return mustDead;
+
+    const ghostMonth = ensureMonthData(deerData, ghostId, date);
+    const used = readDailyUsed(ghostMonth, day, spectralCurseUsedKey);
+    if (used >= DAILY_SPECTRAL_CURSE_QUOTA) {
+        return { ok: false, type: 'spectral_curse_used', spectralCurseUsed: used, spectralCurseLeft: 0 };
+    }
+
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+
+    ghostMonth[spectralCurseUsedKey(day)] = used + 1;
+    const stacks = applyCurseStacks(targetEntry, 1);
+
+    return {
+        ok: true,
+        type: 'spectral_curse',
+        spectralCurseUsed: used + 1,
+        spectralCurseLeft: DAILY_SPECTRAL_CURSE_QUOTA - used - 1,
+        curseStacks: stacks,
+        curseRounds: targetEntry.curR,
+        ascended: stacks >= CURSE_ASCENDED_STACKS,
+    };
+}
+
+/** 索命鹿：鹿死专属，有凶手必须@凶手 */
+export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
+    if (String(ghostId) === String(targetId)) {
+        return { ok: false, type: 'vengeance_self' };
+    }
+    const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
+    if (mustDead) return mustDead;
+
+    const ghostEntry = ensureDayEntry(ensureMonthData(deerData, ghostId, date), day);
+    const killerId = ghostEntry.dk || '';
+    const hasKiller = !!killerId;
+
+    if (hasKiller && String(killerId) !== String(targetId)) {
+        return { ok: false, type: 'vengeance_not_killer', killerId };
+    }
+
+    const ghostMonth = ensureMonthData(deerData, ghostId, date);
+    const used = readDailyUsed(ghostMonth, day, vengeanceUsedKey);
+    if (used >= DAILY_VENGEANCE_QUOTA) {
+        return { ok: false, type: 'vengeance_used', vengeanceUsed: used, vengeanceLeft: 0 };
+    }
+
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+
+    ghostMonth[vengeanceUsedKey(day)] = used + 1;
+
+    if (hasKiller) {
+        const roll = Math.random();
+        if (roll < VENGEANCE_CURSE_CHANCE) {
+            const stacks = applyCurseStacks(targetEntry, 1);
+            return {
+                ok: true,
+                type: 'vengeance_curse',
+                mode: 'killer',
+                curseStacks: stacks,
+                targetCount: targetEntry.c,
+                vengeanceUsed: used + 1,
+                vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+            };
+        }
+        if (roll < VENGEANCE_CURSE_CHANCE + VENGEANCE_DEDUCT_CHANCE) {
+            adjustDayCount(targetEntry, -1);
+            targetEntry.a += 1;
+            return {
+                ok: true,
+                type: 'vengeance_deduct',
+                mode: 'killer',
+                targetCount: targetEntry.c,
+                vengeanceUsed: used + 1,
+                vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+            };
+        }
+        return {
+            ok: true,
+            type: 'vengeance_fail',
+            mode: 'killer',
+            vengeanceUsed: used + 1,
+            vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+        };
+    }
+
+    if (rollChance(VENGEANCE_SUBSTITUTE_CURSE_CHANCE)) {
+        const stacks = applyCurseStacks(targetEntry, 1);
+        return {
+            ok: true,
+            type: 'vengeance_substitute',
+            mode: 'substitute',
+            curseStacks: stacks,
+            targetCount: targetEntry.c,
+            vengeanceUsed: used + 1,
+            vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+        };
+    }
+    return {
+        ok: true,
+        type: 'vengeance_fail',
+        mode: 'substitute',
+        vengeanceUsed: used + 1,
+        vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+    };
+}
+
+/** 托梦鹿：鹿死专属，🦌友互助（催更符或缓咒） */
+export function performDreamDeer(deerData, ghostId, targetId, date, day) {
+    if (String(ghostId) === String(targetId)) {
+        return { ok: false, type: 'dream_self' };
+    }
+    const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
+    if (mustDead) return mustDead;
+
+    const ghostMonth = ensureMonthData(deerData, ghostId, date);
+    const used = readDailyUsed(ghostMonth, day, dreamUsedKey);
+    if (used >= DAILY_DREAM_QUOTA) {
+        return { ok: false, type: 'dream_used', dreamUsed: used, dreamLeft: 0 };
+    }
+
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const targetEntry = ensureDayEntry(targetMonth, day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+
+    ghostMonth[dreamUsedKey(day)] = used + 1;
+    let dreamEffect = 'urge';
+    if (getCurseInfo(targetEntry).active) {
+        targetEntry.curR = Math.max(0, (targetEntry.curR || 0) - 1);
+        if (targetEntry.curR <= 0) clearCurse(targetEntry);
+        dreamEffect = 'soothe';
+    } else if (targetEntry.c <= 0) {
+        targetMonth[urgeBuffKey(day)] = 1;
+    } else {
+        targetMonth[urgeBuffKey(day)] = 1;
+    }
+
+    return {
+        ok: true,
+        type: 'dream',
+        dreamEffect,
+        targetCount: targetEntry.c,
+        curseRounds: getCurseRoundsLeft(targetEntry),
+        curseStacks: getActiveCurseStacks(targetEntry),
+        dreamUsed: used + 1,
+        dreamLeft: DAILY_DREAM_QUOTA - used - 1,
+    };
+}
+
+/** 还阳签：鹿死专属，小概率自救还阳 */
+export function performReviveLottery(deerData, userId, date, day) {
+    const mustDead = rejectUnlessActorDead(deerData, userId, date, day);
+    if (mustDead) return mustDead;
+
+    const monthData = ensureMonthData(deerData, userId, date);
+    const used = readDailyUsed(monthData, day, reviveLotteryUsedKey);
+    if (used >= DAILY_REVIVE_LOTTERY_QUOTA) {
+        return { ok: false, type: 'revive_lottery_used', reviveLotteryUsed: used, reviveLotteryLeft: 0 };
+    }
+
+    monthData[reviveLotteryUsedKey(day)] = used + 1;
+    const entry = ensureDayEntry(monthData, day);
+    const snap = entry.snap ?? 0;
+    const roll = Math.random();
+
+    if (roll < REVIVE_LOTTERY_FULL_CHANCE) {
+        reviveDayEntry(entry);
+        entry.revived += 1;
+        return {
+            ok: true,
+            type: 'revive_lottery_full',
+            count: entry.c,
+            restored: snap,
+            reviveLotteryUsed: used + 1,
+            reviveLotteryLeft: 0,
+        };
+    }
+    if (roll < REVIVE_LOTTERY_FULL_CHANCE + REVIVE_LOTTERY_WEAK_CHANCE) {
+        entry.d = 0;
+        entry.c = REVIVE_LOTTERY_WEAK_COUNT;
+        entry.snap = 0;
+        entry.dr = '';
+        entry.dk = '';
+        clearCurse(entry);
+        entry.revived += 1;
+        return {
+            ok: true,
+            type: 'revive_lottery_weak',
+            count: entry.c,
+            reviveLotteryUsed: used + 1,
+            reviveLotteryLeft: 0,
+        };
+    }
+    return {
+        ok: true,
+        type: 'revive_lottery_blank',
+        lostCount: snap,
+        reviveLotteryUsed: used + 1,
+        reviveLotteryLeft: 0,
+    };
+}
+
+/** 鹿碑：鹿死专属，查看死因档案 */
+export function performTombstone(deerData, userId, date, day) {
+    const mustDead = rejectUnlessActorDead(deerData, userId, date, day);
+    if (mustDead) return mustDead;
+
+    const entry = ensureDayEntry(ensureMonthData(deerData, userId, date), day);
+    return {
+        ok: true,
+        type: 'tombstone',
+        lostCount: entry.snap ?? 0,
+        deathReason: entry.dr || DEATH_REASON.SELF,
+        killerId: entry.dk || '',
+        deathCount: entry.dc ?? 0,
+        attempts: entry.a ?? 0,
+        helped: entry.helped ?? 0,
+        revived: entry.revived ?? 0,
     };
 }
 

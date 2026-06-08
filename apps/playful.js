@@ -17,6 +17,7 @@ import { ERROR_MESSAGES } from '../constants/game.js';
 import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 import { REG } from '../constants/commands.js';
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
+import { loadGameContext } from '../utils/context.js';
 import { replyDeerPanel } from '../utils/panel.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
@@ -66,7 +67,8 @@ export class DeerPlayful extends plugin {
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const result = fn(deerData, user_id, targetId, date, day);
+        const ctx = await loadGameContext(date);
+        const result = fn(deerData, user_id, targetId, date, day, ctx);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;
@@ -141,7 +143,8 @@ export class DeerPlayful extends plugin {
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const result = performDeerHowl(deerData, user_id, date, day);
+        const ctx = await loadGameContext(date);
+        const result = performDeerHowl(deerData, user_id, date, day, ctx);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;
@@ -163,7 +166,8 @@ export class DeerPlayful extends plugin {
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const result = performDeerLottery(deerData, user_id, date, day);
+        const ctx = await loadGameContext(date);
+        const result = performDeerLottery(deerData, user_id, date, day, ctx);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;
@@ -190,7 +194,8 @@ export class DeerPlayful extends plugin {
         const day = date.getDate();
         const members = Array.from((await this.e.group.getMemberMap()).keys());
         const deerData = await loadDeerData();
-        const result = performGroupSplash(deerData, user_id, members, date, day);
+        const ctx = await loadGameContext(date);
+        const result = performGroupSplash(deerData, user_id, members, date, day, ctx);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;

@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "path";
 import config from "./model/config.js";
+import hub from "./lib/deer-hub.js";
+
+hub.startWatch();
 if (!global.segment) {
     global.segment = (await import("oicq")).segment
 }

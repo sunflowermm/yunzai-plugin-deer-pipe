@@ -1,0 +1,10 @@
+# 天象定时群播（00:00 / 12:00）
+weather_broadcast:
+  enabled: true
+  # all=机器人所在全部群 | selected=仅 group_ids
+  mode: selected
+  group_ids: []
+  # 鹿神赐福时是否向相同目标群播
+  bless_broadcast: true
+  # 多群推送间隔（毫秒），对齐向日葵早报 delay
+  interval_ms: 500

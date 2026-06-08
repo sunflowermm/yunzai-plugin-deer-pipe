@@ -1,52 +1,29 @@
 import { REG } from '../constants/commands.js';
-
-import { generateHelpImage } from '../utils/help-render.js';
-
+import { generateHelpImages } from '../utils/help-render.js';
 import { HELP_TAGLINE } from '../constants/help-catalog.js';
 
-
-
 export class DeerHelp extends plugin {
-
     constructor() {
-
         super({
-
             name: '🦌管说明书',
-
-            dsc: '鹿/🦌帮助 · 搞笑长图指令手册',
-
+            dsc: '鹿/🦌帮助 · 双页指令手册',
             event: 'message',
-
             priority: 4999,
             bypassThrottle: true,
-
             rule: [
-
                 { reg: REG.helpPage, fnc: 'deerHelp' },
-
             ],
-
         });
-
     }
-
-
 
     async deerHelp() {
-
-        const img = await generateHelpImage();
-
-        await this.reply([
-
-            `${HELP_TAGLINE}\n下面这张才是正经说明书（大概）\n提示：所有「鹿」与「🦌」可互换`,
-
-            segment.image(img),
-
-        ], true);
-
+        const images = await generateHelpImages();
+        const parts = [
+            `${HELP_TAGLINE}\n共 2 张图：活鹿篇（玩法/天象/生态）+ 冥界篇（对线/死亡/特权/彩蛋）\n提示：所有「鹿」与「🦌」可互换`,
+        ];
+        for (const buf of images) {
+            parts.push(segment.image(buf));
+        }
+        await this.reply(parts, true);
     }
-
 }
-
-
