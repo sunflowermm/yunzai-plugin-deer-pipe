@@ -1,7 +1,7 @@
 import fs from 'fs';
 import sharp from 'sharp';
 import { DEERPIPE_IMG } from '../constants/core.js';
-import { escapeXml, truncText } from './svg-base.js';
+import { escapeXml, truncText, textCentered } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
     HELP_FOOTER,
@@ -58,7 +58,7 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
         <text x="${IMG_W / 2}" y="34" font-size="28" font-family="MiSans,sans-serif" fill="#ff6b35" text-anchor="middle" font-weight="bold">${escapeXml(HELP_TAGLINE)}</text>
         <text x="${IMG_W / 2}" y="62" font-size="20" font-family="MiSans,sans-serif" fill="#5c3d2e" text-anchor="middle" font-weight="bold">${escapeXml(pageDef.title)}</text>
         <text x="${IMG_W / 2}" y="88" font-size="15" font-family="MiSans,sans-serif" fill="#8b5a3c" text-anchor="middle">${escapeXml(pageDef.subtitle)}</text>
-        <text x="${PAD}" y="118" font-size="13" font-family="MiSans,sans-serif" fill="#a07050">${truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52)}</text>
+        ${textCentered(IMG_W / 2, 118, truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52), 'font-family="MiSans,sans-serif"', { size: 13, fill: '#a07050' })}
     `);
     for (const sec of sections) {
         y += LINE_H;
@@ -137,10 +137,4 @@ export async function generateHelpImages() {
         buffers.push(await composePage(HELP_PAGES[i], i, total));
     }
     return buffers;
-}
-
-/** @deprecated 单页兼容 */
-export async function generateHelpImage() {
-    const [first] = await generateHelpImages();
-    return first;
 }

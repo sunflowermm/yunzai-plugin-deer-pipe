@@ -192,7 +192,7 @@ function seededRandom(seed) {
     };
 }
 
-/** 卡片额外 SVG 滤镜/渐变 */
+/** 卡片额外 SVG 渐变（供 renderStyledCard / 鹿况图复用） */
 export function cardSvgExtraDefs(theme) {
     return `
         <linearGradient id="accentGlow" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -200,10 +200,68 @@ export function cardSvgExtraDefs(theme) {
             <stop offset="50%" style="stop-color:${theme.accent};stop-opacity:0.45"/>
             <stop offset="100%" style="stop-color:${theme.accent};stop-opacity:0.15"/>
         </linearGradient>
-        <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="2.8" result="b"/>
-            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
+    `;
+}
+
+export const STAT_CHIP_W = 152;
+export const STAT_CHIP_GAP = 16;
+export const DEFAULT_CARD_W = 700;
+export const STAT_COLS = 2;
+
+/** 一行等宽元素水平居中的起始 X */
+export function centerRowStart(itemCount, itemW, gap, canvasW) {
+    const n = Math.max(1, itemCount);
+    const rowWidth = n * itemW + (n - 1) * gap;
+    return (canvasW - rowWidth) / 2;
+}
+
+/** 仅匹配「N 次」的次数比例（避免误匹配百分比等） */
+export function parseDayCountRatio(value, limit = 8) {
+    const m = String(value).trim().match(/^(-?\d+)\s*次$/);
+    if (!m) return null;
+    const n = parseInt(m[1], 10);
+    return Math.min(1, Math.abs(n) / Math.max(1, limit));
+}
+
+/** 居中 stat chip 网格（末行不足列数时仍居中） */
+export function buildStatGrid(rows, theme, statsTop, canvasW = DEFAULT_CARD_W, {
+    cols = STAT_COLS,
+    gapY = 44,
+    countRatio = parseDayCountRatio,
+} = {}) {
+    let grid = '';
+    for (let i = 0; i < rows.length; i += 1) {
+        const rowIdx = Math.floor(i / cols);
+        const col = i % cols;
+        const rowStart = rowIdx * cols;
+        const rowCount = Math.min(cols, rows.length - rowStart);
+        const startX = centerRowStart(rowCount, STAT_CHIP_W, STAT_CHIP_GAP, canvasW);
+        const x = startX + col * (STAT_CHIP_W + STAT_CHIP_GAP);
+        const y = statsTop + rowIdx * gapY;
+        const row = rows[i];
+        grid += buildStatChip(x, y, row.label, row.value, row.color || theme.line, theme);
+        const ratio = countRatio?.(row.value);
+        if (ratio != null) {
+            grid += buildMiniBar(x + 10, y + 16, STAT_CHIP_W - 20, ratio, row.color || theme.accent);
+        }
+    }
+    return grid;
+}
+
+/** 居中文本块（单行） */
+export function textCentered(cx, y, content, style, { size = 14, fill, weight, italic } = {}) {
+    const extra = [
+        weight ? `font-weight="${weight}"` : '',
+        italic ? 'font-style="italic"' : '',
+    ].filter(Boolean).join(' ');
+    return `<text ${style} x="${cx}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="middle" ${extra}>${content}</text>`;
+}
+
+/** 底部居中脚注条 */
+export function buildFooterBar(canvasW, y, text, theme, maxLen = 48) {
+    return `
+        <rect x="20" y="${y - 6}" width="${canvasW - 40}" height="28" rx="8" fill="${theme.highlight || theme.panel}" opacity="0.55"/>
+        ${textCentered(canvasW / 2, y + 12, truncText(text, maxLen), TXT_SOFT, { size: 12, fill: theme.muted, italic: true })}
     `;
 }
 
@@ -249,18 +307,17 @@ export function buildRibbonBadge(cx, y, text, kind = 'win') {
     const w = Math.max(48, String(text).length * 14 + 18);
     return `
         <rect x="${cx - w / 2}" y="${y}" width="${w}" height="24" rx="12" fill="${bg}" opacity="0.95"/>
-        <text ${TXT_SOFT} x="${cx}" y="${y + 17}" font-size="13" fill="${fg}" text-anchor="middle" font-weight="bold">${escapeXml(text)}</text>
+        <text ${TXT_PLAIN} x="${cx}" y="${y + 17}" font-size="13" fill="${fg}" text-anchor="middle" font-weight="bold">${escapeXml(text)}</text>
     `;
 }
 
 /** 统计 chip（圆角条，值侧截断防溢出） */
 export function buildStatChip(x, y, label, value, color, theme) {
-    const chipW = 152;
     const val = truncText(String(value ?? ''), 10);
     return `
-        <rect x="${x}" y="${y - 18}" width="${chipW}" height="34" rx="9" fill="${theme.panel}" stroke="${color}" stroke-width="1.2" opacity="0.92"/>
+        <rect x="${x}" y="${y - 18}" width="${STAT_CHIP_W}" height="34" rx="9" fill="${theme.panel}" stroke="${color}" stroke-width="1.2" opacity="0.92"/>
         <text ${TXT_SOFT} x="${x + 10}" y="${y + 1}" font-size="11" fill="${theme.muted}">${escapeXml(label)}</text>
-        <text ${TXT_SOFT} x="${x + chipW - 10}" y="${y + 1}" font-size="13" fill="${color}" text-anchor="end" font-weight="bold">${val}</text>
+        <text ${TXT_SOFT} x="${x + STAT_CHIP_W - 10}" y="${y + 1}" font-size="13" fill="${color}" text-anchor="end" font-weight="bold">${val}</text>
     `;
 }
 
