@@ -15,7 +15,6 @@ export default class Leaderboard extends Base {
             isWithdrawal = false,
             totalCount = 0,
         } = options;
-
         return {
             ...this.screenData,
             saveId: `leaderboard-${scope}-${year}-${month}`,

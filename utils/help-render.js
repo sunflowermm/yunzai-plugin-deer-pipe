@@ -36,14 +36,12 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
     const sections = sectionsForPage(pageDef);
     let y = HEADER_H + PAD;
     const blocks = [];
-
     blocks.push(`
         <text x="${IMG_W / 2}" y="34" font-size="28" font-family="MiSans,sans-serif" fill="#ff6b35" text-anchor="middle" font-weight="bold">${escapeXml(HELP_TAGLINE)}</text>
         <text x="${IMG_W / 2}" y="62" font-size="20" font-family="MiSans,sans-serif" fill="#5c3d2e" text-anchor="middle" font-weight="bold">${escapeXml(pageDef.title)}</text>
         <text x="${IMG_W / 2}" y="88" font-size="15" font-family="MiSans,sans-serif" fill="#8b5a3c" text-anchor="middle">${escapeXml(pageDef.subtitle)}</text>
         <text x="${PAD}" y="118" font-size="13" font-family="MiSans,sans-serif" fill="#a07050">${escapeXml(pickRandom(HELP_EASTER_FOOTNOTES) || '')}</text>
     `);
-
     for (const sec of sections) {
         y += LINE_H;
         blocks.push(`
@@ -67,7 +65,6 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
     blocks.push(`
         <text x="${IMG_W / 2}" y="${imgH - 28}" font-size="13" font-family="MiSans,sans-serif" fill="#b8956a" text-anchor="middle">${escapeXml(foot)}</text>
     `);
-
     return Buffer.from(`
         <svg width="${IMG_W}" height="${imgH}" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -97,7 +94,6 @@ async function composePage(pageDef, pageIndex, totalPages) {
         .rotate(-12, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
-
     return sharp({
         create: {
             width: IMG_W,

@@ -613,7 +613,6 @@ export function rejectUnlessActorDead(deerData, userId, date, day) {
 export function validateImperialStart(deerData, userId, date, day, members) {
     const dead = rejectIfActorDead(deerData, userId, date, day);
     if (dead) return dead;
-
     const userMonth = getMonthData(getUserRecord(deerData, userId), date);
     if (hasUsedImperial(userMonth, day)) {
         return {
@@ -791,7 +790,6 @@ function migrateMonthDays(monthData) {
 
 export function migrateUserRecord(userRecord, now = new Date()) {
     if (!userRecord || typeof userRecord !== 'object') return {};
-
     if (Object.keys(userRecord).some(isMonthKey)) {
         const cleaned = {};
         for (const [k, v] of Object.entries(userRecord)) {
@@ -805,7 +803,6 @@ export function migrateUserRecord(userRecord, now = new Date()) {
         if (isDayKey(k)) monthData[k] = normalizeDayEntry(v);
     }
     if (!Object.keys(monthData).length) return {};
-
     let year = now.getFullYear();
     if (userRecord.lastSignMonth !== undefined) {
         year = inferYearFromMonth(userRecord.lastSignMonth, now);
@@ -817,15 +814,12 @@ export function migrateUserRecord(userRecord, now = new Date()) {
 export function migrateAllData(deerData, now = new Date()) {
     if (!deerData || typeof deerData !== 'object') return false;
     let changed = false;
-
     for (const userId of Object.keys(deerData)) {
         const raw = deerData[userId];
         if (!raw || typeof raw !== 'object') continue;
-
         const needsMigrate = raw.lastSignMonth !== undefined
             || Object.keys(raw).some(k => isDayKey(k))
             || Object.values(raw).some(v => typeof v === 'number');
-
         if (needsMigrate || !Object.keys(raw).some(isMonthKey)) {
             const migrated = migrateUserRecord(raw, now);
             if (JSON.stringify(raw) !== JSON.stringify(migrated)) {
@@ -863,20 +857,8 @@ export function ensureMonthData(deerData, userId, date) {
     return deerData[uid][monthKey];
 }
 
-export function getDayCount(userRecord, date, day) {
-    return getEffectiveCount(getDayEntry(getMonthData(userRecord, date), day));
-}
-
 export function sumMonthData(monthData, upToDay = 31) {
     return sumMonthNet(monthData, { upToDay }).sum;
-}
-
-export function sumYearData(userRecord, year) {
-    if (!userRecord) return 0;
-    const prefix = `${year}-`;
-    return Object.entries(userRecord)
-        .filter(([k]) => k.startsWith(prefix))
-        .reduce((acc, [, monthData]) => acc + sumMonthData(monthData), 0);
 }
 
 export function getYearMonths(userRecord, year) {
@@ -921,20 +903,21 @@ export function calcMonthStats(monthData, upToDay) {
     if (!monthData) {
         return { total: 0, maxDay: 0, maxCount: 0, activeDays: 0, streak: 0, deathDays: 0 };
     }
-    let total = 0;
+    const { sum: total } = sumMonthNet(monthData, { upToDay });
     let maxDay = 0;
     let maxCount = 0;
     let activeDays = 0;
     let deathDays = 0;
-
     for (const [k, v] of Object.entries(monthData)) {
         if (!isDayKey(k)) continue;
         const day = parseInt(k, 10);
         if (day > upToDay) continue;
-        if (isDayDead(v)) { deathDays++; continue; }
+        if (isDayDead(v)) {
+            deathDays++;
+            continue;
+        }
         const c = getRawDayCount(v);
         if (c === null) continue;
-        total += c;
         if (c !== 0) activeDays++;
         if (c > maxCount) {
             maxCount = c;
@@ -954,25 +937,22 @@ export function calcMonthStats(monthData, upToDay) {
 
 export function calcYearStats(userRecord, year, now = new Date()) {
     const months = getYearMonths(userRecord, year);
-    let total = 0;
+    const upToMonth = now.getMonth() + 1;
+    const { sum: total } = sumYearNet(userRecord, year, now);
     let activeDays = 0;
     let maxMonth = 0;
     let maxMonthCount = 0;
     let deathDays = 0;
-
     for (const [monthKey, monthData] of Object.entries(months)) {
-        const monthTotal = sumMonthData(monthData);
-        total += monthTotal;
-        activeDays += Object.keys(monthData).filter(k => {
-            if (!isDayKey(k)) return false;
-            if (isDayDead(monthData[k])) return true;
-            const c = getRawDayCount(monthData[k]);
-            return c !== null && c !== 0;
-        }).length;
-        deathDays += Object.keys(monthData).filter(k => isDayKey(k) && isDayDead(monthData[k])).length;
+        const m = parseInt(monthKey.split('-')[1], 10);
+        const capDay = m === upToMonth ? now.getDate() : 31;
+        const monthTotal = sumMonthNet(monthData, { upToDay: capDay }).sum;
+        const ms = calcMonthStats(monthData, capDay);
+        activeDays += ms.activeDays;
+        deathDays += ms.deathDays;
         if (monthTotal > maxMonthCount) {
             maxMonthCount = monthTotal;
-            maxMonth = parseInt(monthKey.split('-')[1], 10);
+            maxMonth = m;
         }
     }
 
@@ -1105,7 +1085,6 @@ function rollHelpWithdrawFail(extra = 0) {
 export function performLu(deerData, userId, date, day, gameContext = {}) {
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
-
     if (entry.d) {
         return { ok: false, type: 'dead', entry, snap: entry.snap, lostCount: entry.snap };
     }
@@ -1119,7 +1098,6 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
     const hadUrgeBuff = !!monthData[urgeBuffKey(day)];
     const safeLimit = mods.safeLimit;
     let urgeBonus = 0;
-
     if (entry.c < safeLimit) {
         entry.c += 1;
         if (hadUrgeBuff) {
@@ -1136,7 +1114,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
             type: urgeBonus ? 'safe_urged' : 'safe',
             entry,
             count: entry.c,
-            safeLeft: safeLimit - entry.c,
+            safeLeft: entry.c < 0 ? 0 : Math.max(0, safeLimit - entry.c),
             safeLimit,
             urgeBonus,
             hadCurse: hadActiveCurse,
@@ -1210,9 +1188,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
 export function performHelpLu(deerData, helperId, targetId, date, day, gameContext = {}) {
     const dead = rejectIfActorDead(deerData, helperId, date, day);
     if (dead) return dead;
-
     const helperMonth = ensureMonthData(deerData, helperId, date);
-
     const quotaLeft = getHelperQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
         return {
@@ -1229,7 +1205,6 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
     const helpFailChance = clampDeathChance(HELP_FAIL_CHANCE + targetMods.helpFailDelta);
     const helpKey = String(helperId);
     let result;
-
     if (entry.d) {
         const wx = wxOf(gameContext);
         const reviveFail = clampDeathChance(
@@ -1259,7 +1234,6 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
         entry.a += 1;
-
         if (entry.c > 0 && rollChance(helpFailChance)) {
             const reason = entry.c >= targetMods.safeLimit ? DEATH_REASON.PULL : DEATH_REASON.HELP;
             const snap = applyDeath(entry, { reason, killerId: helperId });
@@ -1299,7 +1273,6 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
 export function performWithdrawal(deerData, userId, date, day, { pastDay = false } = {}) {
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
-
     if (entry.d) {
         return { ok: false, type: 'withdrawal_dead' };
     }
@@ -1317,7 +1290,6 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
 
     const actorDead = rejectIfActorDead(deerData, userId, date, day);
     if (actorDead) return actorDead;
-
     const initiatorMonth = ensureMonthData(deerData, userId, date);
     if (hasUsedTogether(initiatorMonth, day)) {
         return { ok: false, type: 'together_used' };
@@ -1325,7 +1297,6 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
 
     const selfEntry = ensureDayEntry(initiatorMonth, day);
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
-
     if (targetEntry.d) {
         return { ok: false, type: 'target_dead' };
     }
@@ -1335,7 +1306,6 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
     selfEntry.a += 1;
     targetEntry.a += 1;
     initiatorMonth[togetherUsedKey(day)] = 1;
-
     return {
         ok: true,
         type: 'together_fall',
@@ -1349,13 +1319,11 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
 export function performHelpWithdrawal(deerData, helperId, targetId, date, day, gameContext = {}) {
     const dead = rejectIfActorDead(deerData, helperId, date, day);
     if (dead) return dead;
-
     const helperMonth = ensureMonthData(deerData, helperId, date);
     const wx = wxOf(gameContext);
     const withdrawFail = clampDeathChance(
         HELP_WITHDRAW_FAIL_CHANCE + (wx.helpWithdrawFailDelta || 0),
     );
-
     const quotaLeft = getHelperWithdrawQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
         return {
@@ -1373,7 +1341,6 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
     }
 
     entry.a += 1;
-
     if (rollHelpWithdrawFail(wx.helpWithdrawFailDelta || 0)) {
         const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
         return {
@@ -1401,12 +1368,10 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
 export function performPrivilegeRevive(deerData, userId, date, day) {
     const deny = rejectUnlessPrivileged(userId);
     if (deny) return deny;
-
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
     const wasDead = reviveDayEntry(entry);
     resetUserDayMeta(monthData, day);
-
     return {
         ok: true,
         type: 'privilege_revive',
@@ -1488,7 +1453,6 @@ export function validateArenaStart(deerData, challengerId, targetId, date, day) 
 
     const actorDead = rejectIfActorDead(deerData, challengerId, date, day);
     if (actorDead) return actorDead;
-
     const targetDead = isUserDeadToday(deerData, targetId, date, day);
     if (targetDead) {
         return { ok: false, type: 'arena_target_dead' };
@@ -1522,7 +1486,6 @@ export function validateArenaStart(deerData, challengerId, targetId, date, day) 
 export function settleArenaPk(deerData, challengerId, targetId, date, day) {
     const check = validateArenaStart(deerData, challengerId, targetId, date, day);
     if (!check.ok) return check;
-
     if (!markArenaUsed(deerData, challengerId, date, day)) {
         return { ok: false, type: 'arena_used' };
     }
@@ -1537,12 +1500,10 @@ export function settleArenaPk(deerData, challengerId, targetId, date, day) {
     const loserId = challengerWins ? targetId : challengerId;
     const winnerEntry = challengerWins ? challengerEntry : targetEntry;
     const loserEntry = challengerWins ? targetEntry : challengerEntry;
-
     adjustDayCount(loserEntry, -ARENA_STAKE);
     adjustDayCount(winnerEntry, ARENA_STAKE);
     loserEntry.a += 1;
     winnerEntry.a += 1;
-
     return {
         ok: true,
         type: challengerWins ? 'arena_win_challenger' : 'arena_win_target',
@@ -1562,7 +1523,6 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     }
     const actorDead = rejectIfActorDead(deerData, thiefId, date, day);
     if (actorDead) return actorDead;
-
     const thiefMonth = ensureMonthData(deerData, thiefId, date);
     const used = readDailyUsed(thiefMonth, day, stealUsedKey);
     if (used >= DAILY_STEAL_QUOTA) {
@@ -1572,17 +1532,14 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'steal_target_dead' };
     if (targetEntry.c <= 0) return { ok: false, type: 'steal_empty' };
-
     thiefMonth[stealUsedKey(day)] = used + 1;
     const thiefEntry = ensureDayEntry(thiefMonth, day);
     thiefEntry.a += 1;
-
     const curseStacks = getActiveCurseStacks(targetEntry);
     const wx = wxOf(gameContext);
     const stealBonus = curseStacks * STEAL_CURSE_BONUS_PER_STACK + (wx.stealDelta || 0);
     const successCap = Math.min(0.95, Math.max(0.05, STEAL_SUCCESS_CHANCE + stealBonus));
     const backfireCap = successCap + Math.max(0.05, STEAL_BACKFIRE_CHANCE + (wx.stealBackfireDelta || 0));
-
     const roll = Math.random();
     if (roll < successCap) {
         adjustDayCount(targetEntry, -1);
@@ -1642,7 +1599,6 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
     }
     const actorDead = rejectIfActorDead(deerData, casterId, date, day);
     if (actorDead) return actorDead;
-
     const casterMonth = ensureMonthData(deerData, casterId, date);
     const used = readDailyUsed(casterMonth, day, curseUsedKey);
     if (used >= DAILY_CURSE_QUOTA) {
@@ -1651,7 +1607,6 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     casterMonth[curseUsedKey(day)] = used + 1;
     let stacks = applyCurseStacks(targetEntry, 1);
     const wx = wxOf(gameContext);
@@ -1678,7 +1633,6 @@ export function performCleanseCurse(deerData, helperId, targetId, date, day) {
     }
     const actorDead = rejectIfActorDead(deerData, helperId, date, day);
     if (actorDead) return actorDead;
-
     const helperMonth = ensureMonthData(deerData, helperId, date);
     const used = readDailyUsed(helperMonth, day, cleanseUsedKey);
     if (used >= DAILY_CLEANSE_CURSE_QUOTA) {
@@ -1694,7 +1648,6 @@ export function performCleanseCurse(deerData, helperId, targetId, date, day) {
     const clearedStacks = getActiveCurseStacks(targetEntry);
     clearCurse(targetEntry);
     helperMonth[cleanseUsedKey(day)] = used + 1;
-
     return {
         ok: true,
         type: 'cleanse_curse',
@@ -1711,7 +1664,6 @@ export function performBlessDeer(deerData, casterId, targetId, date, day) {
     }
     const actorDead = rejectIfActorDead(deerData, casterId, date, day);
     if (actorDead) return actorDead;
-
     const casterMonth = ensureMonthData(deerData, casterId, date);
     const used = readDailyUsed(casterMonth, day, blessUsedKey);
     if (used >= DAILY_BLESS_QUOTA) {
@@ -1720,10 +1672,8 @@ export function performBlessDeer(deerData, casterId, targetId, date, day) {
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     casterMonth[blessUsedKey(day)] = used + 1;
     const stacks = applyBlessStacks(targetEntry, 1);
-
     return {
         ok: true,
         type: 'bless',
@@ -1742,7 +1692,6 @@ export function performCleanseBless(deerData, helperId, targetId, date, day) {
     }
     const actorDead = rejectIfActorDead(deerData, helperId, date, day);
     if (actorDead) return actorDead;
-
     const helperMonth = ensureMonthData(deerData, helperId, date);
     const used = readDailyUsed(helperMonth, day, cleanseBlessUsedKey);
     if (used >= DAILY_CLEANSE_BLESS_QUOTA) {
@@ -1758,7 +1707,6 @@ export function performCleanseBless(deerData, helperId, targetId, date, day) {
     const clearedStacks = getActiveBlessStacks(targetEntry);
     clearBless(targetEntry);
     helperMonth[cleanseBlessUsedKey(day)] = used + 1;
-
     return {
         ok: true,
         type: 'cleanse_bless',
@@ -1775,7 +1723,6 @@ export function performSacrificeDeer(deerData, userId, targetId, date, day) {
     }
     const actorDead = rejectIfActorDead(deerData, userId, date, day);
     if (actorDead) return actorDead;
-
     const selfMonth = ensureMonthData(deerData, userId, date);
     if (readDailyUsed(selfMonth, day, sacrificeUsedKey) >= DAILY_SACRIFICE_QUOTA) {
         return { ok: false, type: 'sacrifice_used' };
@@ -1783,14 +1730,12 @@ export function performSacrificeDeer(deerData, userId, targetId, date, day) {
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     selfMonth[sacrificeUsedKey(day)] = 1;
     const selfEntry = ensureDayEntry(selfMonth, day);
     adjustDayCount(selfEntry, -SACRIFICE_TRANSFER);
     adjustDayCount(targetEntry, SACRIFICE_TRANSFER);
     selfEntry.a += 1;
     targetEntry.a += 1;
-
     let cursePurged = 0;
     if (getActiveCurseStacks(targetEntry) > 0) {
         targetEntry.cur = Math.max(0, targetEntry.cur - 1);
@@ -1813,7 +1758,6 @@ export function performSacrificeDeer(deerData, userId, targetId, date, day) {
 export function performFakeWithdrawal(deerData, userId, date, day) {
     const actorDead = rejectIfActorDead(deerData, userId, date, day);
     if (actorDead) return actorDead;
-
     const monthData = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(monthData, day, fakeWithdrawUsedKey);
     if (used >= DAILY_FAKE_WITHDRAW_QUOTA) {
@@ -1825,7 +1769,6 @@ export function performFakeWithdrawal(deerData, userId, date, day) {
     entry.c += 1;
     entry.a += 1;
     const fakeCount = entry.c - 1;
-
     return {
         ok: true,
         type: 'fake_withdraw',
@@ -1844,7 +1787,6 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
     }
     const actorDead = rejectIfActorDead(deerData, userId, date, day);
     if (actorDead) return actorDead;
-
     const selfMonth = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(selfMonth, day, urgeUsedKey);
     if (used >= DAILY_URGE_QUOTA) {
@@ -1854,7 +1796,6 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const targetEntry = ensureDayEntry(targetMonth, day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     selfMonth[urgeUsedKey(day)] = used + 1;
     const targetWasZero = targetEntry.c <= 0 && !targetEntry.d;
     let curseUrged = false;
@@ -1890,7 +1831,6 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
     }
 
     monthData[howlUsedKey(day)] = used + 1;
-
     if (entry.d) {
         let ghostEffect = 'none';
         const killerId = entry.dk || '';
@@ -1957,7 +1897,6 @@ export function performGreedDeer(deerData, userId, targetId, date, day, gameCont
     }
     const actorDead = rejectIfActorDead(deerData, userId, date, day);
     if (actorDead) return actorDead;
-
     const selfMonth = ensureMonthData(deerData, userId, date);
     if (readDailyUsed(selfMonth, day, greedUsedKey) >= DAILY_GREED_QUOTA) {
         return { ok: false, type: 'greed_used' };
@@ -1965,11 +1904,9 @@ export function performGreedDeer(deerData, userId, targetId, date, day, gameCont
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     selfMonth[greedUsedKey(day)] = 1;
     const selfEntry = ensureDayEntry(selfMonth, day);
     selfEntry.a += 1;
-
     const wx = wxOf(gameContext);
     const greedChance = clampDeathChance(GREED_SUCCESS_CHANCE + (wx.greedSuccessDelta || 0));
     if (rollChance(greedChance)) {
@@ -2004,7 +1941,6 @@ export function performGreedDeer(deerData, userId, targetId, date, day, gameCont
 export function performGroupSplash(deerData, casterId, memberIds, date, day, gameContext = {}) {
     const actorDead = rejectIfActorDead(deerData, casterId, date, day);
     if (actorDead) return actorDead;
-
     const targets = pickSplashTargetsFromDayRank(deerData, memberIds, casterId, date, GROUP_SPLASH_TOP_N);
     if (!targets.length) {
         return { ok: false, type: 'splash_no_rank' };
@@ -2028,7 +1964,6 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day, gam
     for (const uid of targets) {
         const entry = getDayEntry(getMonthData(getUserRecord(deerData, uid), date), day);
         if (entry?.d) continue;
-
         const targetMonth = ensureMonthData(deerData, uid, date);
         const targetEntry = ensureDayEntry(targetMonth, day);
         const hadCurse = getCurseInfo(targetEntry).active;
@@ -2061,7 +1996,6 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day, gam
     const casterEntry = ensureDayEntry(casterMonth, day);
     adjustDayCount(casterEntry, -GROUP_SPLASH_RECOIL);
     casterEntry.a += 1;
-
     return {
         ok: true,
         type: 'group_splash',
@@ -2086,7 +2020,6 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
     }
     const actorDead = rejectIfActorDead(deerData, borrowerId, date, day);
     if (actorDead) return actorDead;
-
     const borrowerMonth = ensureMonthData(deerData, borrowerId, date);
     const used = readDailyUsed(borrowerMonth, day, borrowUsedKey);
     if (used >= DAILY_BORROW_QUOTA) {
@@ -2107,7 +2040,6 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
     targetEntry.a += 1;
     borrowerEntry.a += 1;
     const curseStripped = stripOneCurseStack(targetEntry);
-
     return {
         ok: true,
         type: 'borrow',
@@ -2127,7 +2059,6 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
     }
     const actorDead = rejectIfActorDead(deerData, actorId, date, day);
     if (actorDead) return actorDead;
-
     const actorMonth = ensureMonthData(deerData, actorId, date);
     const used = readDailyUsed(actorMonth, day, bumperUsedKey);
     if (used >= DAILY_BUMPER_QUOTA) {
@@ -2136,12 +2067,10 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     actorMonth[bumperUsedKey(day)] = used + 1;
     const actorEntry = ensureDayEntry(actorMonth, day);
     actorEntry.a += 1;
     targetEntry.a += 1;
-
     const wx = wxOf(gameContext);
     const winChance = clampDeathChance(BUMPER_WIN_CHANCE + (wx.bumperWinDelta || 0));
     const roll = Math.random();
@@ -2191,7 +2120,6 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
 export function performDeerLottery(deerData, userId, date, day, gameContext = {}) {
     const actorDead = rejectIfActorDead(deerData, userId, date, day);
     if (actorDead) return actorDead;
-
     const monthData = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(monthData, day, lotteryUsedKey);
     if (used >= DAILY_LOTTERY_QUOTA) {
@@ -2201,7 +2129,6 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     monthData[lotteryUsedKey(day)] = used + 1;
     const entry = ensureDayEntry(monthData, day);
     entry.a += 1;
-
     const wx = wxOf(gameContext);
     let roll = Math.random() - (wx.lotteryLuckDelta || 0);
     roll = Math.max(0, Math.min(0.999, roll));
@@ -2212,7 +2139,6 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     else if (roll < 0.73) outcome = 'curse';
     else if (roll < 0.85) outcome = 'cleanse';
     else outcome = 'blank';
-
     if (outcome === 'cleanse' && !getActiveCurseStacks(entry)) {
         outcome = roll < 0.5 ? 'plus' : 'blank';
     }
@@ -2260,7 +2186,6 @@ export function performSpectralCurse(deerData, ghostId, targetId, date, day) {
     }
     const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
-
     const ghostMonth = ensureMonthData(deerData, ghostId, date);
     const used = readDailyUsed(ghostMonth, day, spectralCurseUsedKey);
     if (used >= DAILY_SPECTRAL_CURSE_QUOTA) {
@@ -2269,10 +2194,8 @@ export function performSpectralCurse(deerData, ghostId, targetId, date, day) {
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     ghostMonth[spectralCurseUsedKey(day)] = used + 1;
     const stacks = applyCurseStacks(targetEntry, 1);
-
     return {
         ok: true,
         type: 'spectral_curse',
@@ -2291,11 +2214,9 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
     }
     const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
-
     const ghostEntry = ensureDayEntry(ensureMonthData(deerData, ghostId, date), day);
     const killerId = ghostEntry.dk || '';
     const hasKiller = !!killerId;
-
     if (hasKiller && String(killerId) !== String(targetId)) {
         return { ok: false, type: 'vengeance_not_killer', killerId };
     }
@@ -2308,9 +2229,7 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     ghostMonth[vengeanceUsedKey(day)] = used + 1;
-
     if (hasKiller) {
         const roll = Math.random();
         if (roll < VENGEANCE_CURSE_CHANCE) {
@@ -2374,7 +2293,6 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
     }
     const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
-
     const ghostMonth = ensureMonthData(deerData, ghostId, date);
     const used = readDailyUsed(ghostMonth, day, dreamUsedKey);
     if (used >= DAILY_DREAM_QUOTA) {
@@ -2384,7 +2302,6 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const targetEntry = ensureDayEntry(targetMonth, day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-
     ghostMonth[dreamUsedKey(day)] = used + 1;
     let dreamEffect = 'urge';
     if (getCurseInfo(targetEntry).active) {
@@ -2413,7 +2330,6 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
 export function performReviveLottery(deerData, userId, date, day) {
     const mustDead = rejectUnlessActorDead(deerData, userId, date, day);
     if (mustDead) return mustDead;
-
     const monthData = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(monthData, day, reviveLotteryUsedKey);
     if (used >= DAILY_REVIVE_LOTTERY_QUOTA) {
@@ -2424,7 +2340,6 @@ export function performReviveLottery(deerData, userId, date, day) {
     const entry = ensureDayEntry(monthData, day);
     const snap = entry.snap ?? 0;
     const roll = Math.random();
-
     if (roll < REVIVE_LOTTERY_FULL_CHANCE) {
         reviveDayEntry(entry);
         entry.revived += 1;
@@ -2466,7 +2381,6 @@ export function performReviveLottery(deerData, userId, date, day) {
 export function performTombstone(deerData, userId, date, day) {
     const mustDead = rejectUnlessActorDead(deerData, userId, date, day);
     if (mustDead) return mustDead;
-
     const entry = ensureDayEntry(ensureMonthData(deerData, userId, date), day);
     return {
         ok: true,
@@ -2501,10 +2415,8 @@ export function performArenaDecline(deerData, targetId, date, day, penalty = 1) 
 export function settleImperialPk(deerData, challengerId, kingId, date, day, { win }) {
     const dead = rejectIfActorDead(deerData, challengerId, date, day);
     if (dead) return dead;
-
     const kingEntry = ensureDayEntry(ensureMonthData(deerData, kingId, date), day);
     const challengerEntry = ensureDayEntry(ensureMonthData(deerData, challengerId, date), day);
-
     if (win) {
         if (!kingEntry.d) {
             adjustDayCount(kingEntry, -IMPERIAL_WIN_DEDUCT);

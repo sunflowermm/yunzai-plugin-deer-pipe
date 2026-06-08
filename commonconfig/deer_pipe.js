@@ -17,7 +17,6 @@ export default class DeerPipeConfig extends ConfigBase {
             filePath: '',
             fileType: 'yaml',
         });
-
         this.configFiles = {
             config: {
                 name: 'config',

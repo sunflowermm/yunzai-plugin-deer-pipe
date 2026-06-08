@@ -7,7 +7,6 @@ export default class Base {
         const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
         return packageJson.name;
     })();
-
     constructor (e = {}) {
         this.e = e
         this.userId = e?.user_id
@@ -18,7 +17,6 @@ export default class Base {
     get prefix () {
         return `Yz:${Base.pluginName}:${this.model}:`
     }
-
     /**
      * 截图默认数据
      * @param saveId html保存id

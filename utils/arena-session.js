@@ -15,7 +15,6 @@ import { ARENA_PK_TIMEOUT_SEC } from '../constants/game.js';
  *   selfId?: string|number,
  *   timer?: ReturnType<typeof setTimeout>,
  * }} ArenaSession */
-
 /** @type {Map<string, ArenaSession>} */
 const arenaChallengeSessions = new Map();
 

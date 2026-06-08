@@ -7,13 +7,10 @@ const FRIENDS_VERSION = 3;
  * A 添加 B 后，A、B 互相出现在对方名单中，且双方均可帮🦌/帮戒🦌/救活对方
  * friends[userId] = [friendId, ...]
  */
-
 export function migrateFriendsData(friends) {
     if (!friends || typeof friends !== 'object') return { data: {}, changed: false };
-
     let data = { ...friends };
     let changed = false;
-
     if (data._version !== 2 && data._version !== FRIENDS_VERSION) {
         const inverted = {};
         for (const [targetId, helpers] of Object.entries(data)) {
@@ -69,7 +66,6 @@ export function addFriendBond(friends, userId, targetId) {
     const b = String(targetId);
     const hadBond = areFriends(friends, a, b);
     if (hadBond) return false;
-
     if (!friends[a]) friends[a] = [];
     if (!friends[b]) friends[b] = [];
     if (!friends[a].map(String).includes(b)) friends[a].push(b);
@@ -82,7 +78,6 @@ export function removeFriendBond(friends, userId, targetId) {
     const a = String(userId);
     const b = String(targetId);
     if (!areFriends(friends, a, b)) return false;
-
     if (friends[a]) {
         friends[a] = friends[a].filter(id => String(id) !== b);
         if (!friends[a].length) delete friends[a];

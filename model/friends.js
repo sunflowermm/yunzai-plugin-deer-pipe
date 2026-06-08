@@ -13,7 +13,6 @@ export default class FriendsModel extends Base {
         } = typeof options === 'string'
             ? { listTitle: options }
             : options;
-
         return {
             ...this.screenData,
             saveId: `friends-${myNickName}-${friendCount}`,

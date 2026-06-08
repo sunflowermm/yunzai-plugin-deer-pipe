@@ -327,12 +327,9 @@ export function formatErrorMessage(result) {
 export function formatActionMessage(result, ctx = {}) {
     const { helperName, targetName, dice, diceSide, choice } = ctx;
     const helpFailPct = Math.round((HELP_FAIL_CHANCE ?? HELP_KILL_CHANCE) * 100);
-
     if (!result.ok) return formatErrorMessage(result);
-
     const q = quotaHint(result);
     const wq = withdrawQuotaHint(result);
-
     switch (result.type) {
         case 'safe':
             return `${pickRandom(SAFE_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;

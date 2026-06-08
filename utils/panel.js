@@ -1,7 +1,7 @@
 import { UI_MESSAGES } from '../constants/game.js';
 import { getMonthData, getUserRecord, isDayDead } from './data.js';
 import { generateImage, generateStatusImage } from './core.js';
-import { generatePlayfulCard } from './card-render.js';
+import { generateInteractionCard } from './card-render.js';
 
 export async function replyStatusPanel(e, { date, name, status, isAt = false }) {
     const raw = await generateStatusImage(date, name, status);
@@ -20,31 +20,38 @@ export async function replyDeerPanel(e, { date, name, userId, deerData, text, da
 }
 
 /**
- * 恶趣味/互动：结构化卡片 + 可选月历面板
+ * 互动 / PK / 恶趣味：结构化卡片（可选双头像）+ 可选月历面板
  */
-export async function replyPlayfulResult(e, {
+export async function replyInteractionResult(e, {
     text,
     result,
     helperName,
     targetName,
+    helperId,
+    targetId,
     extraLines = [],
+    subtitle = '',
     date,
     name,
     userId,
     deerData,
     dayOverride = null,
     withPanel = false,
+    duel = false,
 }) {
-    const card = await generatePlayfulCard({
+    const card = await generateInteractionCard({
         result,
         helperName,
         targetName,
+        helperId,
+        targetId,
         headline: text?.split('\n')[0] || '',
         extraLines,
+        duel,
+        subtitle,
     });
     const parts = [segment.image(card)];
     if (text) parts.unshift(text);
-
     if (withPanel && userId && deerData && date) {
         const monthData = getMonthData(getUserRecord(deerData, userId), date);
         const highlightDay = dayOverride ?? date.getDate();
@@ -58,6 +65,9 @@ export async function replyPlayfulResult(e, {
 
     await e.reply(parts, true);
 }
+
+/** @deprecated 请用 replyInteractionResult */
+export const replyPlayfulResult = replyInteractionResult;
 
 export async function replyWeatherCard(e, { caption, imageBuffer }) {
     const parts = caption ? [caption, segment.image(imageBuffer)] : [segment.image(imageBuffer)];

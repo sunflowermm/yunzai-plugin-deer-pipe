@@ -31,7 +31,6 @@ export class CalendarApp extends plugin {
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, userId);
         const now = new Date();
-
         if (!hasYearData(userRecord, now.getFullYear())) {
             e.reply("你今年还没有🦌过呢，先来一发🦌吧~", true);
             return;
@@ -46,7 +45,6 @@ export class CalendarApp extends plugin {
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, subject.userId);
         const now = new Date();
-
         if (!hasYearData(userRecord, now.getFullYear())) {
             e.reply(subject.isAt ? "ta今年还没有🦌过呢~" : "你今年还没有🦌过呢~", true);
             return;
@@ -69,7 +67,6 @@ export class CalendarApp extends plugin {
         const { userId, name } = subject;
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, userId);
-
         if (!hasMonthData(userRecord, parsed)) {
             e.reply(`${parsed.getFullYear()}年${parsed.getMonth() + 1}月还没有🦌记录~`, true);
             return;

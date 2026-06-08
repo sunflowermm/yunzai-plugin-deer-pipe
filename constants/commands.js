@@ -2,7 +2,6 @@
  * 鹿/🦌 等价指令 token 与 rule 正则（全插件唯一数据源）
  * loader 会将 reg 字符串转为 RegExp，此处用字符串拼接便于维护
  */
-
 /** 匹配鹿或🦌 */
 export const D = '(🦌|鹿)';
 

@@ -160,7 +160,6 @@ export const META_PREFIX = {
 /** QQ 头像 */
 export const QQ_AVATAR = (userId, size = 100) =>
     `https://q1.qlogo.cn/g?b=qq&nk=${userId}&s=${size}`;
-
 /** 鹿死原因 */
 export const DEATH_REASON = {
     SELF: 'self',
@@ -857,7 +856,7 @@ export const UI_MESSAGES = {
         if (scope === 'day_wd') return '今日还没有人可戒🦌排行~';
         return '本月还没有人上榜，先来一发🦌吧~';
     },
-    rank_footer: 'yunzai-plugin-deer-pipe · 数据永久保留',
+    rank_footer: 'yunzai-plugin-deer-pipe · 上榜合计为净值之和',
 };
 
 export function pickRandom(arr) {

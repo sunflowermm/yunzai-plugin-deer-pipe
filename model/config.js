@@ -36,7 +36,6 @@ class RConfig extends Base{
     getYaml(name, isWatch = true) {
         let file = this.getFilePath(name);
         const yaml = YAML.parse(fs.readFileSync(file, 'utf8'));
-
         if (isWatch) {
             this.previousContent.set(name, yaml); // 保存初始内容
             this.watch(file, name);
@@ -50,11 +49,9 @@ class RConfig extends Base{
 
     watch(file, name) {
         const watcher = chokidar.watch(file);
-
         watcher.on('change', path => {
             const currentContent = YAML.parse(fs.readFileSync(path, 'utf8'));
             const previousContent = this.previousContent.get(name);
-
             if (!_.isEqual(previousContent, currentContent)) {
                 logger.mark(`[yunzai-plugin-deer-pipe][配置文件]：${name}已经被重置`);
                 this.previousContent.set(name, currentContent); // 更新之前的内容

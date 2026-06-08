@@ -26,10 +26,8 @@ async function redisSetJson(key, value) {
 async function loadJsonWithLegacy(key, legacyKey) {
     let data = await redisGetJson(key);
     if (data != null) return data;
-
     const legacy = await redisGetJson(legacyKey);
     if (legacy == null) return null;
-
     await redisSetJson(key, legacy);
     await redis.del(legacyKey);
     return legacy;

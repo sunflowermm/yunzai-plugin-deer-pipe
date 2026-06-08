@@ -155,7 +155,6 @@
         <h1>🦌 {{title}} 🦌</h1>
         <div class="meta">共 {{rankCount}} 人上榜 · 累计 {{totalCount}} 次</div>
     </div>
-
     {{if rankData[0]}}
     <div class="podium">
         {{if rankData[1]}}
@@ -185,7 +184,6 @@
         {{/if}}
     </div>
     {{/if}}
-
     <ol class="ranking-list">
         {{each rankData deer}}
         {{if deer.order > 3}}
@@ -204,7 +202,6 @@
         {{/if}}
         {{/each}}
     </ol>
-
     <div class="footer">yunzai-plugin-deer-pipe · 数据永久保留，不再按月清空</div>
 </div>
 </body>

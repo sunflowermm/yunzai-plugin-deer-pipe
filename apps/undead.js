@@ -10,7 +10,7 @@ import { ERROR_MESSAGES } from '../constants/game.js';
 import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 import { REG } from '../constants/commands.js';
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
-import { replyDeerPanel } from '../utils/panel.js';
+import { replyDeerPanel, replyInteractionResult } from '../utils/panel.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 export class DeerUndead extends plugin {
@@ -48,7 +48,6 @@ export class DeerUndead extends plugin {
             return;
         }
         if (needFriend && !(await this.requireFriend(user_id, targetId))) return;
-
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
@@ -58,22 +57,35 @@ export class DeerUndead extends plugin {
             return;
         }
         await saveDeerData(deerData);
-
         const helperName = card || nickname;
         const targetName = await getMemberName(this.e, targetId);
         const text = formatActionMessage(result, { helperName, targetName });
-
         if (panelTarget) {
-            await replyDeerPanel(this.e, {
+            await replyInteractionResult(this.e, {
                 date,
                 name: targetName,
-                userId: targetId,
+                userId: panelTarget ? targetId : user_id,
                 deerData,
                 text,
+                result,
+                helperName,
+                targetName,
+                helperId: user_id,
+                targetId,
                 dayOverride: day,
+                withPanel: panelTarget,
+                duel: !!targetId,
             });
         } else {
-            await this.reply(text, true);
+            await replyInteractionResult(this.e, {
+                text,
+                result,
+                helperName,
+                targetName,
+                helperId: user_id,
+                targetId,
+                duel: !!targetId,
+            });
         }
     }
 

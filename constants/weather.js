@@ -28,7 +28,6 @@ export const WEATHER_IDS = [
  * @property {number} lotteryLuckDelta 鹿签气运（正=偏吉）
  * @property {number} curseExtraChance 鹿咒额外 +1 层概率
  */
-
 /** @typedef {WeatherEffects & { id: string, name: string, emoji: string, weight: number, tip: string, announce: string[] }} WeatherDef */
 
 /** @type {Record<string, WeatherDef>} */

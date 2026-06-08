@@ -19,7 +19,6 @@ export function buildRankData(deerData, members, { scope = 'month', date = new D
     const monthKey = getMonthKey(date);
     const year = date.getFullYear();
     const upToDay = date.getDate();
-
     if (scope === 'day') {
         if (withdrawal) {
             const wd = members.map(id => {
@@ -42,13 +41,10 @@ export function buildRankData(deerData, members, { scope = 'month', date = new D
     const rankData = members.map(deer => {
         const uid = String(deer);
         if (isDeadOnDay(deerData, uid, date, upToDay)) return null;
-
         const userRecord = getUserRecord(deerData, uid);
         if (!userRecord) return null;
-
         let sum = 0;
         let hasActivity = false;
-
         if (scope === 'year') {
             const ranked = sumYearNet(userRecord, year, date);
             sum = ranked.sum;
@@ -68,7 +64,6 @@ export function buildRankData(deerData, members, { scope = 'month', date = new D
         if (sum <= 0 || !hasActivity) return null;
         return { id: uid, sum };
     }).filter(Boolean);
-
     rankData.sort((a, b) => compareRank(a, b, order));
     return rankData;
 }

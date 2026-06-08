@@ -18,7 +18,7 @@ import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 import { REG } from '../constants/commands.js';
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
 import { loadGameContext } from '../utils/context.js';
-import { replyPlayfulResult } from '../utils/panel.js';
+import { replyInteractionResult } from '../utils/panel.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 export class DeerPlayful extends plugin {
@@ -63,7 +63,6 @@ export class DeerPlayful extends plugin {
             return;
         }
         if (needFriend && !(await this.requireFriend(user_id, targetId))) return;
-
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
@@ -74,22 +73,23 @@ export class DeerPlayful extends plugin {
             return;
         }
         await saveDeerData(deerData);
-
         const helperName = card || nickname;
         const targetName = await getMemberName(this.e, targetId);
         const text = formatActionMessage(result, { helperName, targetName });
-
-        await replyPlayfulResult(this.e, {
+        await replyInteractionResult(this.e, {
             text,
             result,
             helperName,
             targetName,
+            helperId: user_id,
+            targetId,
             date,
             name: withPanel ? targetName : helperName,
             userId: withPanel ? targetId : user_id,
             deerData,
             dayOverride: day,
             withPanel,
+            duel: true,
         });
     }
 
@@ -130,7 +130,7 @@ export class DeerPlayful extends plugin {
         await saveDeerData(deerData);
         const helperName = card || nickname;
         const text = formatActionMessage(result);
-        await replyPlayfulResult(this.e, {
+        await replyInteractionResult(this.e, {
             text,
             result,
             helperName,
@@ -192,7 +192,7 @@ export class DeerPlayful extends plugin {
         await saveDeerData(deerData);
         const helperName = card || nickname;
         const text = formatActionMessage(result, { helperName });
-        await replyPlayfulResult(this.e, {
+        await replyInteractionResult(this.e, {
             text,
             result,
             helperName,
@@ -223,7 +223,6 @@ export class DeerPlayful extends plugin {
             return;
         }
         await saveDeerData(deerData);
-
         const victimLines = await Promise.all(
             result.victims.map(async (v) => {
                 const name = await getMemberName(this.e, v.id);
@@ -234,7 +233,6 @@ export class DeerPlayful extends plugin {
                 return `${name} ${v.count}次${tags ? ` ${tags}` : ''}`;
             }),
         );
-
         const helperName = card || nickname;
         const text = formatActionMessage(result, { helperName });
         await replyPlayfulResult(this.e, {

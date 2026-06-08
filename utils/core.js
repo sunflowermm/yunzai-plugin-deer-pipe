@@ -3,7 +3,8 @@ import fs from 'fs';
 import { CHECK_IMG, DEERPIPE_IMG } from '../constants/core.js';
 import { WEATHER_CMD_HINT } from '../constants/commands.js';
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
-import { escapeXml, truncText, svgTextStyled, svgTextPlain } from './svg-base.js';
+import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs } from './svg-base.js';
+import { CARD_FLAVOR } from '../constants/eco.js';
 import {
     calcMonthStats,
     calcYearStats,
@@ -17,6 +18,7 @@ import {
     isDayDead,
     normalizeDayEntry,
     sumMonthData,
+    sumMonthNet,
 } from './data.js';
 import {
     CALENDAR_TAGLINES,
@@ -59,13 +61,11 @@ function getMonthCalendar(now) {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     let firstDayOfMonth = new Date(year, month, 1).getDay();
     firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
-
     const cal = [];
     let week = new Array(7).fill(null);
     let day = 1;
     for (let i = firstDayOfMonth; i < 7; i++) week[i] = day++;
     cal.push(week);
-
     while (day <= daysInMonth) {
         week = new Array(7).fill(null);
         for (let i = 0; i < 7 && day <= daysInMonth; i++) week[i] = day++;
@@ -102,6 +102,17 @@ function pickStatusTagline(status) {
     return pickRandom(STATUS_TAGLINES.safe);
 }
 
+function pickStatusFlavor(status) {
+    let key = 'status_safe';
+    if (status.dead) key = 'status_dead';
+    else if (status.cursed && status.blessed) key = 'status_mixed';
+    else if (status.cursed) key = 'status_cursed';
+    else if (status.blessed) key = 'status_blessed';
+    else if (status.inRiskZone) key = 'status_risk';
+    else if (status.inWithdrawalZone) key = 'status_withdrawal';
+    return pickRandom(CARD_FLAVOR[key] || CARD_FLAVOR.default);
+}
+
 function statusTheme(status) {
     const { dead, cursed, blessed, inRiskZone, inWithdrawalZone } = status;
     if (dead) {
@@ -114,6 +125,7 @@ function statusTheme(status) {
             accent: '#ff7070',
             barBg: '#4a2828',
             panel: 'rgba(0,0,0,0.55)',
+            highlight: 'rgba(255,112,112,0.18)',
         };
     }
     if (cursed) {
@@ -126,6 +138,7 @@ function statusTheme(status) {
             accent: '#c39bff',
             barBg: '#3d2a55',
             panel: 'rgba(0,0,0,0.4)',
+            highlight: 'rgba(195,155,255,0.2)',
         };
     }
     if (blessed) {
@@ -138,6 +151,7 @@ function statusTheme(status) {
             accent: '#7dffb0',
             barBg: '#2a4030',
             panel: 'rgba(0,0,0,0.35)',
+            highlight: 'rgba(125,255,176,0.15)',
         };
     }
     if (inRiskZone) {
@@ -150,6 +164,7 @@ function statusTheme(status) {
             accent: '#ff9a56',
             barBg: '#5c4030',
             panel: 'rgba(0,0,0,0.35)',
+            highlight: 'rgba(255,154,86,0.18)',
         };
     }
     if (inWithdrawalZone) {
@@ -162,6 +177,7 @@ function statusTheme(status) {
             accent: '#3498db',
             barBg: '#aed6f1',
             panel: 'rgba(255,255,255,0.55)',
+            highlight: 'rgba(52,152,219,0.15)',
         };
     }
     return {
@@ -173,6 +189,7 @@ function statusTheme(status) {
         accent: '#e67e22',
         barBg: '#e8d5c4',
         panel: 'rgba(255,255,255,0.55)',
+        highlight: 'rgba(230,126,34,0.12)',
     };
 }
 
@@ -195,7 +212,6 @@ export async function generateImage(now, name, monthData, options = {}) {
     const IMG_W = 700;
     const HEADER_H_CAL = 140;
     const IMG_H = HEADER_H_CAL + STATS_H + BOX_H + BOX_H * cal.length;
-
     const upToDay = now.getDate();
     const stats = calcMonthStats(monthData, upToDay);
     const todayEntry = getDayEntry(monthData, highlightDay);
@@ -204,7 +220,6 @@ export async function generateImage(now, name, monthData, options = {}) {
     const todayReason = getDeathReason(todayEntry);
     const deerpipeBuffer = fs.readFileSync(DEERPIPE_IMG);
     const checkBuffer = fs.readFileSync(CHECK_IMG);
-
     const compositeArray = [{
         input: svgText(`
             <defs>
@@ -219,14 +234,12 @@ export async function generateImage(now, name, monthData, options = {}) {
         top: 0,
         left: 0,
     }];
-
     const titleColor = todayDead ? '#ffffff' : '#2a1a10';
     const subColor = todayDead ? '#ffe8e8' : '#4a3020';
     const metaColor = todayDead ? '#ffd0d0' : '#6b4423';
     const deadBanner = todayDead
         ? ` · 💀今日鹿死（失${todaySnap}次·${getDeathReasonText(todayReason)}）`
         : '';
-
     compositeArray.push({
         input: svgTextStyled(`
             <text filter="url(#txtShadow)" x="20" y="42" font-size="28" font-family="MiSans,sans-serif" fill="${titleColor}" font-weight="bold">
@@ -235,14 +248,13 @@ export async function generateImage(now, name, monthData, options = {}) {
             <text filter="url(#txtShadow)" x="20" y="78" font-size="24" font-family="MiSans,sans-serif" fill="${subColor}">${truncName(name)}</text>
             <text filter="url(#txtShadow)" x="20" y="102" font-size="15" font-family="MiSans,sans-serif" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
             <text filter="url(#txtShadow)" x="20" y="122" font-size="16" font-family="MiSans,sans-serif" fill="${metaColor}">
-                本月 ${stats.total} 次 · 活跃 ${stats.activeDays} 天 · 连击 ${stats.streak} 天
+                本月净值 ${stats.total} · 活跃 ${stats.activeDays} 天 · 连击 ${stats.streak} 天
                 ${stats.deathDays > 0 ? ` · 💀${stats.deathDays}天` : ''}${deadBanner}
             </text>
         `, IMG_W, HEADER_H_CAL),
         top: 0,
         left: 0,
     });
-
     // 星期标题
     const weekY = HEADER_H_CAL;
     for (let i = 0; i < 7; i++) {
@@ -258,14 +270,12 @@ export async function generateImage(now, name, monthData, options = {}) {
 
     const deerpipeSmall = await sharp(deerpipeBuffer).resize(48, 40).png().toBuffer();
     const checkSmall = await sharp(checkBuffer).resize(36, 38).png().toBuffer();
-
     for (let weekIdx = 0; weekIdx < cal.length; weekIdx++) {
         for (let dayIdx = 0; dayIdx < cal[weekIdx].length; dayIdx++) {
             const day = cal[weekIdx][dayIdx];
             const x0 = dayIdx * BOX_W;
             const y0 = HEADER_H_CAL + BOX_H + weekIdx * BOX_H;
             if (day === null) continue;
-
             const rawDay = monthData?.[String(day)];
             const entry = normalizeDayEntry(rawDay);
             const dead = isDayDead(rawDay);
@@ -276,12 +286,10 @@ export async function generateImage(now, name, monthData, options = {}) {
             const bg = dead
                 ? { r: 28, g: 22, b: 30, a: 1 }
                 : heatColor(count);
-
             const stroke = dead
                 ? (isHighlight ? '#ff4444' : '#553333')
                 : (isHighlight ? '#ff9a56' : '#e8d5c4');
             const strokeW = isHighlight ? 3 : 1;
-
             compositeArray.push({
                 input: svgText(`
                     <rect x="2" y="2" width="${BOX_W - 4}" height="${BOX_H - 4}" fill="rgb(${bg.r},${bg.g},${bg.b})" rx="8" stroke="${stroke}" stroke-width="${strokeW}"/>
@@ -300,7 +308,6 @@ export async function generateImage(now, name, monthData, options = {}) {
                 top: y0,
                 left: x0,
             });
-
             if (!dead && count > 0) {
                 compositeArray.push({
                     input: deerpipeSmall,
@@ -332,7 +339,6 @@ export async function generateYearImage(now, name, userRecord) {
     const year = now.getFullYear();
     const yearMonths = getYearMonths(userRecord, year);
     const stats = calcYearStats(userRecord, year, now);
-
     const COLS = 4;
     const ROWS = 3;
     const MINI_W = 160;
@@ -341,7 +347,6 @@ export async function generateYearImage(now, name, userRecord) {
     const TITLE_H = 120;
     const IMG_W = COLS * MINI_W + (COLS + 1) * PAD;
     const IMG_H = TITLE_H + ROWS * MINI_H + (ROWS + 1) * PAD;
-
     const compositeArray = [{
         input: svgText(`
             <defs>
@@ -356,30 +361,28 @@ export async function generateYearImage(now, name, userRecord) {
         top: 0,
         left: 0,
     }];
-
     compositeArray.push({
         input: svgText(`
             <text x="${IMG_W / 2}" y="40" font-size="30" font-family="MiSans" fill="#ffd700" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
             <text x="${IMG_W / 2}" y="72" font-size="22" font-family="MiSans" fill="#e8e8e8" text-anchor="middle">${truncName(name, 20)}</text>
             <text x="${IMG_W / 2}" y="102" font-size="16" font-family="MiSans" fill="#aaa" text-anchor="middle">
-                全年 ${stats.total} 次 · ${stats.activeDays} 活跃日 · 💀${stats.deathDays || 0}天 · 最猛 ${stats.maxMonth}月(${stats.maxMonthCount}次)
+                全年净值 ${stats.total} · ${stats.activeDays} 活跃日 · 💀${stats.deathDays || 0}天 · 最猛 ${stats.maxMonth}月(${stats.maxMonthCount})
             </text>
         `, IMG_W, TITLE_H),
         top: 0,
         left: 0,
     });
-
     for (let m = 1; m <= 12; m++) {
         const col = (m - 1) % COLS;
         const row = Math.floor((m - 1) / COLS);
         const x0 = PAD + col * (MINI_W + PAD);
         const y0 = TITLE_H + PAD + row * (MINI_H + PAD);
         const monthKey = `${year}-${String(m).padStart(2, '0')}`;
-        const monthData = yearMonths[monthKey];
-        const total = sumMonthData(monthData);
-        const bg = heatColor(total > 0 ? Math.min(total, 10) : total < 0 ? -1 : 0);
         const isCurrentMonth = m === now.getMonth() + 1;
-
+        const monthData = yearMonths[monthKey];
+        const capDay = isCurrentMonth ? now.getDate() : 31;
+        const total = sumMonthNet(monthData, { upToDay: capDay }).sum;
+        const bg = heatColor(total > 0 ? Math.min(total, 10) : total < 0 ? -1 : 0);
         // 迷你月格子条
         const daysInMonth = new Date(year, m, 0).getDate();
         const cellW = 18;
@@ -442,7 +445,6 @@ export async function generateStatusImage(now, name, status) {
             : (status.inRiskZone
                 ? `⚠️ 高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
                 : `✅ 安全区 · 还可 🦌 ${status.safeLeft} 次`));
-
     const wx = status.weather?.weatherId
         ? (WEATHER_CATALOG[status.weather.weatherId] || WEATHER_CATALOG.sunny)
         : null;
@@ -452,7 +454,6 @@ export async function generateStatusImage(now, name, status) {
     const weatherLine = wx
         ? `${wx.emoji} ${periodLabel}${wx.name}${status.weather?.source === 'admin' ? '·赐福' : ''} · ${escapeXml(wx.tip)}`
         : '天象：加载中…';
-
     let auraLine = '';
     if (status.cursed && status.blessed) {
         auraLine = `☠️咒 ×${status.curseStacks} · ✨福 ×${status.blessStacks} · 对冲中`;
@@ -468,7 +469,6 @@ export async function generateStatusImage(now, name, status) {
 
     const helpBar = quotaBar(status.helperHelpUsed, DAILY_HELP_QUOTA);
     const wdBar = quotaBar(status.helperWithdrawUsed, DAILY_HELP_WITHDRAW_QUOTA);
-
     const rows = dead ? [
         ['冥咒', `${status.spectralCurseUsed ?? 0}/${DAILY_SPECTRAL_CURSE_QUOTA}`, '#e8b4ff'],
         ['索命', `${status.vengeanceUsed ?? 0}/${DAILY_VENGEANCE_QUOTA}`, '#ff8888'],
@@ -494,7 +494,6 @@ export async function generateStatusImage(now, name, status) {
         ['倒贴', status.greedUsed ? '已用' : '可用', '#ff7788'],
         ['鹿鸣', `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, '#88ffaa'],
     ];
-
     let grid = '';
     const gx0 = 20;
     const gy0 = 390;
@@ -507,14 +506,15 @@ export async function generateStatusImage(now, name, status) {
         const y = gy0 + rowIdx * 44;
         grid += `<text filter="url(#txtShadow)" x="${x}" y="${y}" font-size="15" font-family="MiSans,sans-serif" fill="${theme.line}">${row[0]} <tspan fill="${row[2]}" font-weight="bold">${escapeXml(row[1])}</tspan></text>`;
     });
-
     const txt = 'filter="url(#txtShadow)" font-family="MiSans,sans-serif"';
     const footer = dead
         ? `冥界玩法见上 · 活人帮🦌可救活 · ${WEATHER_CMD_HINT}看天象`
         : `同归 ${status.togetherUsed ? '已用' : '可用'} · 献祭 ${status.sacrificeUsed ? '已用' : '可用'} · 倒贴 ${status.greedUsed ? '已用' : '可用'}`;
-
+    const flavorLine = pickStatusFlavor(status);
+    const decoSeed = hashSeed(name, now.toDateString(), status.count, dead);
     const svg = `
         <rect width="${W}" height="${H}" rx="16" fill="url(#sbg)"/>
+        ${buildCardDecorations(W, H, theme, decoSeed)}
         <rect x="16" y="118" width="${W - 32}" height="44" rx="10" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1"/>
         <text ${txt} x="28" y="146" font-size="14" fill="${theme.line}">${weatherLine}</text>
         <text ${txt} x="36" y="48" font-size="30" fill="${theme.title}" font-weight="bold">📊 今日鹿况</text>
@@ -535,15 +535,16 @@ export async function generateStatusImage(now, name, status) {
         <text ${txt} x="650" y="300" font-size="14" fill="${theme.line}" text-anchor="end">${wdBar.label}</text>
         <text ${txt} x="36" y="368" font-size="14" fill="${theme.muted}" font-weight="bold">玩法配额</text>
         ${grid}
-        <text ${txt} x="36" y="${H - 28}" font-size="13" fill="${theme.muted}">${footer}</text>
-        <text ${txt} x="${W - 36}" y="${H - 28}" font-size="12" fill="${theme.muted}" text-anchor="end">${now.getMonth() + 1}/${now.getDate()} · deer-pipe</text>
+        <rect x="24" y="${H - 58}" width="${W - 48}" height="26" rx="8" fill="${theme.highlight || theme.panel}" opacity="0.7"/>
+        <text ${txt} x="${W / 2}" y="${H - 40}" font-size="12" fill="${theme.muted}" text-anchor="middle" font-style="italic">${escapeXml(flavorLine)}</text>
+        <text ${txt} x="36" y="${H - 14}" font-size="13" fill="${theme.muted}">${footer}</text>
+        <text ${txt} x="${W - 36}" y="${H - 14}" font-size="12" fill="${theme.muted}" text-anchor="end">${now.getMonth() + 1}/${now.getDate()} · deer-pipe</text>
     `;
-
     return sharp({
         create: { width: W, height: H, channels: 4, background: { r: 255, g: 245, b: 235, alpha: 1 } },
     })
         .composite([{
-            input: svgTextStyled(svg, W, H, `<linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>`),
+            input: svgTextStyled(svg, W, H, `<linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`),
             top: 0,
             left: 0,
         }])

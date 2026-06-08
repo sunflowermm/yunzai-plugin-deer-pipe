@@ -56,7 +56,6 @@ export class Friends extends plugin {
     async addDeerFriend(e) {
         const { user_id, card, nickname } = e.sender;
         const targetId = await resolveFriendTargetId(e);
-
         if (!targetId || !isNumeric(String(targetId))) {
             e.reply("无法获取🦌友信息，请 @ 或引用对方消息", true);
             return;
@@ -72,12 +71,10 @@ export class Friends extends plugin {
             return;
         }
         await saveFriends(friends);
-
         const membersMap = await this.getGroupUserInfo(e);
         const targetName = this.extractDeerNickname(membersMap, targetId);
         const myName = card || nickname;
         const deerData = buildFriendCards(friends, user_id, membersMap);
-
         if (!deerData.length) {
             e.reply(formatFriendAddMessage(myName, targetName), true);
             return;
@@ -90,7 +87,6 @@ export class Friends extends plugin {
     async delDeerFriend(e) {
         const { user_id, card, nickname } = e.sender;
         const targetId = await resolveFriendTargetId(e, { remove: true });
-
         if (!targetId || !isNumeric(String(targetId))) {
             e.reply("无法获取🦌友信息，请 @ 或引用对方消息", true);
             return;
@@ -102,12 +98,10 @@ export class Friends extends plugin {
             return;
         }
         await saveFriends(friends);
-
         const membersMap = await this.getGroupUserInfo(e);
         const targetName = this.extractDeerNickname(membersMap, targetId);
         const myName = card || nickname;
         const deerData = buildFriendCards(friends, user_id, membersMap);
-
         if (!deerData.length) {
             e.reply(formatFriendRemoveMessage(myName, targetName), true);
             return;
@@ -120,7 +114,6 @@ export class Friends extends plugin {
     async myDeerFriend(e) {
         const { user_id, card, nickname } = e.sender;
         const friends = await loadFriends();
-
         if (!getHelpTargets(friends, user_id).length) {
             e.reply(formatFriendEmpty(), true);
             return;
@@ -128,7 +121,6 @@ export class Friends extends plugin {
 
         const membersMap = await (e.group || Bot?.pickGroup(e.group_id))?.getMemberMap();
         const deerData = buildFriendCards(friends, user_id, membersMap);
-
         if (!deerData.length) {
             e.reply(formatFriendNotInGroup(), true);
             return;

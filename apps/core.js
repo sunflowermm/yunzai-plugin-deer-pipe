@@ -12,7 +12,7 @@ import {
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
 import { loadGameContext } from '../utils/context.js';
-import { replyDeerPanel, replyStatusPanel } from '../utils/panel.js';
+import { replyDeerPanel, replyInteractionResult } from '../utils/panel.js';
 import {
     formatActionMessage,
     formatErrorMessage,
@@ -63,7 +63,6 @@ export class DeerPipe extends plugin {
         const nowDay = date.getDate();
         day = day ? parseInt(day, 10) : nowDay;
         if (day > nowDay || day === 0) return;
-
         const { user_id, card, nickname } = this.e.sender;
         const deerData = await loadDeerData();
         const result = performWithdrawal(deerData, user_id, date, day, { pastDay: day !== nowDay });
@@ -83,7 +82,6 @@ export class DeerPipe extends plugin {
         const viewDate = parseViewMonthToken(this.e.msg);
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, subject.userId);
-
         if (!hasMonthData(userRecord, viewDate)) {
             await this.reply(formatViewEmpty(formatMonthLabel(viewDate), subject.isAt), true);
             return;
@@ -121,7 +119,6 @@ export class DeerPipe extends plugin {
     async helpLu() {
         const { user_id, card, nickname } = this.e.sender;
         const targetId = await resolveHelpTargetId(this.e);
-
         if (!targetId) {
             await this.reply(ERROR_MESSAGES.no_target, true);
             return;
@@ -143,14 +140,25 @@ export class DeerPipe extends plugin {
             return;
         }
         await saveDeerData(deerData);
-
         const targetName = await getMemberName(this.e, targetId);
         const text = formatActionMessage(result, {
             helperName: card || nickname,
             targetName,
         });
-        await replyDeerPanel(this.e, {
-            date, name: targetName, userId: targetId, deerData, text, dayOverride: day,
+        await replyInteractionResult(this.e, {
+            date,
+            name: targetName,
+            userId: targetId,
+            deerData,
+            text,
+            result,
+            helperName: card || nickname,
+            targetName,
+            helperId: user_id,
+            targetId,
+            dayOverride: day,
+            withPanel: true,
+            duel: true,
         });
     }
 }
