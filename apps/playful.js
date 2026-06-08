@@ -157,7 +157,7 @@ export class DeerPlayful extends plugin {
         await saveDeerData(deerData);
         const helperName = card || nickname;
         const text = formatActionMessage(result, { helperName });
-        await replyPlayfulResult(this.e, {
+        await replyInteractionResult(this.e, {
             text,
             result,
             helperName,
@@ -235,7 +235,7 @@ export class DeerPlayful extends plugin {
         );
         const helperName = card || nickname;
         const text = formatActionMessage(result, { helperName });
-        await replyPlayfulResult(this.e, {
+        await replyInteractionResult(this.e, {
             text,
             result,
             helperName,
