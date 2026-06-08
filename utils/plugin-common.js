@@ -4,7 +4,7 @@
 import { D } from '../constants/commands.js';
 
 const TARGET_PREFIX_RE = new RegExp(
-    `^(?:同归${D}尽|帮戒${D}|擂台${D}|偷${D}|${D}咒|献祭${D}|催${D}|倒贴${D})`,
+    `^(?:同归${D}尽|帮戒${D}|擂台${D}|偷${D}|${D}咒|献祭${D}|催${D}|倒贴${D}|借${D}|碰瓷${D})`,
 );
 
 const HELP_PREFIX_RE = new RegExp(`^帮${D}`);
@@ -50,4 +50,33 @@ export async function getMemberName(e, userId) {
     const map = await (e.group || Bot?.pickGroup(e.group_id))?.getMemberMap();
     const info = map?.get(parseInt(userId, 10));
     return info?.card || info?.nickname || String(userId);
+}
+
+/** 解析指令主体（自己 / @ / 引用） */
+export async function resolveSubjectUser(e) {
+    if (e.at) {
+        const userId = String(e.at);
+        return {
+            userId,
+            isAt: true,
+            name: await getMemberName(e, userId),
+        };
+    }
+    if (e?.reply_id !== undefined) {
+        const reply = await e.getReply();
+        if (reply?.user_id) {
+            const userId = String(reply.user_id);
+            return {
+                userId,
+                isAt: true,
+                name: await getMemberName(e, userId),
+            };
+        }
+    }
+    const { user_id, card, nickname } = e.sender;
+    return {
+        userId: String(user_id),
+        isAt: false,
+        name: card || nickname || String(user_id),
+    };
 }

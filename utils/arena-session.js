@@ -11,6 +11,8 @@ import { ARENA_PK_TIMEOUT_SEC } from '../constants/game.js';
  *   targetName: string,
  *   date: Date,
  *   day: number,
+ *   pluginName?: string,
+ *   selfId?: string|number,
  *   timer?: ReturnType<typeof setTimeout>,
  * }} ArenaSession */
 

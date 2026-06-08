@@ -2,8 +2,20 @@
 
 import {
     ARENA_STAKE,
+    CURSE_ASCENDED_STACKS,
     CURSE_DEATH_BONUS,
+    CURSE_MAX_ROUNDS,
+    CURSE_MAX_STACKS,
     DAILY_ARENA_QUOTA,
+    DAILY_BORROW_QUOTA,
+    BORROW_MIN_TARGET_COUNT,
+    DAILY_BUMPER_QUOTA,
+    BUMPER_WIN_CHANCE,
+    BUMPER_DRAW_CHANCE,
+    BUMPER_FAIL_PENALTY,
+    BUMPER_CURSE_ON_WIN_CHANCE,
+    DAILY_LOTTERY_QUOTA,
+    DAILY_CLEANSE_CURSE_QUOTA,
     DAILY_CURSE_QUOTA,
     DAILY_FAKE_WITHDRAW_QUOTA,
     DAILY_GREED_QUOTA,
@@ -18,14 +30,17 @@ import {
     DAILY_URGE_QUOTA,
     GREED_FAIL_PENALTY,
     GREED_SUCCESS_CHANCE,
+    GROUP_SPLASH_CURSE_BURST_DAMAGE,
     GROUP_SPLASH_CURSE_CHANCE,
     GROUP_SPLASH_DAMAGE,
-    GROUP_SPLASH_MIN_MEMBERS,
     GROUP_SPLASH_RECOIL,
+    GROUP_SPLASH_TOP_N,
     HOWL_BONUS_CHANCE,
     HOWL_TRAP_CHANCE,
     SACRIFICE_TRANSFER,
     STEAL_BACKFIRE_CHANCE,
+    STEAL_CURSE_BACKFIRE_CHANCE,
+    STEAL_CURSE_BONUS_PER_STACK,
     STEAL_SUCCESS_CHANCE,
     DEATH_REASON,
     HELP_FAIL_CHANCE,
@@ -47,16 +62,16 @@ import { getDeathReasonText } from '../constants/game.js';
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 const DAY_KEY_RE = /^\d{1,2}$/;
 
-/** 单日: c=有效次数 a=尝试 d=鹿死 snap=快照 dc=鹿死次数 dr=死因 dk=凶手 helped revived helpBy cur=鹿咒 */
+/** 单日: c=有效次数 a=尝试 d=鹿死 snap=快照 dc=鹿死次数 dr=死因 dk=凶手 helped revived helpBy cur=咒层 curR=咒剩余回合 */
 export function createDayEntry(count = 0) {
-    return { c: count, a: count, d: 0, snap: 0, dc: 0, dr: '', dk: '', helped: 0, revived: 0, helpBy: {}, cur: 0 };
+    return { c: count, a: count, d: 0, snap: 0, dc: 0, dr: '', dk: '', helped: 0, revived: 0, helpBy: {}, cur: 0, curR: 0 };
 }
 
 export function normalizeDayEntry(raw) {
     if (raw == null) return null;
     if (typeof raw === 'number') {
         const n = Math.max(0, raw);
-        return { c: n, a: n, d: 0, snap: 0, dc: 0, dr: '', dk: '', helped: 0, revived: 0, helpBy: {} };
+        return { c: n, a: n, d: 0, snap: 0, dc: 0, dr: '', dk: '', helped: 0, revived: 0, helpBy: {}, cur: 0, curR: 0 };
     }
     if (typeof raw === 'object') {
         return {
@@ -71,6 +86,7 @@ export function normalizeDayEntry(raw) {
             revived: raw.revived ?? 0,
             helpBy: raw.helpBy ?? {},
             cur: raw.cur ?? 0,
+            curR: raw.curR ?? (raw.cur ? CURSE_MAX_ROUNDS : 0),
         };
     }
     return null;
@@ -197,6 +213,10 @@ function curseUsedKey(day) {
     return `${META_PREFIX.CURSE}${day}`;
 }
 
+function cleanseUsedKey(day) {
+    return `${META_PREFIX.CLEANSE}${day}`;
+}
+
 function sacrificeUsedKey(day) {
     return `${META_PREFIX.SACRIFICE}${day}`;
 }
@@ -223,6 +243,26 @@ function urgeBuffKey(day) {
 
 function groupSplashUsedKey(day) {
     return `${META_PREFIX.GROUP_SPLASH}${day}`;
+}
+
+function borrowUsedKey(day) {
+    return `${META_PREFIX.BORROW}${day}`;
+}
+
+function bumperUsedKey(day) {
+    return `${META_PREFIX.BUMPER}${day}`;
+}
+
+function lotteryUsedKey(day) {
+    return `${META_PREFIX.LOTTERY}${day}`;
+}
+
+function stripOneCurseStack(entry) {
+    if (!getActiveCurseStacks(entry)) return 0;
+    entry.cur = Math.max(0, entry.cur - 1);
+    if (entry.cur <= 0) clearCurse(entry);
+    else entry.curR = CURSE_MAX_ROUNDS;
+    return 1;
 }
 
 function readDailyUsed(monthData, day, key) {
@@ -291,6 +331,95 @@ export function resetUserDayMeta(monthData, day) {
     delete monthData[greedUsedKey(day)];
     delete monthData[urgeBuffKey(day)];
     delete monthData[groupSplashUsedKey(day)];
+    delete monthData[cleanseUsedKey(day)];
+    delete monthData[borrowUsedKey(day)];
+    delete monthData[bumperUsedKey(day)];
+    delete monthData[lotteryUsedKey(day)];
+}
+
+const PLAYFUL_META_KEYS = [
+    togetherUsedKey,
+    arenaUsedKey,
+    stealUsedKey,
+    curseUsedKey,
+    sacrificeUsedKey,
+    fakeWithdrawUsedKey,
+    urgeUsedKey,
+    howlUsedKey,
+    greedUsedKey,
+    urgeBuffKey,
+    groupSplashUsedKey,
+    cleanseUsedKey,
+    borrowUsedKey,
+    bumperUsedKey,
+    lotteryUsedKey,
+];
+
+function rejectUnlessPrivileged(operatorId) {
+    if (!isPrivileged(operatorId)) return { ok: false, type: 'privilege_only' };
+    return null;
+}
+
+/** 批量删除指定玩法元数据键，返回有改动的用户数 */
+function clearMetaKeysForAll(deerData, date, day, ...keyFns) {
+    const monthKey = getMonthKey(date);
+    const keys = keyFns.map((fn) => fn(day));
+    let cleared = 0;
+    for (const userRecord of Object.values(deerData || {})) {
+        if (!userRecord || typeof userRecord !== 'object') continue;
+        const monthData = userRecord[monthKey];
+        if (!monthData) continue;
+        let touched = false;
+        for (const k of keys) {
+            if (monthData[k] != null) {
+                delete monthData[k];
+                touched = true;
+            }
+        }
+        if (touched) cleared += 1;
+    }
+    return cleared;
+}
+
+/** 解除单日 entry 鹿死（写回 ensureDayEntry 后的对象） */
+function reviveDayEntry(entry) {
+    if (!entry?.d) return false;
+    entry.d = 0;
+    entry.c = entry.snap || 0;
+    entry.snap = 0;
+    entry.dr = '';
+    entry.dk = '';
+    entry.cur = 0;
+    entry.curR = 0;
+    return true;
+}
+
+/** 全员当日鹿死还阳 */
+function reviveAllDeadForDay(deerData, date, day) {
+    const monthKey = getMonthKey(date);
+    const dayKey = String(day);
+    let revived = 0;
+    for (const userRecord of Object.values(deerData || {})) {
+        if (!userRecord || typeof userRecord !== 'object') continue;
+        const monthData = userRecord[monthKey];
+        if (!monthData?.[dayKey]) continue;
+        if (reviveDayEntry(ensureDayEntry(monthData, day))) revived += 1;
+    }
+    return revived;
+}
+
+/** 全员当日玩法元数据重置（保留🦌绩 entry） */
+function resetAllUsersDayMeta(deerData, date, day) {
+    const monthKey = getMonthKey(date);
+    let count = 0;
+    for (const userRecord of Object.values(deerData || {})) {
+        if (!userRecord || typeof userRecord !== 'object') continue;
+        const monthData = userRecord[monthKey];
+        if (!monthData) continue;
+        resetUserDayMeta(monthData, day);
+        count += 1;
+    }
+    return count;
 }
 
 /** 清空指定日期的签到记录与当日玩法元数据 */
@@ -301,37 +430,17 @@ export function resetUserDayState(monthData, day) {
 }
 
 export function clearImperialUsedForAll(deerData, date, day) {
-    const monthKey = getMonthKey(date);
-    const key = imperialUsedKey(day);
-    let cleared = 0;
-    for (const userRecord of Object.values(deerData || {})) {
-        if (!userRecord || typeof userRecord !== 'object') continue;
-        const monthData = userRecord[monthKey];
-        if (!monthData?.[key]) continue;
-        delete monthData[key];
-        cleared += 1;
-    }
-    return cleared;
+    return clearMetaKeysForAll(deerData, date, day, imperialUsedKey);
 }
 
 /** 全员当日帮🦌/帮戒🦌配额重置 */
 export function clearHelperQuotasForAll(deerData, date, day) {
-    const monthKey = getMonthKey(date);
-    const hqKey = helperQuotaKey(day);
-    const hwqKey = helperWithdrawQuotaKey(day);
-    let cleared = 0;
-    for (const userRecord of Object.values(deerData || {})) {
-        if (!userRecord || typeof userRecord !== 'object') continue;
-        const monthData = userRecord[monthKey];
-        if (!monthData) continue;
-        const hadHq = !!monthData[hqKey];
-        const hadHwq = !!monthData[hwqKey];
-        if (!hadHq && !hadHwq) continue;
-        if (hadHq) delete monthData[hqKey];
-        if (hadHwq) delete monthData[hwqKey];
-        cleared += 1;
-    }
-    return cleared;
+    return clearMetaKeysForAll(deerData, date, day, helperQuotaKey, helperWithdrawQuotaKey);
+}
+
+/** 全员当日恶趣味/擂台/同归玩法次数重置 */
+export function clearPlayfulMetaForAll(deerData, date, day) {
+    return clearMetaKeysForAll(deerData, date, day, ...PLAYFUL_META_KEYS);
 }
 
 export function hasUsedTogether(monthData, day) {
@@ -468,6 +577,62 @@ export function getDayRankInGroup(deerData, members, date = new Date()) {
     }).filter(Boolean);
     list.sort((a, b) => b.sum - a.sum || a.id.localeCompare(b.id));
     return list;
+}
+
+/** 群鹿溅目标：日榜 Top N（排除施术者） */
+export function pickSplashTargetsFromDayRank(deerData, members, casterId, date, topN = GROUP_SPLASH_TOP_N) {
+    return getDayRankInGroup(deerData, members, date)
+        .filter((r) => String(r.id) !== String(casterId))
+        .slice(0, topN)
+        .map((r) => r.id);
+}
+
+/** 当前生效中的鹿咒层数（需层数与回合均 >0） */
+export function getActiveCurseStacks(entry) {
+    if (!entry?.cur || !entry?.curR) return 0;
+    return entry.cur;
+}
+
+export function getCurseRoundsLeft(entry) {
+    if (!entry?.cur || !entry?.curR) return 0;
+    return entry.curR;
+}
+
+export function getCurseInfo(entry) {
+    const stacks = getActiveCurseStacks(entry);
+    const rounds = getCurseRoundsLeft(entry);
+    const active = stacks > 0 && rounds > 0;
+    return {
+        stacks,
+        rounds,
+        active,
+        deathBonus: active ? CURSE_DEATH_BONUS * stacks : 0,
+        ascended: active && stacks >= CURSE_ASCENDED_STACKS,
+    };
+}
+
+/** 叠加鹿咒层数并刷新为 CURSE_MAX_ROUNDS 回合 */
+export function applyCurseStacks(entry, layers = 1) {
+    entry.cur = Math.min(CURSE_MAX_STACKS, (entry.cur || 0) + layers);
+    entry.curR = CURSE_MAX_ROUNDS;
+    return entry.cur;
+}
+
+/** 清除目标全部咒印 */
+export function clearCurse(entry) {
+    entry.cur = 0;
+    entry.curR = 0;
+}
+
+/** 自🦌一次消耗一回合咒效 */
+export function consumeCurseRound(entry) {
+    if (!entry?.cur || !entry?.curR) return { active: false, stacks: 0, rounds: 0 };
+    entry.curR -= 1;
+    if (entry.curR <= 0) {
+        entry.cur = 0;
+        entry.curR = 0;
+    }
+    return getCurseInfo(entry);
 }
 
 function consumeHelperQuota(helperMonthData, day, targetId) {
@@ -732,7 +897,20 @@ export function getTodayStatus(monthData, day) {
         howlUsed: readDailyUsed(monthData, day, howlUsedKey),
         greedUsed: readDailyUsed(monthData, day, greedUsedKey),
         groupSplashUsed: readDailyUsed(monthData, day, groupSplashUsedKey),
-        cursed: !!(getDayEntry(monthData, day)?.cur),
+        cleanseUsed: readDailyUsed(monthData, day, cleanseUsedKey),
+        borrowUsed: readDailyUsed(monthData, day, borrowUsedKey),
+        bumperUsed: readDailyUsed(monthData, day, bumperUsedKey),
+        lotteryUsed: readDailyUsed(monthData, day, lotteryUsedKey),
+        ...(() => {
+            const ci = getCurseInfo(entry);
+            return {
+                cursed: ci.active,
+                curseStacks: ci.stacks,
+                curseRounds: ci.rounds,
+                curseBonusPct: Math.round(ci.deathBonus * 100),
+                curseAscended: ci.ascended,
+            };
+        })(),
         urgeBuff: !!monthData?.[urgeBuffKey(day)],
         canUseSpecial: !dead,
         canHelpOthers: !dead,
@@ -778,7 +956,8 @@ export function performLu(deerData, userId, date, day) {
     }
 
     entry.a += 1;
-    const hadCurse = !!entry.cur;
+    const curseBefore = getCurseInfo(entry);
+    const hadActiveCurse = curseBefore.active;
     const hadUrgeBuff = !!monthData[urgeBuffKey(day)];
     let urgeBonus = 0;
 
@@ -789,7 +968,8 @@ export function performLu(deerData, userId, date, day) {
             urgeBonus = 1;
             delete monthData[urgeBuffKey(day)];
         }
-        if (hadCurse) entry.cur = 0;
+        if (hadActiveCurse) consumeCurseRound(entry);
+        const curseAfter = getCurseInfo(entry);
         return {
             ok: true,
             type: urgeBonus ? 'safe_urged' : 'safe',
@@ -797,36 +977,46 @@ export function performLu(deerData, userId, date, day) {
             count: entry.c,
             safeLeft: DAILY_SAFE_LIMIT - entry.c,
             urgeBonus,
-            hadCurse,
+            hadCurse: hadActiveCurse,
+            curseStacks: curseBefore.stacks,
+            curseRoundsLeft: curseAfter.rounds,
+            curseBonus: curseBefore.deathBonus,
         };
     }
 
     let deathChance = calcOverlimitDeathChance(entry.c);
-    if (entry.cur) {
-        deathChance = Math.min(1, deathChance + CURSE_DEATH_BONUS);
-        entry.cur = 0;
+    if (hadActiveCurse) {
+        deathChance = Math.min(1, deathChance + curseBefore.deathBonus);
     }
     if (rollChance(deathChance)) {
         const snap = applyDeath(entry, { reason: DEATH_REASON.SELF });
+        if (hadActiveCurse) consumeCurseRound(entry);
         return {
             ok: true,
-            type: hadCurse ? 'death_cursed' : 'death',
+            type: hadActiveCurse ? 'death_cursed' : 'death',
             entry,
             snap,
             deathChance,
-            hadCurse,
+            hadCurse: hadActiveCurse,
+            curseStacks: curseBefore.stacks,
+            curseBonus: curseBefore.deathBonus,
         };
     }
 
     entry.c += 1;
+    if (hadActiveCurse) consumeCurseRound(entry);
+    const curseAfter = getCurseInfo(entry);
     return {
         ok: true,
-        type: hadCurse ? 'risky_cursed' : 'risky',
+        type: hadActiveCurse ? 'risky_cursed' : 'risky',
         entry,
         count: entry.c,
         deathChance,
         nextDeathChance: calcOverlimitDeathChance(entry.c),
-        hadCurse,
+        hadCurse: hadActiveCurse,
+        curseStacks: curseBefore.stacks,
+        curseRoundsLeft: curseAfter.rounds,
+        curseBonus: curseBefore.deathBonus,
     };
 }
 
@@ -870,6 +1060,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day) {
         entry.snap = 0;
         entry.dr = '';
         entry.dk = '';
+        clearCurse(entry);
         entry.revived += 1;
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
@@ -900,7 +1091,13 @@ export function performHelpLu(deerData, helperId, targetId, date, day) {
         } else {
             entry.c += 1;
             entry.helped += 1;
-            result = { ok: true, type: 'help', entry, count: entry.c };
+            let curseSoothe = false;
+            if (getCurseInfo(entry).active) {
+                entry.curR = Math.max(0, (entry.curR || 0) - 1);
+                if (entry.curR <= 0) clearCurse(entry);
+                curseSoothe = true;
+            }
+            result = { ok: true, type: 'help', entry, count: entry.c, curseSoothe };
         }
     }
 
@@ -1008,58 +1205,69 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day) {
 
 /** 特权：回鹿返照（保留🦌绩，解除鹿死并重置玩法元数据） */
 export function performPrivilegeRevive(deerData, userId, date, day) {
-    if (!isPrivileged(userId)) {
-        return { ok: false, type: 'privilege_only' };
-    }
+    const deny = rejectUnlessPrivileged(userId);
+    if (deny) return deny;
+
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
-    const wasDead = !!entry.d;
-    let count = entry.c;
-
-    if (entry.d) {
-        entry.d = 0;
-        entry.c = entry.snap || 0;
-        entry.snap = 0;
-        entry.dr = '';
-        entry.dk = '';
-        entry.cur = 0;
-        count = entry.c;
-    }
-
+    const wasDead = reviveDayEntry(entry);
     resetUserDayMeta(monthData, day);
 
     return {
         ok: true,
         type: 'privilege_revive',
-        count,
+        count: entry.c,
         wasDead,
     };
 }
 
-/** 特权：皇城清算（全员当日皇城鹿已用标记重置） */
+/** 特权：皇城清算（全员当日皇城鹿次数重置） */
 export function performImperialClearance(deerData, operatorId, date, day) {
-    if (!isPrivileged(operatorId)) {
-        return { ok: false, type: 'privilege_only' };
-    }
-    const cleared = clearImperialUsedForAll(deerData, date, day);
+    const deny = rejectUnlessPrivileged(operatorId);
+    if (deny) return deny;
     return {
         ok: true,
         type: 'imperial_clearance',
-        cleared,
+        cleared: clearImperialUsedForAll(deerData, date, day),
         day,
     };
 }
 
 /** 特权：鹿清算（全员当日帮🦌/帮戒🦌配额重置） */
 export function performHelpQuotaClearance(deerData, operatorId, date, day) {
-    if (!isPrivileged(operatorId)) {
-        return { ok: false, type: 'privilege_only' };
-    }
-    const cleared = clearHelperQuotasForAll(deerData, date, day);
+    const deny = rejectUnlessPrivileged(operatorId);
+    if (deny) return deny;
     return {
         ok: true,
         type: 'help_quota_clearance',
-        cleared,
+        cleared: clearHelperQuotasForAll(deerData, date, day),
+        day,
+    };
+}
+
+/** 特权：恶趣清算（全员恶趣味/擂台/同归次数重置） */
+export function performPlayfulClearance(deerData, operatorId, date, day) {
+    const deny = rejectUnlessPrivileged(operatorId);
+    if (deny) return deny;
+    return {
+        ok: true,
+        type: 'playful_clearance',
+        cleared: clearPlayfulMetaForAll(deerData, date, day),
+        day,
+    };
+}
+
+/** 特权：大赦众生（全员鹿死还阳 + 全员玩法次数重置） */
+export function performAmnestyAll(deerData, operatorId, date, day) {
+    const deny = rejectUnlessPrivileged(operatorId);
+    if (deny) return deny;
+    const revived = reviveAllDeadForDay(deerData, date, day);
+    const metaReset = resetAllUsersDayMeta(deerData, date, day);
+    return {
+        ok: true,
+        type: 'amnesty_all',
+        revived,
+        metaReset,
         day,
     };
 }
@@ -1175,8 +1383,13 @@ export function performStealDeer(deerData, thiefId, targetId, date, day) {
     const thiefEntry = ensureDayEntry(thiefMonth, day);
     thiefEntry.a += 1;
 
+    const curseStacks = getActiveCurseStacks(targetEntry);
+    const stealBonus = curseStacks * STEAL_CURSE_BONUS_PER_STACK;
+    const successCap = Math.min(0.95, STEAL_SUCCESS_CHANCE + stealBonus);
+    const backfireCap = successCap + STEAL_BACKFIRE_CHANCE;
+
     const roll = Math.random();
-    if (roll < STEAL_SUCCESS_CHANCE) {
+    if (roll < successCap) {
         adjustDayCount(targetEntry, -1);
         adjustDayCount(thiefEntry, 1);
         return {
@@ -1186,30 +1399,48 @@ export function performStealDeer(deerData, thiefId, targetId, date, day) {
             targetCount: targetEntry.c,
             stealUsed: used + 1,
             stealLeft: DAILY_STEAL_QUOTA - used - 1,
+            curseStacks,
+            stealBonus,
         };
     }
-    if (roll < STEAL_SUCCESS_CHANCE + STEAL_BACKFIRE_CHANCE) {
+    if (roll < backfireCap) {
         adjustDayCount(thiefEntry, -1);
+        let curseBackfire = false;
+        if (curseStacks > 0 && rollChance(STEAL_CURSE_BACKFIRE_CHANCE)) {
+            applyCurseStacks(thiefEntry, 1);
+            curseBackfire = true;
+        }
         return {
             ok: true,
-            type: 'steal_backfire',
+            type: curseBackfire ? 'steal_curse_backfire' : 'steal_backfire',
             thiefCount: thiefEntry.c,
             targetCount: targetEntry.c,
             stealUsed: used + 1,
             stealLeft: DAILY_STEAL_QUOTA - used - 1,
+            curseStacks,
+            stealBonus,
+            curseBackfire,
         };
+    }
+    let curseBackfire = false;
+    if (curseStacks > 0 && rollChance(STEAL_CURSE_BACKFIRE_CHANCE * 0.6)) {
+        applyCurseStacks(thiefEntry, 1);
+        curseBackfire = true;
     }
     return {
         ok: true,
-        type: 'steal_fail',
+        type: curseBackfire ? 'steal_curse_fail' : 'steal_fail',
         thiefCount: thiefEntry.c,
         targetCount: targetEntry.c,
         stealUsed: used + 1,
         stealLeft: DAILY_STEAL_QUOTA - used - 1,
+        curseStacks,
+        stealBonus,
+        curseBackfire,
     };
 }
 
-/** 鹿咒：目标下次自🦌 +10% 鹿死 */
+/** 鹿咒：叠层 + 三回合内每层 +10% 鹿死 */
 export function performCurseDeer(deerData, casterId, targetId, date, day) {
     if (String(casterId) === String(targetId)) {
         return { ok: false, type: 'curse_self' };
@@ -1227,14 +1458,50 @@ export function performCurseDeer(deerData, casterId, targetId, date, day) {
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
 
     casterMonth[curseUsedKey(day)] = used + 1;
-    targetEntry.cur = 1;
+    const stacks = applyCurseStacks(targetEntry, 1);
 
     return {
         ok: true,
         type: 'curse',
         curseUsed: used + 1,
         curseLeft: DAILY_CURSE_QUOTA - used - 1,
+        curseStacks: stacks,
+        curseRounds: targetEntry.curR,
         bonus: CURSE_DEATH_BONUS,
+        ascended: stacks >= CURSE_ASCENDED_STACKS,
+    };
+}
+
+/** 解鹿咒：🦌友互助清除全部咒印 */
+export function performCleanseCurse(deerData, helperId, targetId, date, day) {
+    if (String(helperId) === String(targetId)) {
+        return { ok: false, type: 'curse_self' };
+    }
+    const actorDead = rejectIfActorDead(deerData, helperId, date, day);
+    if (actorDead) return actorDead;
+
+    const helperMonth = ensureMonthData(deerData, helperId, date);
+    const used = readDailyUsed(helperMonth, day, cleanseUsedKey);
+    if (used >= DAILY_CLEANSE_CURSE_QUOTA) {
+        return { ok: false, type: 'cleanse_used', cleanseUsed: used, cleanseLeft: 0 };
+    }
+
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+    if (!getCurseInfo(targetEntry).active) {
+        return { ok: false, type: 'cleanse_no_curse' };
+    }
+
+    const clearedStacks = getActiveCurseStacks(targetEntry);
+    clearCurse(targetEntry);
+    helperMonth[cleanseUsedKey(day)] = used + 1;
+
+    return {
+        ok: true,
+        type: 'cleanse_curse',
+        cleanseUsed: used + 1,
+        cleanseLeft: DAILY_CLEANSE_CURSE_QUOTA - used - 1,
+        clearedStacks,
     };
 }
 
@@ -1261,12 +1528,21 @@ export function performSacrificeDeer(deerData, userId, targetId, date, day) {
     selfEntry.a += 1;
     targetEntry.a += 1;
 
+    let cursePurged = 0;
+    if (getActiveCurseStacks(targetEntry) > 0) {
+        targetEntry.cur = Math.max(0, targetEntry.cur - 1);
+        if (targetEntry.cur <= 0) clearCurse(targetEntry);
+        else targetEntry.curR = CURSE_MAX_ROUNDS;
+        cursePurged = 1;
+    }
+
     return {
         ok: true,
         type: 'sacrifice',
         selfCount: selfEntry.c,
         targetCount: targetEntry.c,
         transfer: SACRIFICE_TRANSFER,
+        cursePurged,
     };
 }
 
@@ -1318,8 +1594,14 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
 
     selfMonth[urgeUsedKey(day)] = used + 1;
     const targetWasZero = targetEntry.c <= 0 && !targetEntry.d;
+    let curseUrged = false;
     if (targetWasZero) {
         targetMonth[urgeBuffKey(day)] = 1;
+    }
+    if (getCurseInfo(targetEntry).active) {
+        targetEntry.curR = Math.max(0, (targetEntry.curR || 0) - 1);
+        if (targetEntry.curR <= 0) clearCurse(targetEntry);
+        curseUrged = true;
     }
 
     return {
@@ -1328,7 +1610,10 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
         urgeUsed: used + 1,
         urgeLeft: DAILY_URGE_QUOTA - used - 1,
         buffApplied: targetWasZero,
+        curseUrged,
         targetCount: targetEntry.c,
+        curseRounds: getCurseRoundsLeft(targetEntry),
+        curseStacks: getActiveCurseStacks(targetEntry),
     };
 }
 
@@ -1354,12 +1639,20 @@ export function performDeerHowl(deerData, userId, date, day) {
     }
 
     let howlEffect = 'none';
+    let curseDispelled = 0;
     if (rollChance(HOWL_TRAP_CHANCE)) {
         adjustDayCount(entry, -1);
         howlEffect = 'trap';
     } else if (rollChance(HOWL_BONUS_CHANCE)) {
         entry.c += 1;
         howlEffect = 'bonus';
+        if (getCurseInfo(entry).active) {
+            entry.cur = Math.max(0, entry.cur - 1);
+            if (entry.cur <= 0) clearCurse(entry);
+            else entry.curR = CURSE_MAX_ROUNDS;
+            curseDispelled = 1;
+            howlEffect = 'bonus_cleanse';
+        }
     }
 
     return {
@@ -1367,6 +1660,7 @@ export function performDeerHowl(deerData, userId, date, day) {
         type: 'howl',
         count: entry.c,
         howlEffect,
+        curseDispelled,
         howlUsed: used + 1,
         howlLeft: DAILY_HOWL_QUOTA - used - 1,
     };
@@ -1395,11 +1689,18 @@ export function performGreedDeer(deerData, userId, targetId, date, day) {
     if (rollChance(GREED_SUCCESS_CHANCE)) {
         adjustDayCount(selfEntry, 1);
         adjustDayCount(targetEntry, -1);
+        let curseStripped = 0;
+        if (getActiveCurseStacks(targetEntry) > 0) {
+            targetEntry.cur = Math.max(0, targetEntry.cur - 1);
+            if (targetEntry.cur <= 0) clearCurse(targetEntry);
+            curseStripped = 1;
+        }
         return {
             ok: true,
             type: 'greed_success',
             selfCount: selfEntry.c,
             targetCount: targetEntry.c,
+            curseStripped,
         };
     }
 
@@ -1413,13 +1714,14 @@ export function performGreedDeer(deerData, userId, targetId, date, day) {
     };
 }
 
-/** 群鹿溅：群内存活成员各 -1，施术者反噬 -2，15% 附带鹿咒 */
+/** 群鹿溅：日榜 Top5 各 -1，带咒者额外引爆，20% 叠咒，施术者反噬 -2 */
 export function performGroupSplash(deerData, casterId, memberIds, date, day) {
     const actorDead = rejectIfActorDead(deerData, casterId, date, day);
     if (actorDead) return actorDead;
 
-    if (!Array.isArray(memberIds) || memberIds.length < GROUP_SPLASH_MIN_MEMBERS) {
-        return { ok: false, type: 'splash_need_crowd', min: GROUP_SPLASH_MIN_MEMBERS };
+    const targets = pickSplashTargetsFromDayRank(deerData, memberIds, casterId, date, GROUP_SPLASH_TOP_N);
+    if (!targets.length) {
+        return { ok: false, type: 'splash_no_rank' };
     }
 
     const casterMonth = ensureMonthData(deerData, casterId, date);
@@ -1434,22 +1736,32 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day) {
     }
 
     const victims = [];
-    for (const id of memberIds) {
-        const uid = String(id);
-        if (uid === String(casterId)) continue;
+    for (const uid of targets) {
         const entry = getDayEntry(getMonthData(getUserRecord(deerData, uid), date), day);
         if (entry?.d) continue;
 
         const targetMonth = ensureMonthData(deerData, uid, date);
         const targetEntry = ensureDayEntry(targetMonth, day);
+        const hadCurse = getCurseInfo(targetEntry).active;
         adjustDayCount(targetEntry, -GROUP_SPLASH_DAMAGE);
+        let burst = false;
+        if (hadCurse) {
+            adjustDayCount(targetEntry, -GROUP_SPLASH_CURSE_BURST_DAMAGE);
+            burst = true;
+        }
         targetEntry.a += 1;
         let cursed = false;
         if (rollChance(GROUP_SPLASH_CURSE_CHANCE)) {
-            targetEntry.cur = 1;
+            applyCurseStacks(targetEntry, 1);
             cursed = true;
         }
-        victims.push({ id: uid, count: targetEntry.c, cursed });
+        victims.push({
+            id: uid,
+            count: targetEntry.c,
+            cursed,
+            burst,
+            stacks: getActiveCurseStacks(targetEntry),
+        });
     }
 
     if (!victims.length) {
@@ -1465,13 +1777,184 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day) {
         ok: true,
         type: 'group_splash',
         victims,
+        targetCount: targets.length,
         totalHit: victims.length,
-        cursedCount: victims.filter(v => v.cursed).length,
+        burstCount: victims.filter((v) => v.burst).length,
+        cursedCount: victims.filter((v) => v.cursed).length,
         recoil: GROUP_SPLASH_RECOIL,
         damage: GROUP_SPLASH_DAMAGE,
+        burstDamage: GROUP_SPLASH_CURSE_BURST_DAMAGE,
         casterCount: casterEntry.c,
         splashUsed: used + 1,
         splashLeft: DAILY_GROUP_SPLASH_QUOTA - used - 1,
+    };
+}
+
+/** 借鹿：🦌友周转 1 次，目标需≥2，顺带撕 1 层咒 */
+export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
+    if (String(borrowerId) === String(targetId)) {
+        return { ok: false, type: 'borrow_self' };
+    }
+    const actorDead = rejectIfActorDead(deerData, borrowerId, date, day);
+    if (actorDead) return actorDead;
+
+    const borrowerMonth = ensureMonthData(deerData, borrowerId, date);
+    const used = readDailyUsed(borrowerMonth, day, borrowUsedKey);
+    if (used >= DAILY_BORROW_QUOTA) {
+        return { ok: false, type: 'borrow_used', borrowUsed: used, borrowLeft: 0 };
+    }
+
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+    if (targetEntry.c < BORROW_MIN_TARGET_COUNT) {
+        return { ok: false, type: 'borrow_poor', min: BORROW_MIN_TARGET_COUNT };
+    }
+
+    borrowerMonth[borrowUsedKey(day)] = used + 1;
+    const borrowerEntry = ensureDayEntry(borrowerMonth, day);
+    adjustDayCount(targetEntry, -1);
+    adjustDayCount(borrowerEntry, 1);
+    targetEntry.a += 1;
+    borrowerEntry.a += 1;
+    const curseStripped = stripOneCurseStack(targetEntry);
+
+    return {
+        ok: true,
+        type: 'borrow',
+        selfCount: borrowerEntry.c,
+        targetCount: targetEntry.c,
+        curseStripped,
+        borrowUsed: used + 1,
+        borrowLeft: DAILY_BORROW_QUOTA - used - 1,
+    };
+}
+
+/** 碰瓷鹿：38% 你+1ta-1 / 32% 双-1 / 30% 你只-2，碰瓷成功小概率叠咒 */
+export function performBumperDeer(deerData, actorId, targetId, date, day) {
+    if (String(actorId) === String(targetId)) {
+        return { ok: false, type: 'bumper_self' };
+    }
+    const actorDead = rejectIfActorDead(deerData, actorId, date, day);
+    if (actorDead) return actorDead;
+
+    const actorMonth = ensureMonthData(deerData, actorId, date);
+    const used = readDailyUsed(actorMonth, day, bumperUsedKey);
+    if (used >= DAILY_BUMPER_QUOTA) {
+        return { ok: false, type: 'bumper_used', bumperUsed: used, bumperLeft: 0 };
+    }
+
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+
+    actorMonth[bumperUsedKey(day)] = used + 1;
+    const actorEntry = ensureDayEntry(actorMonth, day);
+    actorEntry.a += 1;
+    targetEntry.a += 1;
+
+    const roll = Math.random();
+    if (roll < BUMPER_WIN_CHANCE) {
+        adjustDayCount(actorEntry, 1);
+        adjustDayCount(targetEntry, -1);
+        let curseApplied = false;
+        if (rollChance(BUMPER_CURSE_ON_WIN_CHANCE)) {
+            applyCurseStacks(targetEntry, 1);
+            curseApplied = true;
+        }
+        return {
+            ok: true,
+            type: 'bumper_win',
+            selfCount: actorEntry.c,
+            targetCount: targetEntry.c,
+            curseApplied,
+            bumperUsed: used + 1,
+            bumperLeft: DAILY_BUMPER_QUOTA - used - 1,
+        };
+    }
+    if (roll < BUMPER_WIN_CHANCE + BUMPER_DRAW_CHANCE) {
+        adjustDayCount(actorEntry, -1);
+        adjustDayCount(targetEntry, -1);
+        return {
+            ok: true,
+            type: 'bumper_draw',
+            selfCount: actorEntry.c,
+            targetCount: targetEntry.c,
+            bumperUsed: used + 1,
+            bumperLeft: DAILY_BUMPER_QUOTA - used - 1,
+        };
+    }
+    adjustDayCount(actorEntry, -BUMPER_FAIL_PENALTY);
+    return {
+        ok: true,
+        type: 'bumper_fail',
+        selfCount: actorEntry.c,
+        targetCount: targetEntry.c,
+        penalty: BUMPER_FAIL_PENALTY,
+        bumperUsed: used + 1,
+        bumperLeft: DAILY_BUMPER_QUOTA - used - 1,
+    };
+}
+
+/** 抽鹿签：单人每日运势（+1/-1/催更符/自咒/撕咒/空签） */
+export function performDeerLottery(deerData, userId, date, day) {
+    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    if (actorDead) return actorDead;
+
+    const monthData = ensureMonthData(deerData, userId, date);
+    const used = readDailyUsed(monthData, day, lotteryUsedKey);
+    if (used >= DAILY_LOTTERY_QUOTA) {
+        return { ok: false, type: 'lottery_used', lotteryUsed: used, lotteryLeft: 0 };
+    }
+
+    monthData[lotteryUsedKey(day)] = used + 1;
+    const entry = ensureDayEntry(monthData, day);
+    entry.a += 1;
+
+    const roll = Math.random();
+    let outcome;
+    if (roll < 0.28) outcome = 'plus';
+    else if (roll < 0.48) outcome = 'minus';
+    else if (roll < 0.63) outcome = 'urge';
+    else if (roll < 0.73) outcome = 'curse';
+    else if (roll < 0.85) outcome = 'cleanse';
+    else outcome = 'blank';
+
+    if (outcome === 'cleanse' && !getActiveCurseStacks(entry)) {
+        outcome = roll < 0.5 ? 'plus' : 'blank';
+    }
+    if (outcome === 'urge' && entry.c > 0) {
+        outcome = 'plus';
+    }
+
+    switch (outcome) {
+        case 'plus':
+            adjustDayCount(entry, 1);
+            break;
+        case 'minus':
+            adjustDayCount(entry, -1);
+            break;
+        case 'urge':
+            monthData[urgeBuffKey(day)] = 1;
+            break;
+        case 'curse':
+            applyCurseStacks(entry, 1);
+            break;
+        case 'cleanse':
+            stripOneCurseStack(entry);
+            break;
+        default:
+            break;
+    }
+
+    const ci = getCurseInfo(entry);
+    return {
+        ok: true,
+        type: 'lottery',
+        outcome,
+        count: entry.c,
+        curseStacks: ci.stacks,
+        curseRounds: ci.rounds,
+        lotteryUsed: used + 1,
+        lotteryLeft: DAILY_LOTTERY_QUOTA - used - 1,
     };
 }
 

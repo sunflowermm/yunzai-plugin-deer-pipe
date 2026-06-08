@@ -5,7 +5,8 @@ import {
     parseMonthInput,
 } from "../utils/data.js";
 import { generateImage, generateYearImage } from "../utils/core.js";
-import { REG } from "../constants/commands.js";
+import { cleanCommandMsg, REG } from "../constants/commands.js";
+import { resolveSubjectUser } from "../utils/plugin-common.js";
 import { loadDeerData } from "../utils/store.js";
 
 export class CalendarApp extends plugin {
@@ -24,23 +25,9 @@ export class CalendarApp extends plugin {
         });
     }
 
-    resolveTargetUser(e) {
-        if (e.at) {
-            return { userId: e.at, isAt: true };
-        }
-        return { userId: e.sender.user_id, isAt: false };
-    }
-
-    async getUserDisplayName(e, userId) {
-        const curGroup = e.group || Bot?.pickGroup(e.group_id);
-        const membersMap = await curGroup?.getMemberMap();
-        const info = membersMap?.get(parseInt(userId));
-        return info?.card || info?.nickname || String(userId);
-    }
-
     async yearCalendar(e) {
-        const { userId } = this.resolveTargetUser(e);
-        const name = await this.getUserDisplayName(e, userId);
+        const subject = await resolveSubjectUser(e);
+        const { userId, name } = subject;
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, userId);
         const now = new Date();
@@ -55,40 +42,31 @@ export class CalendarApp extends plugin {
     }
 
     async viewYearCalendar(e) {
-        let user, isAt = false;
-        if (e.at) {
-            const curGroup = e.group || Bot?.pickGroup(e.group_id);
-            const membersMap = await curGroup?.getMemberMap();
-            user = membersMap.get(parseInt(e.at));
-            isAt = true;
-        } else {
-            user = e.sender;
-        }
-
-        const { user_id, card, nickname } = user;
+        const subject = await resolveSubjectUser(e);
         const deerData = await loadDeerData();
-        const userRecord = getUserRecord(deerData, user_id);
+        const userRecord = getUserRecord(deerData, subject.userId);
         const now = new Date();
 
         if (!hasYearData(userRecord, now.getFullYear())) {
-            e.reply(isAt ? "ta今年还没有🦌过呢~" : "你今年还没有🦌过呢~", true);
+            e.reply(subject.isAt ? "ta今年还没有🦌过呢~" : "你今年还没有🦌过呢~", true);
             return;
         }
 
-        const raw = await generateYearImage(now, card || nickname, userRecord);
+        const raw = await generateYearImage(now, subject.name, userRecord);
         await e.reply(["📅 🦌历如下：", segment.image(raw)], true);
     }
 
     async monthCalendar(e) {
-        const match = e.msg.match(/(🦌|鹿)历(\d{4}-\d{1,2}|\d{1,2})$/);
-        const parsed = parseMonthInput(match[2]);
+        const cleaned = cleanCommandMsg(e.msg);
+        const match = cleaned.match(/(🦌|鹿)历(\d{4}-\d{1,2}|\d{1,2})$/);
+        const parsed = match ? parseMonthInput(match[2]) : null;
         if (!parsed) {
             e.reply("日期格式不对，试试 `🦌历6` 或 `🦌历2025-06`", true);
             return;
         }
 
-        const { userId } = this.resolveTargetUser(e);
-        const name = await this.getUserDisplayName(e, userId);
+        const subject = await resolveSubjectUser(e);
+        const { userId, name } = subject;
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, userId);
 

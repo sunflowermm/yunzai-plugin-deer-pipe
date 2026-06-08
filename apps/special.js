@@ -8,6 +8,10 @@ import {
 
     performImperialClearance,
 
+    performPlayfulClearance,
+
+    performAmnestyAll,
+
     performPrivilegeRevive,
 
     performTogetherFall,
@@ -35,6 +39,8 @@ import {
     ARENA_DECLINE_MESSAGES,
 
     ARENA_PK_TIMEOUT_SEC,
+
+    ARENA_STAKE,
 
     DAILY_IMPERIAL_QUOTA,
 
@@ -81,6 +87,8 @@ import {
 } from '../utils/arena-session.js';
 
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
+
+import plugin from '../../../lib/plugins/plugin.js';
 
 
 
@@ -162,7 +170,7 @@ export class DeerSpecial extends plugin {
 
             name: '🦌管扩展',
 
-            dsc: '同归鹿尽、帮戒鹿、擂台鹿、皇城鹿、特权回鹿返照/皇城清算/鹿清算',
+            dsc: '同归鹿尽、帮戒鹿、擂台鹿、皇城鹿、鹿使后门（返照/清算/大赦）',
 
             event: 'message',
 
@@ -181,6 +189,10 @@ export class DeerSpecial extends plugin {
 
                 { reg: REG.deerClearance, fnc: 'helpQuotaClearance' },
 
+                { reg: REG.playfulClearance, fnc: 'playfulClearance' },
+
+                { reg: REG.amnestyAll, fnc: 'amnestyAll' },
+
                 { reg: REG.arena, fnc: 'arenaChallenge' },
 
                 { reg: REG.imperial, fnc: 'imperialStart' },
@@ -195,10 +207,65 @@ export class DeerSpecial extends plugin {
 
     clearArenaUserContexts() {
         const sessions = listArenaSessions();
-        clearAllArenaSessions();
         for (const s of sessions) {
-            plugin.finishUserContext(this.name, this.e.self_id, s.targetId, 'arenaRespond');
+            plugin.finishUserContext(
+                s.pluginName || this.name,
+                s.selfId ?? this.e.self_id,
+                s.targetId,
+                'arenaRespond',
+            );
         }
+        clearAllArenaSessions();
+    }
+
+    /** 特权指令统一入口 */
+    async runPrivilege(performFn, afterSave) {
+        const { user_id, card, nickname } = this.e.sender;
+        if (!isPrivileged(user_id)) {
+            await this.reply(formatErrorMessage({ type: 'privilege_only' }), true);
+            return;
+        }
+
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performFn(deerData, user_id, date, day);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+
+        await saveDeerData(deerData);
+        afterSave?.();
+        await this.reply(formatActionMessage(result, { helperName: card || nickname }), true);
+    }
+
+    async privilegeRevive() {
+        await this.runPrivilege(performPrivilegeRevive);
+    }
+
+    async helpQuotaClearance() {
+        await this.runPrivilege(performHelpQuotaClearance);
+    }
+
+    async imperialClearance() {
+        await this.runPrivilege(performImperialClearance, () => {
+            clearAllImperialSessions();
+            this.clearArenaUserContexts();
+        });
+    }
+
+    async playfulClearance() {
+        await this.runPrivilege(performPlayfulClearance, () => {
+            this.clearArenaUserContexts();
+        });
+    }
+
+    async amnestyAll() {
+        await this.runPrivilege(performAmnestyAll, () => {
+            clearAllImperialSessions();
+            this.clearArenaUserContexts();
+        });
     }
 
     async togetherFall() {
@@ -351,126 +418,6 @@ export class DeerSpecial extends plugin {
 
 
 
-    async privilegeRevive() {
-
-        const { user_id, card, nickname } = this.e.sender;
-
-        if (!isPrivileged(user_id)) {
-
-            await this.reply(formatErrorMessage({ type: 'privilege_only' }), true);
-
-            return;
-
-        }
-
-
-
-        const date = new Date();
-
-        const day = date.getDate();
-
-        const deerData = await loadDeerData();
-
-        const result = performPrivilegeRevive(deerData, user_id, date, day);
-
-        if (!result.ok) {
-
-            await this.reply(formatErrorMessage(result), true);
-
-            return;
-
-        }
-
-        await saveDeerData(deerData);
-
-        await this.reply(formatActionMessage(result, { helperName: card || nickname }), true);
-
-    }
-
-
-
-    async helpQuotaClearance() {
-
-        const { user_id, card, nickname } = this.e.sender;
-
-        if (!isPrivileged(user_id)) {
-
-            await this.reply(formatErrorMessage({ type: 'privilege_only' }), true);
-
-            return;
-
-        }
-
-
-
-        const date = new Date();
-
-        const day = date.getDate();
-
-        const deerData = await loadDeerData();
-
-        const result = performHelpQuotaClearance(deerData, user_id, date, day);
-
-        if (!result.ok) {
-
-            await this.reply(formatErrorMessage(result), true);
-
-            return;
-
-        }
-
-        await saveDeerData(deerData);
-
-        await this.reply(formatActionMessage(result, { helperName: card || nickname }), true);
-
-    }
-
-
-
-    async imperialClearance() {
-
-        const { user_id, card, nickname } = this.e.sender;
-
-        if (!isPrivileged(user_id)) {
-
-            await this.reply(formatErrorMessage({ type: 'privilege_only' }), true);
-
-            return;
-
-        }
-
-
-
-        const date = new Date();
-
-        const day = date.getDate();
-
-        const deerData = await loadDeerData();
-
-        const result = performImperialClearance(deerData, user_id, date, day);
-
-        if (!result.ok) {
-
-            await this.reply(formatErrorMessage(result), true);
-
-            return;
-
-        }
-
-        await saveDeerData(deerData);
-
-
-
-        clearAllImperialSessions();
-
-        this.clearArenaUserContexts();
-
-        await this.reply(formatActionMessage(result, { helperName: card || nickname }), true);
-
-    }
-
-
-
     async arenaChallenge() {
 
         if (!this.e.isGroup) {
@@ -537,6 +484,8 @@ export class DeerSpecial extends plugin {
             targetName,
             date,
             day,
+            pluginName,
+            selfId,
         }, {
             onExpire: () => {
                 plugin.finishUserContext(pluginName, selfId, targetId, 'arenaRespond');
@@ -560,7 +509,7 @@ export class DeerSpecial extends plugin {
 
             `${targetName} 请在 ${ARENA_PK_TIMEOUT_SEC} 秒内回复「冲」应战，或「拒」认怂（-1 次）！`,
 
-            `规则：50% 胜负 · 败者 -5 次、胜者 +5 次 · 双方各计 1 次擂台`,
+            `规则：50% 胜负 · 败者 -${ARENA_STAKE} 次、胜者 +${ARENA_STAKE} 次 · 双方各计 1 次擂台`,
 
         ].join('\n'), true);
 

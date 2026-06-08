@@ -15,7 +15,25 @@ import {
     normalizeDayEntry,
     sumMonthData,
 } from './data.js';
-import { DAILY_SAFE_LIMIT, getDeathCellLabel, getDeathReasonText } from '../constants/game.js';
+import {
+    CALENDAR_TAGLINES,
+    DAILY_ARENA_QUOTA,
+    DAILY_CLEANSE_CURSE_QUOTA,
+    DAILY_CURSE_QUOTA,
+    DAILY_FAKE_WITHDRAW_QUOTA,
+    DAILY_GROUP_SPLASH_QUOTA,
+    DAILY_HELP_QUOTA,
+    DAILY_HELP_WITHDRAW_QUOTA,
+    DAILY_HOWL_QUOTA,
+    DAILY_IMPERIAL_QUOTA,
+    DAILY_SAFE_LIMIT,
+    DAILY_STEAL_QUOTA,
+    DAILY_URGE_QUOTA,
+    STATUS_TAGLINES,
+    getDeathCellLabel,
+    getDeathReasonText,
+    pickRandom,
+} from '../constants/game.js';
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 const BOX_W = 100;
@@ -61,6 +79,30 @@ function escapeXml(text) {
         .replace(/"/g, '&quot;');
 }
 
+function ensureDate(d) {
+    if (d instanceof Date && Number.isFinite(d.getTime())) return d;
+    return new Date();
+}
+
+function truncName(name, max = 16) {
+    const s = String(name ?? '鹿友');
+    return escapeXml(s.length > max ? `${s.slice(0, max)}…` : s);
+}
+
+function pickStatusTagline(status) {
+    if (status.dead) return pickRandom(STATUS_TAGLINES.dead);
+    if (status.cursed) return pickRandom(STATUS_TAGLINES.cursed);
+    if (status.inRiskZone) return pickRandom(STATUS_TAGLINES.risk);
+    return pickRandom(STATUS_TAGLINES.safe);
+}
+
+function quotaBar(used, total, width = 200) {
+    const t = Math.max(1, total);
+    const u = Math.min(used, t);
+    const fill = Math.round((u / t) * width);
+    return { fill, width, label: `${u}/${t}` };
+}
+
 function svgText(content, width, height, extra = '') {
     return Buffer.from(
         `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${extra}${content}</svg>`
@@ -71,10 +113,12 @@ function svgText(content, width, height, extra = '') {
  * @param {object} options highlightDay=高亮日期, forceDeadBanner=强制显示鹿死横幅
  */
 export async function generateImage(now, name, monthData, options = {}) {
+    now = ensureDate(now);
     const { highlightDay = now.getDate(), forceDeadBanner = false } = options;
     const cal = getMonthCalendar(now);
     const IMG_W = 700;
-    const IMG_H = HEADER_H + STATS_H + BOX_H + BOX_H * cal.length;
+    const HEADER_H_CAL = 140;
+    const IMG_H = HEADER_H_CAL + STATS_H + BOX_H + BOX_H * cal.length;
 
     const upToDay = now.getDate();
     const stats = calcMonthStats(monthData, upToDay);
@@ -112,18 +156,19 @@ export async function generateImage(now, name, monthData, options = {}) {
             <text x="20" y="42" font-size="28" font-family="MiSans" fill="${titleColor}" font-weight="bold">
                 ${todayDead ? '💀' : '🦌'} ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')} 鹿历
             </text>
-            <text x="20" y="78" font-size="24" font-family="MiSans" fill="${subColor}">${escapeXml(name)}</text>
-            <text x="20" y="112" font-size="17" font-family="MiSans" fill="${metaColor}">
+            <text x="20" y="78" font-size="24" font-family="MiSans" fill="${subColor}">${truncName(name)}</text>
+            <text x="20" y="102" font-size="15" font-family="MiSans" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
+            <text x="20" y="122" font-size="16" font-family="MiSans" fill="${metaColor}">
                 本月 ${stats.total} 次 · 活跃 ${stats.activeDays} 天 · 连击 ${stats.streak} 天
                 ${stats.deathDays > 0 ? ` · 💀${stats.deathDays}天` : ''}${deadBanner}
             </text>
-        `, IMG_W, HEADER_H),
+        `, IMG_W, HEADER_H_CAL),
         top: 0,
         left: 0,
     });
 
     // 星期标题
-    const weekY = HEADER_H;
+    const weekY = HEADER_H_CAL;
     for (let i = 0; i < 7; i++) {
         compositeArray.push({
             input: svgText(`
@@ -142,7 +187,7 @@ export async function generateImage(now, name, monthData, options = {}) {
         for (let dayIdx = 0; dayIdx < cal[weekIdx].length; dayIdx++) {
             const day = cal[weekIdx][dayIdx];
             const x0 = dayIdx * BOX_W;
-            const y0 = HEADER_H + BOX_H + weekIdx * BOX_H;
+            const y0 = HEADER_H_CAL + BOX_H + weekIdx * BOX_H;
             if (day === null) continue;
 
             const rawDay = monthData?.[String(day)];
@@ -207,6 +252,7 @@ export async function generateImage(now, name, monthData, options = {}) {
  * 生成年度🦌历（12 月热力概览）
  */
 export async function generateYearImage(now, name, userRecord) {
+    now = ensureDate(now);
     const year = now.getFullYear();
     const yearMonths = getYearMonths(userRecord, year);
     const stats = calcYearStats(userRecord, year, now);
@@ -238,7 +284,7 @@ export async function generateYearImage(now, name, userRecord) {
     compositeArray.push({
         input: svgText(`
             <text x="${IMG_W / 2}" y="40" font-size="30" font-family="MiSans" fill="#ffd700" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
-            <text x="${IMG_W / 2}" y="72" font-size="22" font-family="MiSans" fill="#e8e8e8" text-anchor="middle">${escapeXml(name)}</text>
+            <text x="${IMG_W / 2}" y="72" font-size="22" font-family="MiSans" fill="#e8e8e8" text-anchor="middle">${truncName(name, 20)}</text>
             <text x="${IMG_W / 2}" y="102" font-size="16" font-family="MiSans" fill="#aaa" text-anchor="middle">
                 全年 ${stats.total} 次 · ${stats.activeDays} 活跃日 · 💀${stats.deathDays || 0}天 · 最猛 ${stats.maxMonth}月(${stats.maxMonthCount}次)
             </text>
@@ -260,17 +306,24 @@ export async function generateYearImage(now, name, userRecord) {
 
         // 迷你月格子条
         const daysInMonth = new Date(year, m, 0).getDate();
+        const cellW = 18;
+        const cellH = 11;
+        const gapX = 2;
+        const gapY = 2;
         let cells = '';
         for (let d = 1; d <= daysInMonth; d++) {
             const raw = monthData?.[String(d)];
             const dead = isDayDead(raw);
             const c = dead ? 0 : (getRawDayCount(raw) ?? 0);
             const cellBg = dead ? { r: 45, g: 30, b: 35, a: 1 } : heatColor(c);
-            const cx = 8 + ((d - 1) % 7) * 20;
-            const cy = 36 + Math.floor((d - 1) / 7) * 14;
+            const col = (d - 1) % 7;
+            const row = Math.floor((d - 1) / 7);
+            const cx = 8 + col * (cellW + gapX);
+            const cy = 38 + row * (cellH + gapY);
+            if (cy + cellH > MINI_H - 4) continue;
             cells += dead
-                ? `<rect x="${cx}" y="${cy}" width="16" height="12" rx="2" fill="rgb(${cellBg.r},${cellBg.g},${cellBg.b})" stroke="#ff4444" stroke-width="1"/>`
-                : `<rect x="${cx}" y="${cy}" width="16" height="12" rx="2" fill="rgb(${cellBg.r},${cellBg.g},${cellBg.b})"/>`;
+                ? `<rect x="${cx}" y="${cy}" width="${cellW}" height="${cellH}" rx="2" fill="rgb(${cellBg.r},${cellBg.g},${cellBg.b})" stroke="#ff4444" stroke-width="1"/>`
+                : `<rect x="${cx}" y="${cy}" width="${cellW}" height="${cellH}" rx="2" fill="rgb(${cellBg.r},${cellBg.g},${cellBg.b})"/>`;
         }
 
         compositeArray.push({
@@ -289,6 +342,107 @@ export async function generateYearImage(now, name, userRecord) {
         create: { width: IMG_W, height: IMG_H, channels: 4, background: { r: 26, g: 26, b: 46, alpha: 1 } },
     })
         .composite(compositeArray)
+        .png()
+        .toBuffer();
+}
+
+/** 今日鹿况渲染图 */
+export async function generateStatusImage(now, name, status) {
+    now = ensureDate(now);
+    const W = 720;
+    const H = 560;
+    const dead = status.dead;
+    const cursed = status.cursed;
+    const risk = status.inRiskZone;
+    const tagline = pickStatusTagline(status);
+    const moodEmoji = dead ? '💀' : (cursed ? '☠️' : (risk ? '🔥' : '🦌'));
+    const bgStops = dead
+        ? `<stop offset="0%" style="stop-color:#2d1515"/><stop offset="100%" style="stop-color:#120606"/>`
+        : (cursed
+            ? `<stop offset="0%" style="stop-color:#2a1a3d"/><stop offset="100%" style="stop-color:#1a0f28"/>`
+            : (risk
+                ? `<stop offset="0%" style="stop-color:#3d2818"/><stop offset="100%" style="stop-color:#2a1508"/>`
+                : `<stop offset="0%" style="stop-color:#fff5eb"/><stop offset="100%" style="stop-color:#ffe0c8"/>`));
+
+    const titleColor = dead ? '#ffbbbb' : '#5c3d2e';
+    const subColor = dead ? '#ff9999' : '#7a4e32';
+    const lineColor = dead ? '#ffcccc' : '#4a3528';
+
+    const helpBar = quotaBar(status.helperHelpUsed, DAILY_HELP_QUOTA);
+    const wdBar = quotaBar(status.helperWithdrawUsed, DAILY_HELP_WITHDRAW_QUOTA);
+
+    const countText = dead ? `鹿死 · 丢失 ${status.lostCount}` : `${status.count} / ${DAILY_SAFE_LIMIT}`;
+    const riskLine = dead
+        ? `死因：${escapeXml(status.deathReasonText || '未知')}${status.killedByName ? ` · 凶手 ${escapeXml(status.killedByName)}` : ''}`
+        : (risk
+            ? `⚠️ 高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
+            : `✅ 安全区 · 还可 🦌 ${status.safeLeft} 次`);
+
+    const curseLine = cursed
+        ? `咒印 ×${status.curseStacks} · 剩 ${status.curseRounds} 回合 · 叠毒 +${status.curseBonusPct}%${status.curseAscended ? ' · ⚡天咒' : ''}`
+        : (status.urgeBuff ? '📣 被催更：下次安全自🦌 +1' : '咒印：无 · 今日气运尚可');
+
+    const rows = [
+        ['偷鹿', `${status.stealUsed}/${DAILY_STEAL_QUOTA}`, '#e67e22'],
+        ['鹿咒', `${status.curseUsed}/${DAILY_CURSE_QUOTA}`, '#9b59b6'],
+        ['解咒', `${status.cleanseUsed ?? 0}/${DAILY_CLEANSE_CURSE_QUOTA}`, '#27ae60'],
+        ['催鹿', `${status.urgeUsed}/${DAILY_URGE_QUOTA}`, '#3498db'],
+        ['擂台', `${status.arenaUsed}/${DAILY_ARENA_QUOTA}`, '#c0392b'],
+        ['皇城', `${status.imperialUsed}/${DAILY_IMPERIAL_QUOTA}`, '#d4ac0d'],
+        ['群溅', status.groupSplashUsed ? '已用' : '可用', '#16a085'],
+        ['诈戒', `${status.fakeWithdrawUsed}/${DAILY_FAKE_WITHDRAW_QUOTA}`, '#8e44ad'],
+        ['鹿鸣', `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, '#2ecc71'],
+    ];
+
+    let grid = '';
+    const gx0 = 24;
+    const gy0 = 300;
+    const colW = 220;
+    rows.forEach((row, i) => {
+        const col = i % 3;
+        const rowIdx = Math.floor(i / 3);
+        const x = gx0 + col * colW;
+        const y = gy0 + rowIdx * 52;
+        grid += `<text x="${x}" y="${y}" font-size="15" font-family="MiSans" fill="${lineColor}">${row[0]} <tspan fill="${row[2]}" font-weight="bold">${escapeXml(row[1])}</tspan></text>`;
+    });
+
+    const cursePills = cursed
+        ? Array.from({ length: Math.min(status.curseStacks, 5) }, (_, i) =>
+            `<circle cx="${520 + i * 28}" cy="200" r="11" fill="#9b59b6" stroke="#ffd700" stroke-width="2"/>`
+        ).join('')
+        : '';
+
+    const svg = `
+        <defs>
+            <linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${bgStops}</linearGradient>
+        </defs>
+        <rect width="${W}" height="${H}" rx="16" fill="url(#sbg)"/>
+        <text x="36" y="48" font-size="30" font-family="MiSans" fill="${titleColor}" font-weight="bold">📊 今日鹿况</text>
+        <text x="36" y="78" font-size="22" font-family="MiSans" fill="${subColor}">${truncName(name)}</text>
+        <text x="36" y="104" font-size="15" font-family="MiSans" fill="${subColor}" font-style="italic">${escapeXml(tagline)}</text>
+        <text x="120" y="175" font-size="72" font-family="MiSans">${moodEmoji}</text>
+        <text x="220" y="155" font-size="34" font-family="MiSans" fill="${titleColor}" font-weight="bold">${escapeXml(countText)}</text>
+        <text x="220" y="188" font-size="16" font-family="MiSans" fill="${subColor}">尝试 ${status.attempts} 次</text>
+        <text x="220" y="212" font-size="15" font-family="MiSans" fill="${lineColor}">${riskLine}</text>
+        <text x="36" y="248" font-size="15" font-family="MiSans" fill="${cursed ? '#e8b4ff' : lineColor}">${escapeXml(curseLine)}</text>
+        ${cursePills}
+        <text x="36" y="278" font-size="14" font-family="MiSans" fill="${subColor}">帮🦌配额</text>
+        <rect x="120" y="266" width="${helpBar.width}" height="14" rx="7" fill="${dead ? '#442222' : '#e8d5c4'}"/>
+        <rect x="120" y="266" width="${helpBar.fill}" height="14" rx="7" fill="#e67e22"/>
+        <text x="330" y="278" font-size="14" font-family="MiSans" fill="${subColor}">${helpBar.label}</text>
+        <text x="400" y="278" font-size="14" font-family="MiSans" fill="${subColor}">帮戒</text>
+        <rect x="450" y="266" width="${wdBar.width}" height="14" rx="7" fill="${dead ? '#442222' : '#e8d5c4'}"/>
+        <rect x="450" y="266" width="${wdBar.fill}" height="14" rx="7" fill="#3498db"/>
+        <text x="660" y="278" font-size="14" font-family="MiSans" fill="${subColor}" text-anchor="end">${wdBar.label}</text>
+        ${grid}
+        <text x="36" y="${H - 24}" font-size="13" font-family="MiSans" fill="${subColor}">同归：${status.togetherUsed ? '已用' : '可用'} · 献祭：${status.sacrificeUsed ? '已用' : '可用'} · 倒贴：${status.greedUsed ? '已用' : '可用'} · 详单：鹿帮助</text>
+        <text x="${W - 36}" y="${H - 24}" font-size="12" font-family="MiSans" fill="${subColor}" text-anchor="end">${now.getMonth() + 1}/${now.getDate()} · deer-pipe</text>
+    `;
+
+    return sharp({
+        create: { width: W, height: H, channels: 4, background: { r: 255, g: 245, b: 235, alpha: 1 } },
+    })
+        .composite([{ input: svgText(svg, W, H), top: 0, left: 0 }])
         .png()
         .toBuffer();
 }

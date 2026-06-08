@@ -1,5 +1,5 @@
 import { ERROR_MESSAGES, UI_MESSAGES } from '../constants/game.js';
-import { REG, parseViewMonthToken } from '../constants/commands.js';
+import { REG, formatMonthLabel, parseViewMonthToken } from '../constants/commands.js';
 import {
     getMonthData,
     getTodayStatus,
@@ -11,14 +11,13 @@ import {
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
-import { replyDeerPanel } from '../utils/panel.js';
+import { replyDeerPanel, replyStatusPanel } from '../utils/panel.js';
 import {
     formatActionMessage,
     formatErrorMessage,
-    formatStatusMessage,
     formatViewEmpty,
 } from '../utils/messages.js';
-import { getMemberName, resolveHelpTargetId } from '../utils/plugin-common.js';
+import { getMemberName, resolveHelpTargetId, resolveSubjectUser } from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 export class DeerPipe extends plugin {
@@ -78,44 +77,38 @@ export class DeerPipe extends plugin {
     }
 
     async viewLu() {
-        let user;
-        let isAt = false;
-        if (this.e.at) {
-            user = (await (this.e.group || Bot?.pickGroup(this.e.group_id))?.getMemberMap())
-                .get(parseInt(this.e.at, 10));
-            isAt = true;
-        } else {
-            user = this.e.sender;
-        }
-
-        const { user_id, card, nickname } = user;
+        const subject = await resolveSubjectUser(this.e);
         const viewDate = parseViewMonthToken(this.e.msg);
         const deerData = await loadDeerData();
-        const userRecord = getUserRecord(deerData, user_id);
+        const userRecord = getUserRecord(deerData, subject.userId);
 
         if (!hasMonthData(userRecord, viewDate)) {
-            const label = `${viewDate.getFullYear()}年${viewDate.getMonth() + 1}月`;
-            await this.reply(formatViewEmpty(label, isAt), true);
+            await this.reply(formatViewEmpty(formatMonthLabel(viewDate), subject.isAt), true);
             return;
         }
 
         const monthData = getMonthData(userRecord, viewDate);
-        const raw = await generateImage(viewDate, card || nickname, monthData, {
+        const raw = await generateImage(viewDate, subject.name, monthData, {
             highlightDay: viewDate.getDate(),
         });
         await this.reply([UI_MESSAGES.view_panel, segment.image(raw)], true);
     }
 
     async luStatus() {
-        const { card, nickname, user_id } = this.e.sender;
+        const subject = await resolveSubjectUser(this.e);
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const status = getTodayStatus(getMonthData(getUserRecord(deerData, user_id), date), day);
+        const status = getTodayStatus(getMonthData(getUserRecord(deerData, subject.userId), date), day);
         if (status.killerId) {
             status.killedByName = await getMemberName(this.e, status.killerId);
         }
-        await this.reply(formatStatusMessage(card || nickname, status), true);
+        await replyStatusPanel(this.e, {
+            date,
+            name: subject.name,
+            status,
+            isAt: subject.isAt,
+        });
     }
 
     async helpLu() {

@@ -22,38 +22,50 @@ export const DAILY_HELP_QUOTA = 6;
 /** 帮戒🦌者每日总次数 */
 export const DAILY_HELP_WITHDRAW_QUOTA = 3;
 
-/** 同归鹿尽：双方各扣次数 */
-export const TOGETHER_FALL_COST = 5;
+/** 同归鹿尽：双方各扣次数（已削弱） */
+export const TOGETHER_FALL_COST = 4;
 
 /** 皇城鹿：每人每日可宣战次数 */
 export const DAILY_IMPERIAL_QUOTA = 2;
 
 /** 皇城鹿 PK：挑战者赢扣鹿王次数 / 挑战者输扣自己次数 / 鹿王守擂成功奖励 */
-export const IMPERIAL_WIN_DEDUCT = 5;
-export const IMPERIAL_LOSE_DEDUCT = 3;
+export const IMPERIAL_WIN_DEDUCT = 4;
+export const IMPERIAL_LOSE_DEDUCT = 2;
 export const IMPERIAL_KING_WIN_BONUS = 3;
 
-/** 擂台鹿：每人每日可参与次数 / 胜负转移次数 */
+/** 擂台鹿：每人每日可参与次数 / 胜负转移次数（已削弱） */
 export const DAILY_ARENA_QUOTA = 5;
-export const ARENA_STAKE = 5;
+export const ARENA_STAKE = 3;
 export const ARENA_PK_TIMEOUT_SEC = 60;
 export const ARENA_DECLINE_PENALTY = 1;
 
 /** 偷鹿：每日次数 / 成功率 / 反噬率 */
 export const DAILY_STEAL_QUOTA = 3;
 export const STEAL_SUCCESS_CHANCE = 0.35;
-export const STEAL_BACKFIRE_CHANCE = 0.25;
+export const STEAL_BACKFIRE_CHANCE = 0.20;
 
-/** 鹿咒：每日次数 / 下次自🦌额外鹿死率 */
-export const DAILY_CURSE_QUOTA = 2;
+/** 偷带咒目标失手时，反噬一层咒到小偷身上 */
+export const STEAL_CURSE_BACKFIRE_CHANCE = 0.22;
+
+/** 鹿咒：每日次数 / 每层额外鹿死率 / 持续回合 / 叠层上限 / 天咒阈值 */
+export const DAILY_CURSE_QUOTA = 3;
 export const CURSE_DEATH_BONUS = 0.10;
+export const CURSE_MAX_ROUNDS = 3;
+export const CURSE_MAX_STACKS = 5;
+export const CURSE_ASCENDED_STACKS = 3;
+
+/** 解鹿咒：🦌友互助清咒 */
+export const DAILY_CLEANSE_CURSE_QUOTA = 1;
+
+/** 偷鹿：对带咒目标每层 +5% 成功率 */
+export const STEAL_CURSE_BONUS_PER_STACK = 0.05;
 
 /** 献祭鹿：每日次数 / 转移量 */
 export const DAILY_SACRIFICE_QUOTA = 1;
 export const SACRIFICE_TRANSFER = 2;
 
 /** 诈戒：每日次数（口嫌体正直 +1） */
-export const DAILY_FAKE_WITHDRAW_QUOTA = 2;
+export const DAILY_FAKE_WITHDRAW_QUOTA = 3;
 
 /** 催鹿：每日次数（为 0 次的🦌友叠一层下次 +1） */
 export const DAILY_URGE_QUOTA = 3;
@@ -66,14 +78,30 @@ export const HOWL_TRAP_CHANCE = 0.05;
 /** 倒贴鹿：每日次数 / 强索成功率 */
 export const DAILY_GREED_QUOTA = 1;
 export const GREED_SUCCESS_CHANCE = 0.50;
-export const GREED_FAIL_PENALTY = 2;
+export const GREED_FAIL_PENALTY = 1;
 
-/** 群鹿溅：群伤技能 */
+/** 借鹿：🦌友周转 1 次，顺带撕 1 层咒 */
+export const DAILY_BORROW_QUOTA = 1;
+export const BORROW_MIN_TARGET_COUNT = 2;
+
+/** 碰瓷鹿：对线碰瓷，无需🦌友 */
+export const DAILY_BUMPER_QUOTA = 2;
+export const BUMPER_WIN_CHANCE = 0.38;
+export const BUMPER_DRAW_CHANCE = 0.32;
+export const BUMPER_FAIL_PENALTY = 2;
+export const BUMPER_CURSE_ON_WIN_CHANCE = 0.18;
+
+/** 抽鹿签：单人每日运势签 */
+export const DAILY_LOTTERY_QUOTA = 1;
+
+/** 群鹿溅：仅溅日榜 Top N */
 export const DAILY_GROUP_SPLASH_QUOTA = 1;
+export const GROUP_SPLASH_TOP_N = 5;
 export const GROUP_SPLASH_DAMAGE = 1;
-export const GROUP_SPLASH_RECOIL = 2;
-export const GROUP_SPLASH_MIN_MEMBERS = 4;
-export const GROUP_SPLASH_CURSE_CHANCE = 0.15;
+export const GROUP_SPLASH_RECOIL = 1;
+export const GROUP_SPLASH_CURSE_CHANCE = 0.20;
+/** 带咒目标被溅到时额外伤害（咒印引爆） */
+export const GROUP_SPLASH_CURSE_BURST_DAMAGE = 1;
 
 /** 特权 QQ：回鹿返照 */
 export const PRIVILEGED_QQ = '1814632762';
@@ -86,6 +114,7 @@ export const META_PREFIX = {
     ARENA: '_ar_',
     STEAL: '_st_',
     CURSE: '_cu_',
+    CLEANSE: '_cl_',
     SACRIFICE: '_sc_',
     FAKE_WD: '_fw_',
     URGE: '_ur_',
@@ -93,6 +122,9 @@ export const META_PREFIX = {
     GREED: '_gr_',
     URGE_BUFF: '_ugb_',
     GROUP_SPLASH: '_gs_',
+    BORROW: '_bw_',
+    BUMPER: '_bp_',
+    LOTTERY: '_lt_',
 };
 
 /** QQ 头像 */
@@ -287,6 +319,18 @@ export const HELP_QUOTA_CLEARANCE_MESSAGES = [
     '鹿使颁令：天下🦌友今日互助配额清零重来',
 ];
 
+export const PLAYFUL_CLEARANCE_MESSAGES = [
+    '恶趣清算！偷鹿咒献祭擂台同归…今日次数全员清零',
+    '鹿使抹平恶趣味账本，擂台战书一并作废',
+    '互害玩法配额重置，大家重新作妖',
+];
+
+export const AMNESTY_ALL_MESSAGES = [
+    '大赦众生！鹿神赐福，亡鹿还阳，玩法次数尽数清零',
+    '鹿旨大赦天下：鹿死解除，互助恶趣皇城擂台一律从头再来',
+    '紫禁鹿门开恩，众生免死，今日配额与战书尽散',
+];
+
 export const FRIEND_ADD_MESSAGES = [
     '鹿缘一线牵！一次添加，双向结缘～',
     '🦌友达成！你们已互入名单，可互相帮🦌/帮戒🦌/救活',
@@ -364,15 +408,15 @@ export const ARENA_CHALLENGE_MESSAGES = [
 ];
 
 export const ARENA_WIN_MESSAGES = [
-    '擂台大捷！从败者处夺得 5 次🦌绩',
-    '一鹿当先，擂台鹿胜！+5 次到手',
-    '鹿台称王，对手奉送五次🦌功',
+    '擂台小捷！从败者处夺得 3 次🦌绩',
+    '一鹿当先，擂台鹿胜！+3 次到手',
+    '鹿台称王，对手奉送三记🦌功',
 ];
 
 export const ARENA_LOSE_MESSAGES = [
-    '擂台惜败…今日 -5 次，胜者可笑纳',
-    '鹿台折戟，五次🦌绩拱手让人',
-    '冲得太猛摔下擂台，-5 次聊以自慰',
+    '擂台惜败…今日 -3 次，胜者可笑纳',
+    '鹿台折戟，三次🦌绩拱手让人',
+    '冲得太猛摔下擂台，-3 次聊以自慰',
 ];
 
 export const ARENA_TIMEOUT_MESSAGES = [
@@ -415,15 +459,32 @@ export const STEAL_BACKFIRE_MESSAGES = [
     '盗窃未遂还栽了，鹿警已备案',
 ];
 
+export const STEAL_CURSE_BACKFIRE_MESSAGES = [
+    '咒锁反手！偷带咒目标失手，晦气反贴你身上',
+    '鹿咒护主，你偷的是次数，沾的是怨念',
+    '偷咒不成反被咒，今日印堂发黑',
+];
+
 export const CURSE_MESSAGES = [
-    '鹿咒生效！ta 下次自🦌鹿死率 +10%',
-    '你往 ta 账上贴了一张「鹿折」',
-    '晦气已送达，祝 ta 下一发不太顺',
+    '鹿咒贴脸！层数 +1，三回合内每层自🦌额外 +10% 鹿死',
+    '你往 ta 账上叠了一层「鹿折」，怨念可叠加',
+    '晦气已送达，咒印三回合内不会自己消失',
+];
+
+export const CURSE_ASCENDED_MESSAGES = [
+    '⚡ 三层天咒成型！此獠今日自🦌如在刀尖跳舞',
+    '咒印连环，天罚模式已上线',
 ];
 
 export const CURSED_LU_MESSAGES = [
-    '鹿咒发作！额外 +10% 鹿死率已叠上',
-    '背后一凉——是昨天中的鹿咒',
+    '鹿咒发作！叠层毒伤已计入判定',
+    '背后一凉——是咒印还在生效',
+];
+
+export const CLEANSE_CURSE_MESSAGES = [
+    '解鹿咒成！层数尽散，冤孽暂消',
+    '🦌友替你撕了咒印，今日又能安心🦌了',
+    '一道清光掠过，鹿咒层数归零',
 ];
 
 export const SACRIFICE_MESSAGES = [
@@ -488,21 +549,87 @@ export const GREED_SUCCESS_MESSAGES = [
 ];
 
 export const GREED_FAIL_MESSAGES = [
-    '倒贴翻车！被反杀 -2 次，贪心鹿无好下场',
-    '对方不仅不给，还反手扣你 2 次',
-    '索🦌不成反蚀二，社死现场',
+    '倒贴翻车！被反杀 -1 次，贪心鹿无好下场',
+    '对方不仅不给，还反手扣你 1 次',
+    '索🦌不成反蚀一，社死现场',
+];
+
+export const BORROW_MESSAGES = [
+    '借鹿成功！🦌友周转 1 次，有借有还（大概）',
+    '友情借贷：你 +1，ta -1，鹿圈信用+1',
+    '借运🦌成，顺带撕了 ta 一层咒当利息',
+];
+
+export const BUMPER_WIN_MESSAGES = [
+    '碰瓷得手！你 +1，ta -1，监控盲区完美作案',
+    '一躺一涨，对方还没反应过来账就少了',
+    '鹿式碰瓷：责任全在对方，你稳赚 1 次',
+];
+
+export const BUMPER_DRAW_MESSAGES = [
+    '双输局！各 -1，交警来了都得摇头',
+    '碰瓷撞车，你俩今日一起亏',
+    '互害平局：谁也没占到便宜，只有群友看爽了',
+];
+
+export const BUMPER_FAIL_MESSAGES = [
+    '碰瓷翻车！监控高清回放，你 -2',
+    '对方反手报警，你赔 2 次🦌绩',
+    '假摔变真亏，今日社死加倍',
+];
+
+export const BUMPER_CURSE_EXTRA = [
+    '碰瓷还带诅咒！顺手给 ta 叠了一层咒',
+    '赢麻了还贴咒，缺德鹿的快乐',
+];
+
+export const LOTTERY_PLUS_MESSAGES = [
+    '上上签！鹿神赏 +1',
+    '签文：今日宜🦌，忌戒🦌',
+    '鸿运当头，面板悄悄 +1',
+];
+
+export const LOTTERY_MINUS_MESSAGES = [
+    '下下签…鹿神收走 1 次',
+    '签文：宜躺平，忌手贱 —— 已扣 1',
+    '凶签应验，今日 -1 保平安',
+];
+
+export const LOTTERY_URGE_MESSAGES = [
+    '中签：催更符已贴，下次 0 次开局自🦌 +1',
+    '签文写着「有人催」，buff 已到账',
+];
+
+export const LOTTERY_CURSE_MESSAGES = [
+    '凶签带咒！自己给自己叠了一层鹿咒',
+    '签筒里飞出一张晦气符，咒印 +1',
+];
+
+export const LOTTERY_CLEANSE_MESSAGES = [
+    '灵签护体！震散 1 层咒印',
+    '上上签化解冤孽，咒层 -1',
+];
+
+export const LOTTERY_BLANK_MESSAGES = [
+    '空签…鹿神今日摸鱼，啥也没发生',
+    '签文一片空白，宜观望忌冲动',
+    '谢谢惠顾，下次再来抽',
 ];
 
 export const GROUP_SPLASH_MESSAGES = [
-    '群鹿溅！🦌汁飞溅，全场社死 -1',
-    '你释放了范围性鹿害，群内活人无一幸免',
-    '溅射鹿启动，今日群 KPI 集体跳水',
-    '一鹿溅群，功德负无穷',
+    '群鹿溅！日榜前五精准溅射，🦌汁乱飞',
+    '你锁定了今日日榜 Top5，范围性社死启动',
+    '溅射鹿启动，只溅榜上有名的——无名小🦌幸免',
 ];
 
 export const GROUP_SPLASH_CURSE_EXTRA = [
-    '溅射附带鹿咒，倒霉蛋下次自🦌更危险',
-    '鹿汁溅到脸上还中了咒，双重社死',
+    '溅射附带新咒印，倒霉蛋叠层更危险',
+    '鹿汁溅到脸上还中了咒，三回合内别乱🦌',
+];
+
+export const GROUP_SPLASH_BURST_MESSAGES = [
+    '咒印被溅射引爆！带咒目标额外 -1',
+    '溅到咒身上，咒印当场炸开',
 ];
 
 export const IMPERIAL_CHOICE_PROMPTS = [
@@ -548,6 +675,8 @@ export const ERROR_MESSAGES = {
     steal_self: '不能偷自己的🦌，左手倒右手不算',
     curse_used: (used, total) => `今日鹿咒已用完（${used}/${total}）`,
     curse_self: '不能给自己下鹿咒（缺德也有底线）',
+    cleanse_used: (used, total) => `今日解鹿咒次数已用完（${used}/${total}）`,
+    cleanse_no_curse: 'ta 身上没有生效中的鹿咒，无需解咒',
     sacrifice_used: '今日献祭鹿已用过，鹿神不收二手供',
     sacrifice_self: '不能献祭给自己，自恋请走普通🦌',
     fake_withdraw_used: (used, total) => `今日诈戒次数已用完（${used}/${total}）`,
@@ -559,16 +688,38 @@ export const ERROR_MESSAGES = {
     greed_self: '不能倒贴自己，自爱请直接🦌',
     splash_used: (used, total) => `今日群鹿溅已用完（${used}/${total}）`,
     splash_need_group: '群鹿溅仅在群内可用',
-    splash_need_crowd: (min) => `群鹿溅需要至少 ${min} 人在场，人少不够溅`,
-    splash_no_victims: '群里全是尸体或 0 次，溅了个寂寞',
+    splash_no_rank: '今日日榜尚无可溅目标（需有人上榜且非鹿死）',
+    splash_no_victims: '日榜前五里没有可溅的活人',
+    borrow_used: '今日借鹿已用过，🦌友也不是提款机',
+    borrow_self: '不能借自己的🦌，左手借右手不算',
+    borrow_poor: (min) => `对方今日不足 ${min} 次，借无可借`,
+    bumper_used: (used, total) => `今日碰瓷鹿已用完（${used}/${total}）`,
+    bumper_self: '不能碰瓷自己，自恋请直接🦌',
+    lottery_used: '今日鹿签已抽过，鹿神不接复读机',
     target_dead: '对方已鹿死，请先帮 ta「帮🦌」救活',
     actor_dead: '你已鹿死，无法发起互助或特殊玩法，请先被救活',
     privilege_only: '此指令为特权鹿使专属',
     default: '操作失败',
 };
 
+export const STATUS_TAGLINES = {
+    dead: ['鹿灵已散，今日不计榜', '社死现场，等🦌友捞人', '功德归零，明日再战'],
+    risk: ['鞭刑预备役，再🦌可能当场去世', '高危赌徒，鹿神在盯着你', '超限区蹦迪，谨慎发🦌'],
+    safe: ['荤素搭配区，鹿德尚充沛', '优雅选手，尚未丧心病狂', '今日人设：节制鹿'],
+    cursed: ['咒印缠身，自🦌如走钢丝', '叠毒生效中，别手贱', '天咒候选席请入座'],
+};
+
+export const CALENDAR_TAGLINES = [
+    '本月鹿迹：红得发紫，紫得发黑',
+    '一格一🦌，皆是青春',
+    '戒字蓝得发亮？自律大师你好',
+    '💀 越多，故事越精彩',
+    '鹿历不会说谎，但会嘲笑你',
+];
+
 export const UI_MESSAGES = {
     view_panel: '🦌面板如下：',
+    status_panel: (isAt) => (isAt ? '📊 ta 的今日鹿况（围观）' : '📊 你的今日鹿况（社死档案）'),
     view_empty: (label, isAt) => isAt ? `ta在${label}还没有🦌过呢~` : `你在${label}还没有🦌过呢~`,
     rank_empty: (scope) => {
         if (scope === 'year') return '今年还没有人上榜，先来一发🦌吧~';

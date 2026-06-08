@@ -20,17 +20,23 @@ export const REG = {
     privilegeRevive: `^回${D}返照$`,
     imperialClearance: `^皇城清算$`,
     deerClearance: `^${D}清算$`,
+    playfulClearance: '^恶趣清算$',
+    amnestyAll: '^大赦众生$',
     arena: `^擂台${D}`,
     /** 擂台「冲/拒」由 setContext('arenaRespond') 监听，勿加裸规则（避免误吞他人消息） */
     imperial: `^(皇城${D}|皇城)$`,
     steal: `^偷${D}`,
     curse: `^${D}咒`,
+    cleanseCurse: `^解${D}咒`,
     sacrifice: `^献祭${D}`,
     fakeWithdraw: `^诈戒(${D})?[0-9]*$`,
     urge: `^催${D}`,
     howl: `^${D}鸣$`,
     greed: `^倒贴${D}`,
     groupSplash: `^(群${D}溅|${D}群伤|溅射${D})$`,
+    borrow: `^借${D}`,
+    bumper: `^碰瓷${D}`,
+    lottery: `^抽${D}签$`,
     helpPage: `^${D}(帮助|教程|说明书)$`,
     calendarYear: `^${D}历$`,
     calendarView: `^看${D}历$`,
@@ -43,14 +49,42 @@ export const REG = {
     myFriend: `^我的${D}友$`,
 };
 
-/** 解析看🦌/看鹿 日期 */
+/** 清洗指令文本（去 CQ 码、@、误粘 QQ 号） */
+export function cleanCommandMsg(msg) {
+    let s = String(msg ?? '').trim();
+    s = s.replace(/\[CQ:[^\]]+\]/gi, '').trim();
+    s = s.replace(/@\S+/g, '').trim();
+    // @ 时偶发把 QQ 粘在「看鹿」后面，如 看鹿1814632762
+    s = s.replace(new RegExp(`^(看${D})[1-9]\\d{4,}`), '$1');
+    s = s.replace(new RegExp(`^(看${D}历)[1-9]\\d{4,}`), '$1');
+    return s;
+}
+
+function coerceValidDate(date, fallback = new Date()) {
+    const d = date instanceof Date ? date : new Date(date);
+    return Number.isFinite(d.getTime()) ? d : fallback;
+}
+
+/** 解析看🦌/看鹿 目标月份（默认当月） */
 export function parseViewMonthToken(msg) {
-    const match = String(msg).match(new RegExp(`看${D}(\\d{4}-\\d{1,2}|\\d{1,2})?$`));
-    if (!match?.[1]) return new Date();
+    const cleaned = cleanCommandMsg(msg);
+    const match = cleaned.match(new RegExp(`^看${D}(\\d{4}-\\d{1,2}|\\d{1,2})?`));
+    const now = new Date();
+    if (!match?.[1]) {
+        return coerceValidDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+    }
     const part = match[1];
     if (/^\d{4}-\d{1,2}$/.test(part)) {
         const [y, m] = part.split('-').map(Number);
-        return new Date(y, m - 1, 1);
+        if (m >= 1 && m <= 12) return coerceValidDate(new Date(y, m - 1, 1));
+    } else {
+        const m = parseInt(part, 10);
+        if (m >= 1 && m <= 12) return coerceValidDate(new Date(now.getFullYear(), m - 1, 1));
     }
-    return new Date(new Date().getFullYear(), parseInt(part, 10) - 1, 1);
+    return coerceValidDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+export function formatMonthLabel(date) {
+    const d = coerceValidDate(date);
+    return `${d.getFullYear()}年${d.getMonth() + 1}月`;
 }
