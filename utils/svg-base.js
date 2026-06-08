@@ -223,38 +223,53 @@ export function parseDayCountRatio(value, limit = 8) {
     return Math.min(1, Math.abs(n) / Math.max(1, limit));
 }
 
-/** 居中 stat chip 网格（末行不足列数时仍居中） */
+/** 3 项时「上 1 下 2」，其余按 cols 分行 */
+export function packStatGroups(items, cols = STAT_COLS) {
+    if (items.length === 3) {
+        return [items.slice(0, 1), items.slice(1, 3)];
+    }
+    const groups = [];
+    for (let i = 0; i < items.length; i += cols) {
+        groups.push(items.slice(i, i + cols));
+    }
+    return groups;
+}
+
+export function statGridRowCount(items, cols = STAT_COLS) {
+    return packStatGroups(items, cols).length;
+}
+
+/** 居中 stat chip 网格（3 项：首行 1 居中，次行 2 并排） */
 export function buildStatGrid(rows, theme, statsTop, canvasW = DEFAULT_CARD_W, {
     cols = STAT_COLS,
-    gapY = 44,
+    gapY = 48,
     countRatio = parseDayCountRatio,
 } = {}) {
+    const groups = packStatGroups(rows, cols);
     let grid = '';
-    for (let i = 0; i < rows.length; i += 1) {
-        const rowIdx = Math.floor(i / cols);
-        const col = i % cols;
-        const rowStart = rowIdx * cols;
-        const rowCount = Math.min(cols, rows.length - rowStart);
-        const startX = centerRowStart(rowCount, STAT_CHIP_W, STAT_CHIP_GAP, canvasW);
-        const x = startX + col * (STAT_CHIP_W + STAT_CHIP_GAP);
+    groups.forEach((group, rowIdx) => {
+        const startX = centerRowStart(group.length, STAT_CHIP_W, STAT_CHIP_GAP, canvasW);
         const y = statsTop + rowIdx * gapY;
-        const row = rows[i];
-        grid += buildStatChip(x, y, row.label, row.value, row.color || theme.line, theme);
-        const ratio = countRatio?.(row.value);
-        if (ratio != null) {
-            grid += buildMiniBar(x + 10, y + 16, STAT_CHIP_W - 20, ratio, row.color || theme.accent);
-        }
-    }
+        group.forEach((row, col) => {
+            const x = startX + col * (STAT_CHIP_W + STAT_CHIP_GAP);
+            grid += buildStatChip(x, y, row.label, row.value, row.color || theme.line, theme);
+            const ratio = countRatio?.(row.value);
+            if (ratio != null) {
+                grid += buildMiniBar(x + 10, y + 16, STAT_CHIP_W - 20, ratio, row.color || theme.accent);
+            }
+        });
+    });
     return grid;
 }
 
 /** 居中文本块（单行） */
 export function textCentered(cx, y, content, style, { size = 14, fill, weight, italic } = {}) {
-    const extra = [
+    const attrs = [
         weight ? `font-weight="${weight}"` : '',
         italic ? 'font-style="italic"' : '',
+        fill != null && fill !== '' ? `fill="${fill}"` : '',
     ].filter(Boolean).join(' ');
-    return `<text ${style} x="${cx}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="middle" ${extra}>${content}</text>`;
+    return `<text ${style} x="${cx}" y="${y}" font-size="${size}" text-anchor="middle" ${attrs}>${content}</text>`;
 }
 
 /** 底部居中脚注条 */

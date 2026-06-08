@@ -27,6 +27,7 @@ import {
     buildRibbonBadge,
     buildDuelSpark,
     buildStatGrid,
+    statGridRowCount,
     buildFooterBar,
     textCentered,
     parseDayCountRatio,
@@ -45,7 +46,8 @@ const AVATAR_TOP = 28;
 const DUEL_PANEL_TOP = 28;
 const DUEL_PANEL_H = 100;
 const SIMPLE_HEADER_H = 80;
-const STAT_GAP_Y = 44;
+const STAT_GAP_Y = 48;
+const TITLE_BELOW_PANEL = 28;
 
 function truncPlain(text, max = 16) {
     const s = String(text ?? '');
@@ -408,8 +410,20 @@ function resolveDuelWinner(result) {
 }
 
 function duelTitleBottom(hasSubtitle) {
-    const titleY = DUEL_PANEL_TOP + DUEL_PANEL_H + 28;
-    return hasSubtitle ? titleY + 38 : titleY + 14;
+    const titleY = DUEL_PANEL_TOP + DUEL_PANEL_H + TITLE_BELOW_PANEL;
+    return hasSubtitle ? titleY + 58 : titleY + 28;
+}
+
+function buildDuelTitleBlock(meta, theme, subtitle) {
+    const titleY = DUEL_PANEL_TOP + DUEL_PANEL_H + TITLE_BELOW_PANEL;
+    const bandTop = titleY - 14;
+    const bandH = subtitle ? 72 : 44;
+    return `
+        <rect x="24" y="${bandTop}" width="${CARD_W - 48}" height="${bandH}" rx="10" fill="${theme.panel}" opacity="0.35"/>
+        ${textCentered(CX, titleY, meta.emoji, TXT_PLAIN, { size: 16 })}
+        ${textCentered(CX, titleY + 20, escapeXml(meta.title), TXT, { size: 14, fill: theme.title, weight: 'bold' })}
+        ${subtitle ? textCentered(CX, titleY + 40, truncText(subtitle, 38), TXT_SOFT, { size: 11, fill: theme.muted }) : ''}
+    `;
 }
 
 function buildDuelHeaderSvg({ leftName, rightName, meta, theme, subtitle, winnerSide, outcomeBadge }) {
@@ -417,7 +431,6 @@ function buildDuelHeaderSvg({ leftName, rightName, meta, theme, subtitle, winner
     const rx = CARD_W - AVATAR_LEFT - AVATAR_SIZE / 2;
     const cy = AVATAR_TOP + AVATAR_SIZE / 2;
     const nameY = AVATAR_TOP + AVATAR_SIZE + 16;
-    const titleY = DUEL_PANEL_TOP + DUEL_PANEL_H + 28;
     const crown = (side) => (winnerSide === side
         ? `<text ${TXT_PLAIN} x="${side === 'left' ? lx : rx}" y="${AVATAR_TOP - 2}" font-size="20" text-anchor="middle">👑</text>`
         : '');
@@ -435,9 +448,7 @@ function buildDuelHeaderSvg({ leftName, rightName, meta, theme, subtitle, winner
         <circle cx="${rx}" cy="${cy}" r="${AVATAR_SIZE / 2 + 2}" fill="none" stroke="${winnerSide === 'right' ? '#ffd700' : theme.accent}" stroke-width="${winnerSide === 'right' ? 3 : 2}" opacity="0.9"/>
         ${textCentered(lx, nameY, truncPlain(leftName, 9), TXT_SOFT, { size: 12, fill: theme.sub, weight: winnerSide === 'left' ? 'bold' : undefined })}
         ${textCentered(rx, nameY, truncPlain(rightName, 9), TXT_SOFT, { size: 12, fill: theme.sub, weight: winnerSide === 'right' ? 'bold' : undefined })}
-        ${textCentered(CX, titleY, meta.emoji, TXT_PLAIN, { size: 16 })}
-        ${textCentered(CX, titleY + 18, escapeXml(meta.title), TXT, { size: 14, fill: theme.title, weight: 'bold' })}
-        ${subtitle ? textCentered(CX, titleY + 36, truncText(subtitle, 38), TXT_SOFT, { size: 11, fill: theme.muted }) : ''}
+        ${buildDuelTitleBlock(meta, theme, subtitle)}
     `;
 }
 
@@ -498,9 +509,9 @@ export async function generateInteractionCard({
     const isDuel = (duel || DUEL_TYPES.has(result?.type)) && helperId && targetId;
     const winnerSide = isDuel ? resolveDuelWinner(result) : null;
     const outcomeBadge = OUTCOME_BADGE[result?.type] || null;
-    const statsTop = isDuel ? duelTitleBottom(Boolean(subtitle)) + 14 : 16 + SIMPLE_HEADER_H + 16;
+    const statsTop = isDuel ? duelTitleBottom(Boolean(subtitle)) + 20 : 16 + SIMPLE_HEADER_H + 16;
     const statGrid = buildStatGrid(rows, theme, statsTop, CARD_W, { cols: STAT_COLS, gapY: STAT_GAP_Y, countRatio });
-    const statRows = Math.ceil(rows.length / STAT_COLS);
+    const statRows = statGridRowCount(rows, STAT_COLS);
     const statsBottom = statsTop + statRows * STAT_GAP_Y;
 
     let extraBlock = '';
