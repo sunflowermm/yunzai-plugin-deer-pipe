@@ -357,6 +357,8 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.imperial_no_king;
         case 'imperial_is_king':
             return ERROR_MESSAGES.imperial_is_king;
+        case 'imperial_king_dead':
+            return ERROR_MESSAGES.imperial_king_dead;
         case 'imperial_need_group':
             return ERROR_MESSAGES.imperial_need_group;
         case 'imperial_dead':

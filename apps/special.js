@@ -12,6 +12,7 @@ import {
     settleImperialPk,
     validateArenaStart,
     validateImperialStart,
+    refundImperialUsed,
 } from '../utils/data.js';
 
 import { canHelpFriend } from '../utils/friends.js';
@@ -23,6 +24,9 @@ import {
     ARENA_PK_TIMEOUT_SEC,
     ARENA_STAKE,
     DAILY_IMPERIAL_QUOTA,
+    IMPERIAL_KING_WIN_BONUS,
+    IMPERIAL_LOSE_DEDUCT,
+    IMPERIAL_WIN_DEDUCT,
     ERROR_MESSAGES,
     IMPERIAL_CHOICE_PROMPTS,
     IMPERIAL_PK_HINTS,
@@ -85,11 +89,18 @@ function clearAllImperialSessions() {
     imperialPkSessions.clear();
 }
 
-function armImperialSession(e, data) {
+function armImperialSession(e, data, onExpire) {
     clearImperialSession(e);
     const key = imperialSessionKey(e);
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
         imperialPkSessions.delete(key);
+        if (onExpire) {
+            try {
+                await onExpire(data);
+            } catch (err) {
+                logger.error('[deer-pipe] 皇城鹿超时回退失败', err);
+            }
+        }
     }, IMPERIAL_PK_TIMEOUT_SEC * 1000);
     imperialPkSessions.set(key, { ...data, timer });
 }
@@ -407,6 +418,10 @@ export class DeerSpecial extends plugin {
         clearArenaSession(this.e.group_id, this.e.user_id);
         const deerData = await loadDeerData();
         const result = performArenaDecline(deerData, this.e.user_id, session.date, session.day);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
         await saveDeerData(deerData);
         const accepterName = this.e.sender.card || this.e.sender.nickname;
         await replyInteractionResult(this.e, {
@@ -452,11 +467,17 @@ export class DeerSpecial extends plugin {
         this.finish('imperialPkChoice', true);
         this.finish('imperialPkChoice', false);
         armImperialSession(this.e, {
+            userId: user_id,
             kingId: king.id,
             kingName,
             kingCount: king.sum,
             date,
             day,
+        }, async (session) => {
+            const deerData = await loadDeerData();
+            if (refundImperialUsed(deerData, session.userId, session.date, session.day)) {
+                await saveDeerData(deerData);
+            }
         });
         this.setContext(
             'imperialPkChoice',
@@ -478,7 +499,7 @@ export class DeerSpecial extends plugin {
             pickRandom(IMPERIAL_PK_HINTS),
             `\n今日鹿王：${kingName}（${king.sum} 次）`,
             `请 ${IMPERIAL_PK_TIMEOUT_SEC} 秒内回复「大」或「小」掷骰决战！`,
-            `赢：鹿王 -5 次 · 输：你 -3 次、鹿王 +3 次 · 今日皇城 ${DAILY_IMPERIAL_QUOTA} 次/人`,
+            `赢：鹿王 -${IMPERIAL_WIN_DEDUCT} 次 · 输：你 -${IMPERIAL_LOSE_DEDUCT} 次、鹿王 +${IMPERIAL_KING_WIN_BONUS} 次 · 今日皇城 ${DAILY_IMPERIAL_QUOTA} 次/人`,
             segment.image(inviteCard),
         ], true);
     }
@@ -514,6 +535,8 @@ export class DeerSpecial extends plugin {
             { win },
         );
         if (!result.ok) {
+            refundImperialUsed(deerData, this.e.user_id, session.date, session.day);
+            await saveDeerData(deerData);
             await this.reply(formatErrorMessage(result), true);
             return;
         }

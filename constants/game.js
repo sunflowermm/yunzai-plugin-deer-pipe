@@ -305,7 +305,7 @@ export const HELP_WITHDRAW_FAIL_MESSAGES = [
 
 export const HELP_QUOTA_MESSAGES = [
     '今日帮🦌体力透支，明天再来吧',
-    '帮🦌次数用光了（6/6），好🦌友也需要休息',
+    '帮🦌次数用光了，好🦌友也需要休息',
 ];
 
 export const ALREADY_DEAD_MESSAGES = [
@@ -320,34 +320,34 @@ export const HELP_WITHDRAW_QUOTA_MESSAGES = [
 ];
 
 export const TOGETHER_FALL_MESSAGES = [
-    '同归鹿尽！双方各失五载🦌功，今日缘尽于此…',
-    '鹿途同归：你俩各扣 5 次，一损俱损。',
-    '双双跌落鹿坛，各减五次，好一对苦命鸳鸯鹿。',
-    '殉情式互害，今日 KPI 双人清零（各 -5）',
+    '同归鹿尽！双方各失数载🦌功，今日缘尽于此…',
+    `鹿途同归：你俩各扣 ${TOGETHER_FALL_COST} 次，一损俱损。`,
+    `双双跌落鹿坛，各减 ${TOGETHER_FALL_COST} 次，好一对苦命鸳鸯鹿。`,
+    `殉情式互害，今日 KPI 双人各 -${TOGETHER_FALL_COST}`,
     '同归于尽，鹿林见证你们的塑料情谊',
 ];
 
 export const IMPERIAL_START_MESSAGES = [
     '皇城鹿诏已下！向今日鹿王发起骰局决斗',
-    '紫禁鹿门开启，猜大小赢则夺鹿王五载功',
+    `紫禁鹿门开启，猜大小赢则夺鹿王 ${IMPERIAL_WIN_DEDUCT} 次🦌绩`,
     '鹿王头顶的皇冠在晃，你准备摘还是准备跪',
 ];
 
 export const IMPERIAL_WIN_MESSAGES = [
-    '皇城鹿大捷！鹿王今日被削 5 次🦌绩',
-    '骰运在天！你赢了，鹿王失五次',
+    `皇城鹿大捷！鹿王今日被削 ${IMPERIAL_WIN_DEDUCT} 次🦌绩`,
+    `骰运在天！你赢了，鹿王失 ${IMPERIAL_WIN_DEDUCT} 次`,
 ];
 
 export const IMPERIAL_LOSE_MESSAGES = [
-    '皇城鹿惜败…你今日自损 3 次，鹿王守擂 +3',
-    '大小不合天意，你折 3 次，鹿王再添 3 次🦌绩',
-    '骰运不在你这边，-3 奉送，鹿王 +3 犒赏',
+    `皇城鹿惜败…你今日自损 ${IMPERIAL_LOSE_DEDUCT} 次，鹿王守擂 +${IMPERIAL_KING_WIN_BONUS}`,
+    `大小不合天意，你折 ${IMPERIAL_LOSE_DEDUCT} 次，鹿王再添 ${IMPERIAL_KING_WIN_BONUS} 次🦌绩`,
+    `骰运不在你这边，-${IMPERIAL_LOSE_DEDUCT} 奉送，鹿王 +${IMPERIAL_KING_WIN_BONUS} 犒赏`,
 ];
 
 export const PRIVILEGE_REVIVE_MESSAGES = [
-    '回鹿返照！鹿死已解、配额与特殊玩法次数已重置，今日🦌绩保留',
-    '鹿光逆照，次数不动，只抹平今日玩法与鹿死状态',
-    '特权还阳：🦌绩照旧，互助与特殊玩法从头再来',
+    '回鹿返照！鹿死已解、配额与特殊玩法次数已重置，今日🦌绩保留（转职需重选）',
+    '鹿光逆照，次数不动，玩法与转职清零，只抹平鹿死状态',
+    '特权还阳：🦌绩照旧，互助/专属技/特殊玩法从头再来',
 ];
 
 export const IMPERIAL_CLEARANCE_MESSAGES = [
@@ -799,6 +799,7 @@ export const ERROR_MESSAGES = {
     imperial_used: (used, total) => `今日皇城鹿机会已用完（${used}/${total}）`,
     imperial_no_king: '今日群内尚无鹿王（🦌日榜第一），先去🦌一发',
     imperial_is_king: '你已是今日鹿王，无需向自己宣战',
+    imperial_king_dead: '鹿王已鹿死，皇城决斗无法继续，本次宣战次数已退回',
     imperial_need_group: '皇城鹿仅在群内可用',
     imperial_dead: '鹿死状态下无法参与皇城鹿，请先被救活',
     arena_used: (used, total) => `今日擂台鹿次数已用完（${used}/${total}）`,

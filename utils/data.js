@@ -476,6 +476,8 @@ const PLAYFUL_META_KEYS = [
     reviveLotteryUsedKey,
     blessUsedKey,
     cleanseBlessUsedKey,
+    jobSkillUsedKey,
+    patrolBuffKey,
 ];
 
 function rejectUnlessPrivileged(operatorId) {
@@ -602,6 +604,27 @@ function consumeDailyQuota(monthData, day, keyFn, limit) {
     if (used >= limit) return null;
     monthData[key] = used + 1;
     return { used: used + 1, left: Math.max(0, limit - used - 1) };
+}
+
+/** 回退已消耗的每日次数键（mark 失败回滚用） */
+function refundDailyQuota(monthData, day, keyFn) {
+    if (!monthData) return false;
+    const key = keyFn(day);
+    const used = readDailyUsed(monthData, day, keyFn);
+    if (used <= 0) return false;
+    if (used <= 1) delete monthData[key];
+    else monthData[key] = used - 1;
+    return true;
+}
+
+export function refundImperialUsed(deerData, userId, date, day) {
+    const monthData = ensureMonthData(deerData, userId, date);
+    return refundDailyQuota(monthData, day, imperialUsedKey);
+}
+
+function refundArenaUsed(deerData, userId, date, day) {
+    const monthData = ensureMonthData(deerData, userId, date);
+    return refundDailyQuota(monthData, day, arenaUsedKey);
 }
 
 /** 原始次数（含负数；鹿死返回 null） */
@@ -1900,6 +1923,7 @@ export function settleArenaPk(deerData, challengerId, targetId, date, day) {
         return { ok: false, type: 'arena_used' };
     }
     if (!markArenaUsed(deerData, targetId, date, day)) {
+        refundArenaUsed(deerData, challengerId, date, day);
         return { ok: false, type: 'arena_used', forTarget: true };
     }
 
@@ -2022,8 +2046,9 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
     casterMonth[curseUsedKey(day)] = used + 1;
     let stacks = applyCurseStacks(targetEntry, 1);
     const casterProf = getProfessionMods(casterMonth, day);
-    const wx = scaleWeatherForProfession(wxOf(gameContext), casterProf);
-    if ((wx.curseExtraChance || 0) > 0 && rollChance(wx.curseExtraChance)) {
+    const { wx } = weatherForAction(gameContext, casterMonth, day);
+    const scaledWx = scaleWeatherForProfession(wx, casterProf);
+    if ((scaledWx.curseExtraChance || 0) > 0 && rollChance(scaledWx.curseExtraChance)) {
         stacks = applyCurseStacks(targetEntry, 1);
     }
     if ((casterProf?.curseApplyBonus || 0) > 0 && rollChance(casterProf.curseApplyBonus)) {
@@ -2250,8 +2275,10 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
         return { ok: false, type: 'howl_used', howlUsed: used, howlLeft: 0 };
     }
 
-    monthData[howlUsedKey(day)] = used + 1;
     if (entry.d) {
+        const ghostBlocked = rejectUnlessGhostReady(deerData, userId, date, day);
+        if (ghostBlocked) return ghostBlocked;
+        monthData[howlUsedKey(day)] = used + 1;
         let ghostEffect = 'none';
         const killerId = entry.dk || '';
         if (killerId) {
@@ -2279,11 +2306,17 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
         };
     }
 
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
+    monthData[howlUsedKey(day)] = used + 1;
+
     let howlEffect = 'none';
     let curseDispelled = 0;
-    const wx = wxOf(gameContext);
-    const trapChance = clampDeathChance(HOWL_TRAP_CHANCE + (wx.howlTrapDelta || 0));
-    const bonusChance = clampDeathChance(HOWL_BONUS_CHANCE + (wx.howlBonusDelta || 0));
+    const prof = getProfessionMods(monthData, day);
+    const { wx } = weatherForAction(gameContext, monthData, day);
+    const scaledWx = scaleWeatherForProfession(wx, prof);
+    const trapChance = clampDeathChance(HOWL_TRAP_CHANCE + (scaledWx.howlTrapDelta || 0));
+    const bonusChance = clampDeathChance(HOWL_BONUS_CHANCE + (scaledWx.howlBonusDelta || 0));
     if (rollChance(trapChance)) {
         adjustDayCount(entry, -1);
         howlEffect = 'trap';
@@ -2327,8 +2360,10 @@ export function performGreedDeer(deerData, userId, targetId, date, day, gameCont
     selfMonth[greedUsedKey(day)] = 1;
     const selfEntry = ensureDayEntry(selfMonth, day);
     selfEntry.a += 1;
-    const wx = wxOf(gameContext);
-    const greedChance = clampDeathChance(GREED_SUCCESS_CHANCE + (wx.greedSuccessDelta || 0));
+    const prof = getProfessionMods(selfMonth, day);
+    const { wx } = weatherForAction(gameContext, selfMonth, day);
+    const scaledWx = scaleWeatherForProfession(wx, prof);
+    const greedChance = clampDeathChance(GREED_SUCCESS_CHANCE + (scaledWx.greedSuccessDelta || 0));
     if (rollChance(greedChance)) {
         adjustDayCount(selfEntry, 1);
         adjustDayCount(targetEntry, -1);
@@ -2378,9 +2413,11 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day, gam
     }
 
     const victims = [];
-    const wx = wxOf(gameContext);
-    const splashDamage = Math.max(1, GROUP_SPLASH_DAMAGE + (wx.splashDamageBonus || 0));
-    const splashCurseChance = clampDeathChance(GROUP_SPLASH_CURSE_CHANCE + (wx.splashCurseDelta || 0));
+    const { wx } = weatherForAction(gameContext, casterMonth, day);
+    const prof = getProfessionMods(casterMonth, day);
+    const scaledWx = scaleWeatherForProfession(wx, prof);
+    const splashDamage = Math.max(1, GROUP_SPLASH_DAMAGE + (scaledWx.splashDamageBonus || 0));
+    const splashCurseChance = clampDeathChance(GROUP_SPLASH_CURSE_CHANCE + (scaledWx.splashCurseDelta || 0));
     for (const uid of targets) {
         const entry = getDayEntry(getMonthData(getUserRecord(deerData, uid), date), day);
         if (entry?.d) continue;
@@ -2491,8 +2528,10 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
     const actorEntry = ensureDayEntry(actorMonth, day);
     actorEntry.a += 1;
     targetEntry.a += 1;
-    const wx = wxOf(gameContext);
-    const winChance = clampDeathChance(BUMPER_WIN_CHANCE + (wx.bumperWinDelta || 0));
+    const prof = getProfessionMods(actorMonth, day);
+    const { wx } = weatherForAction(gameContext, actorMonth, day);
+    const scaledWx = scaleWeatherForProfession(wx, prof);
+    const winChance = clampDeathChance(BUMPER_WIN_CHANCE + (scaledWx.bumperWinDelta || 0));
     const roll = Math.random();
     if (roll < winChance) {
         adjustDayCount(actorEntry, 1);
@@ -2550,8 +2589,9 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     const entry = ensureDayEntry(monthData, day);
     entry.a += 1;
     const prof = getProfessionMods(monthData, day);
-    const wx = scaleWeatherForProfession(wxOf(gameContext), prof);
-    let roll = Math.random() - (wx.lotteryLuckDelta || 0);
+    const { wx } = weatherForAction(gameContext, monthData, day);
+    const scaledWx = scaleWeatherForProfession(wx, prof);
+    let roll = Math.random() - (scaledWx.lotteryLuckDelta || 0);
     roll = Math.max(0, Math.min(0.999, roll));
     let outcome;
     if (roll < 0.28) outcome = 'plus';
@@ -2820,26 +2860,29 @@ export function performTombstone(deerData, userId, date, day) {
 export function performArenaDecline(deerData, targetId, date, day, penalty = 1) {
     const targetProf = rejectIfNoProfession(deerData, targetId, date, day);
     if (targetProf) return targetProf;
+    const targetDead = rejectIfActorDead(deerData, targetId, date, day);
+    if (targetDead) return targetDead;
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(targetMonth, day);
-    if (!entry.d) {
-        adjustDayCount(entry, -penalty);
-        entry.a += 1;
-    }
+    adjustDayCount(entry, -penalty);
+    entry.a += 1;
     return {
         ok: true,
         type: 'arena_decline',
-        count: entry.d ? 0 : entry.c,
+        count: entry.c,
         penalty,
     };
 }
 
-/** 皇城鹿 PK 结算（不含标记，标记在宣战时完成） */
+/** 皇城鹿 PK 结算（宣战时已 mark；失败/超时需 refundImperialUsed） */
 export function settleImperialPk(deerData, challengerId, kingId, date, day, { win }) {
     const dead = rejectUnlessPlayReady(deerData, challengerId, date, day);
     if (dead) return dead;
     const kingEntry = ensureDayEntry(ensureMonthData(deerData, kingId, date), day);
     const challengerEntry = ensureDayEntry(ensureMonthData(deerData, challengerId, date), day);
+    if (win && kingEntry.d) {
+        return { ok: false, type: 'imperial_king_dead' };
+    }
     if (win) {
         if (!kingEntry.d) {
             adjustDayCount(kingEntry, -IMPERIAL_WIN_DEDUCT);
