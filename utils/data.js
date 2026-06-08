@@ -75,6 +75,8 @@ import {
     getDeathReasonText,
 } from '../constants/game.js';
 
+import { recordHelpAction } from './help-log.js';
+
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 const DAY_KEY_RE = /^\d{1,2}$/;
 
@@ -1212,6 +1214,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
         );
         if (rollChance(reviveFail)) {
             const quota = consumeHelperQuota(helperMonth, day, targetId);
+            recordHelpAction('help_lu', helperId, targetId, date);
             return attachQuota({
                 ok: true,
                 type: 'help_revive_fail',
@@ -1266,6 +1269,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
     }
 
     const quota = consumeHelperQuota(helperMonth, day, targetId);
+    recordHelpAction('help_lu', helperId, targetId, date);
     return attachQuota(result, quota);
 }
 
@@ -1343,6 +1347,7 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
     entry.a += 1;
     if (rollHelpWithdrawFail(wx.helpWithdrawFailDelta || 0)) {
         const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
+        recordHelpAction('help_withdraw', helperId, targetId, date);
         return {
             ok: true,
             type: 'help_withdraw_fail',
@@ -1355,6 +1360,7 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
 
     adjustDayCount(entry, -1);
     const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
+    recordHelpAction('help_withdraw', helperId, targetId, date);
     return {
         ok: true,
         type: 'help_withdraw',

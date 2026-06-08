@@ -12,3 +12,7 @@ export const PLUGIN_PATH = `${packageJsonPath}`;
 export const REDIS_YUNZAI_DEER_PIPE = "Yz:deer_pipe:sign";
 export const REDIS_YUNZAI_DEER_PIPE_FRIENDS = "Yz:deer_pipe:friends";
 export const REDIS_YUNZAI_DEER_PIPE_WEATHER = "Yz:deer_pipe:weather";
+/** 帮鹿/帮戒永久日志（清算、清空配额不删） */
+export const REDIS_YUNZAI_DEER_PIPE_HELP_LOG = "Yz:deer_pipe:help_log";
+/** 日度鹿王加冕存档 */
+export const REDIS_YUNZAI_DEER_PIPE_KING_ARCHIVE = "Yz:deer_pipe:king_archive";

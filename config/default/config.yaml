@@ -8,3 +8,10 @@ weather_broadcast:
   bless_broadcast: true
   # 多群推送间隔（毫秒），对齐向日葵早报 delay
   interval_ms: 500
+
+# 日度鹿王加冕群播（每日 12:00，结算昨日日榜第一）
+king_broadcast:
+  enabled: true
+  mode: selected
+  group_ids: []
+  interval_ms: 500

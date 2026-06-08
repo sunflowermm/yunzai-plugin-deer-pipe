@@ -4,6 +4,7 @@
 import { REDIS_YUNZAI_DEER_PIPE, REDIS_YUNZAI_DEER_PIPE_FRIENDS } from '../constants/core.js';
 import { migrateAllData } from './data.js';
 import { migrateFriendsData, packFriends } from './friends.js';
+import { ensureHelpLogLoaded, flushHelpLogIfDirty } from './help-log.js';
 
 /** 旧版 Redis 键，加载时自动迁移 */
 const LEGACY_REDIS_SIGN = 'Yz:deer_pipe:core:sign';
@@ -34,6 +35,7 @@ async function loadJsonWithLegacy(key, legacyKey) {
 }
 
 export async function loadDeerData() {
+    await ensureHelpLogLoaded();
     let deerData = (await loadJsonWithLegacy(REDIS_YUNZAI_DEER_PIPE, LEGACY_REDIS_SIGN)) ?? {};
     if (migrateAllData(deerData)) {
         await redisSetJson(REDIS_YUNZAI_DEER_PIPE, deerData);
@@ -43,6 +45,7 @@ export async function loadDeerData() {
 
 export async function saveDeerData(deerData) {
     await redisSetJson(REDIS_YUNZAI_DEER_PIPE, deerData);
+    await flushHelpLogIfDirty();
 }
 
 export async function loadFriends() {

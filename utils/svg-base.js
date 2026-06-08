@@ -162,6 +162,16 @@ export const CARD_THEMES = {
         panel: 'rgba(0,0,0,0.42)',
         highlight: 'rgba(255,112,67,0.2)',
     },
+    king: {
+        bgStops: '<stop offset="0%" style="stop-color:#4a3200"/><stop offset="45%" style="stop-color:#2a1808"/><stop offset="100%" style="stop-color:#1a0f00"/>',
+        title: '#ffd700',
+        sub: '#ffe8a0',
+        line: '#fff8e8',
+        muted: '#d4af37',
+        accent: '#ffb300',
+        panel: 'rgba(0,0,0,0.55)',
+        highlight: 'rgba(255,215,0,0.22)',
+    },
     help: {
         bgStops: '<stop offset="0%" style="stop-color:#1a2838"/><stop offset="100%" style="stop-color:#0f1828"/>',
         title: '#e8f4ff',
