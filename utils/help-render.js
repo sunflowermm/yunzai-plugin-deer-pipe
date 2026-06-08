@@ -1,6 +1,7 @@
 import fs from 'fs';
 import sharp from 'sharp';
 import { DEERPIPE_IMG } from '../constants/core.js';
+import { escapeXml } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
     HELP_FOOTER,
@@ -16,14 +17,6 @@ const LINE_H = 32;
 const ITEM_EXTRA = 22;
 const SECTION_GAP = 10;
 const HEADER_H = 188;
-
-function escapeXml(text) {
-    return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
 
 function sectionsForPage(pageDef) {
     return pageDef.sectionKeys.map((key) => HELP_SECTIONS[key]).filter(Boolean);

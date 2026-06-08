@@ -18,7 +18,7 @@ import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 import { REG } from '../constants/commands.js';
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
 import { loadGameContext } from '../utils/context.js';
-import { replyDeerPanel } from '../utils/panel.js';
+import { replyPlayfulResult } from '../utils/panel.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 export class DeerPlayful extends plugin {
@@ -55,7 +55,7 @@ export class DeerPlayful extends plugin {
         return true;
     }
 
-    async runTargetAction(fn, { needFriend = true, panelTarget = true } = {}) {
+    async runTargetAction(fn, { needFriend = true, withPanel = true } = {}) {
         const { user_id, card, nickname } = this.e.sender;
         const targetId = await resolveTargetId(this.e);
         if (!targetId) {
@@ -79,18 +79,18 @@ export class DeerPlayful extends plugin {
         const targetName = await getMemberName(this.e, targetId);
         const text = formatActionMessage(result, { helperName, targetName });
 
-        if (panelTarget) {
-            await replyDeerPanel(this.e, {
-                date,
-                name: targetName,
-                userId: targetId,
-                deerData,
-                text,
-                dayOverride: day,
-            });
-        } else {
-            await this.reply(text, true);
-        }
+        await replyPlayfulResult(this.e, {
+            text,
+            result,
+            helperName,
+            targetName,
+            date,
+            name: withPanel ? targetName : helperName,
+            userId: withPanel ? targetId : user_id,
+            deerData,
+            dayOverride: day,
+            withPanel,
+        });
     }
 
     async stealDeer() {
@@ -98,11 +98,11 @@ export class DeerPlayful extends plugin {
     }
 
     async curseDeer() {
-        await this.runTargetAction(performCurseDeer, { panelTarget: false });
+        await this.runTargetAction(performCurseDeer, { withPanel: false });
     }
 
     async cleanseCurse() {
-        await this.runTargetAction(performCleanseCurse, { panelTarget: false });
+        await this.runTargetAction(performCleanseCurse, { withPanel: false });
     }
 
     async sacrificeDeer() {
@@ -110,7 +110,7 @@ export class DeerPlayful extends plugin {
     }
 
     async urgeDeer() {
-        await this.runTargetAction(performUrgeDeer, { panelTarget: false });
+        await this.runTargetAction(performUrgeDeer, { withPanel: false });
     }
 
     async greedDeer() {
@@ -128,13 +128,18 @@ export class DeerPlayful extends plugin {
             return;
         }
         await saveDeerData(deerData);
-        await replyDeerPanel(this.e, {
+        const helperName = card || nickname;
+        const text = formatActionMessage(result);
+        await replyPlayfulResult(this.e, {
+            text,
+            result,
+            helperName,
             date,
-            name: card || nickname,
+            name: helperName,
             userId: user_id,
             deerData,
-            text: formatActionMessage(result),
             dayOverride: day,
+            withPanel: true,
         });
     }
 
@@ -150,7 +155,19 @@ export class DeerPlayful extends plugin {
             return;
         }
         await saveDeerData(deerData);
-        await this.reply(formatActionMessage(result, { helperName: card || nickname }), true);
+        const helperName = card || nickname;
+        const text = formatActionMessage(result, { helperName });
+        await replyPlayfulResult(this.e, {
+            text,
+            result,
+            helperName,
+            date,
+            name: helperName,
+            userId: user_id,
+            deerData,
+            dayOverride: day,
+            withPanel: false,
+        });
     }
 
     async borrowDeer() {
@@ -173,13 +190,18 @@ export class DeerPlayful extends plugin {
             return;
         }
         await saveDeerData(deerData);
-        await replyDeerPanel(this.e, {
+        const helperName = card || nickname;
+        const text = formatActionMessage(result, { helperName });
+        await replyPlayfulResult(this.e, {
+            text,
+            result,
+            helperName,
             date,
-            name: card || nickname,
+            name: helperName,
             userId: user_id,
             deerData,
-            text: formatActionMessage(result, { helperName: card || nickname }),
             dayOverride: day,
+            withPanel: true,
         });
     }
 
@@ -213,9 +235,19 @@ export class DeerPlayful extends plugin {
             }),
         );
 
-        await this.reply([
-            formatActionMessage(result, { helperName: card || nickname }),
-            victimLines.join(' · '),
-        ].join('\n'), true);
+        const helperName = card || nickname;
+        const text = formatActionMessage(result, { helperName });
+        await replyPlayfulResult(this.e, {
+            text,
+            result,
+            helperName,
+            extraLines: victimLines,
+            date,
+            name: helperName,
+            userId: user_id,
+            deerData,
+            dayOverride: day,
+            withPanel: false,
+        });
     }
 }

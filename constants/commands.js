@@ -43,6 +43,8 @@ export const REG = {
     lottery: `^抽${D}签$`,
     /** 主：鹿环境 / 今日鹿环境 · 别名：天气鹿 / 今日天气鹿 */
     weatherToday: `^(?:今日)?(?:${D}环境|天气${D})$`,
+    /** 八象图鉴（不与通用天气插件冲突） */
+    weatherCatalog: `^(?:天象一览|${D}林天象|${D}环境一览)$`,
     deerGodBless: '^鹿神赐福',
     blessDeer: `^${D}福`,
     cleanseBless: `^解${D}福`,

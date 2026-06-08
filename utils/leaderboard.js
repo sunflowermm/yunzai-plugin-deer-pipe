@@ -6,8 +6,8 @@ import {
     getMonthData,
     getUserRecord,
     isDeadOnDay,
-    sumMonthDataForRank,
-    sumYearDataForRank,
+    sumMonthNet,
+    sumYearNet,
 } from './data.js';
 
 function compareRank(a, b, order) {
@@ -50,22 +50,22 @@ export function buildRankData(deerData, members, { scope = 'month', date = new D
         let hasActivity = false;
 
         if (scope === 'year') {
-            const ranked = sumYearDataForRank(userRecord, year, date, { withdrawal });
+            const ranked = sumYearNet(userRecord, year, date);
             sum = ranked.sum;
             hasActivity = ranked.hasActivity;
         } else {
             const monthData = userRecord[monthKey];
-            const ranked = sumMonthDataForRank(monthData, { withdrawal, upToDay });
+            const ranked = sumMonthNet(monthData, { upToDay });
             sum = ranked.sum;
             hasActivity = ranked.hasActivity;
         }
 
         if (withdrawal) {
-            if (!hasActivity && sum === 0) return null;
+            if (sum >= 0) return null;
             return { id: uid, sum };
         }
 
-        if (sum <= 0) return null;
+        if (sum <= 0 || !hasActivity) return null;
         return { id: uid, sum };
     }).filter(Boolean);
 

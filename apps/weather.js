@@ -31,8 +31,9 @@ import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 import { REG, cleanCommandMsg } from '../constants/commands.js';
 
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
-
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
+import { generateWeatherCatalogImage, generateWeatherDetailImage } from '../utils/card-render.js';
+import { replyWeatherCard } from '../utils/panel.js';
 
 export class DeerWeather extends plugin {
 
@@ -53,6 +54,8 @@ export class DeerWeather extends plugin {
             rule: [
 
                 { reg: REG.weatherToday, fnc: 'weatherToday' },
+
+                { reg: REG.weatherCatalog, fnc: 'weatherCatalog' },
 
                 { reg: REG.deerGodBless, fnc: 'deerGodBless' },
 
@@ -120,30 +123,27 @@ export class DeerWeather extends plugin {
 
     async weatherToday() {
 
-        const { state, effects } = await getWeatherContext();
+        const date = new Date();
+        const { state, effects } = await getWeatherContext(date);
+        const img = await generateWeatherDetailImage(state, effects, date);
+        const caption = [
+            formatWeatherBrief(state, date),
+            pickRandom(WEATHER_CATALOG[state.weatherId]?.announce || []) || '',
+        ].filter(Boolean).join('\n');
+        await replyWeatherCard(this.e, { caption, imageBuffer: img });
+    }
 
-        const def = WEATHER_CATALOG[state.weatherId] || WEATHER_CATALOG.sunny;
 
-        const src = state.source === 'admin'
 
-            ? `\n来源：鹿神赐福${state.adminBy ? `（${state.adminBy}）` : ''}`
-
-            : '\n来源：鹿林天象（每日 00:00 / 12:00 换场）';
-
-        await this.reply([
-
-            formatWeatherBrief(state),
-
-            `效果：${effects.tip}`,
-
-            formatWeatherEffectsDetail(effects),
-
-            pickRandom(def.announce) || '',
-
-            src.trim(),
-
-        ].filter(Boolean).join('\n'), true);
-
+    async weatherCatalog() {
+        const date = new Date();
+        const { state } = await getWeatherContext(date);
+        const img = await generateWeatherCatalogImage(state?.weatherId);
+        const brief = formatWeatherBrief(state, date);
+        await replyWeatherCard(this.e, {
+            caption: `📖 鹿林八象图鉴\n当前：${brief}`,
+            imageBuffer: img,
+        });
     }
 
 

@@ -550,7 +550,7 @@ export function adjustDayCount(entry, delta) {
     return entry.c;
 }
 
-export function sumMonthDataForRank(monthData, { withdrawal = false, upToDay = 31 } = {}) {
+export function sumMonthNet(monthData, { upToDay = 31 } = {}) {
     if (!monthData) return { sum: 0, hasActivity: false };
     let sum = 0;
     let hasActivity = false;
@@ -561,14 +561,13 @@ export function sumMonthDataForRank(monthData, { withdrawal = false, upToDay = 3
         if (isDayDead(v)) continue;
         const c = getRawDayCount(v);
         if (c === null) continue;
-        hasActivity = true;
-        if (!withdrawal && c <= 0) continue;
+        if (c !== 0) hasActivity = true;
         sum += c;
     }
     return { sum, hasActivity };
 }
 
-export function sumYearDataForRank(userRecord, year, date = new Date(), { withdrawal = false } = {}) {
+export function sumYearNet(userRecord, year, date = new Date()) {
     if (!userRecord) return { sum: 0, hasActivity: false };
     const upToMonth = date.getMonth() + 1;
     let sum = 0;
@@ -576,11 +575,17 @@ export function sumYearDataForRank(userRecord, year, date = new Date(), { withdr
     for (const [monthKey, monthData] of Object.entries(getYearMonths(userRecord, year))) {
         const m = parseInt(monthKey.split('-')[1], 10);
         const capDay = m === upToMonth ? date.getDate() : 31;
-        const ranked = sumMonthDataForRank(monthData, { withdrawal, upToDay: capDay });
+        const ranked = sumMonthNet(monthData, { upToDay: capDay });
         sum += ranked.sum;
         hasActivity = hasActivity || ranked.hasActivity;
     }
     return { sum, hasActivity };
+}
+
+export function getMonthNetCount(userRecord, date, upToDay = null) {
+    const monthData = getMonthData(userRecord, date);
+    const cap = upToDay ?? date.getDate();
+    return sumMonthNet(monthData, { upToDay: cap }).sum;
 }
 
 export function isUserDeadToday(deerData, userId, date, day) {
@@ -862,14 +867,8 @@ export function getDayCount(userRecord, date, day) {
     return getEffectiveCount(getDayEntry(getMonthData(userRecord, date), day));
 }
 
-export function sumMonthData(monthData) {
-    if (!monthData) return 0;
-    return Object.keys(monthData)
-        .filter(isDayKey)
-        .reduce((acc, k) => {
-            const c = getRawDayCount(monthData[k]);
-            return c === null ? acc : acc + c;
-        }, 0);
+export function sumMonthData(monthData, upToDay = 31) {
+    return sumMonthNet(monthData, { upToDay }).sum;
 }
 
 export function sumYearData(userRecord, year) {
@@ -986,8 +985,12 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
     const dead = !!entry.d;
     const mods = resolvePlayModifiers(entry, weatherEffects);
     const safeLimit = mods.safeLimit;
-    const safeLeft = Math.max(0, safeLimit - entry.c);
-    const inRiskZone = entry.c >= safeLimit && !dead;
+    const count = dead ? 0 : entry.c;
+    const inWithdrawalZone = !dead && count < 0;
+    const safeLeft = dead || inWithdrawalZone ? 0 : Math.max(0, safeLimit - count);
+    const recoveryNeeded = inWithdrawalZone ? safeLimit - count : 0;
+    const inRiskZone = !dead && count >= safeLimit;
+    const monthNet = sumMonthNet(monthData, { upToDay: day }).sum;
     let nextDeathChance = dead ? 0 : calcOverlimitDeathChance(entry.c);
     if (!dead && inRiskZone) {
         nextDeathChance = clampDeathChance(nextDeathChance + mods.deathDelta);
@@ -995,7 +998,10 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
     const bi = getBlessInfo(entry);
     return {
         entry,
-        count: dead ? 0 : entry.c,
+        count,
+        inWithdrawalZone,
+        recoveryNeeded,
+        monthNet,
         lostCount: dead ? (entry.snap ?? 0) : 0,
         attempts: entry.a,
         dead,
@@ -2089,8 +2095,9 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-    if (targetEntry.c < BORROW_MIN_TARGET_COUNT) {
-        return { ok: false, type: 'borrow_poor', min: BORROW_MIN_TARGET_COUNT };
+    const targetMonthNet = getMonthNetCount(getUserRecord(deerData, targetId), date, day);
+    if (targetMonthNet < BORROW_MIN_TARGET_COUNT) {
+        return { ok: false, type: 'borrow_poor', min: BORROW_MIN_TARGET_COUNT, monthNet: targetMonthNet };
     }
 
     borrowerMonth[borrowUsedKey(day)] = used + 1;
@@ -2106,6 +2113,7 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
         type: 'borrow',
         selfCount: borrowerEntry.c,
         targetCount: targetEntry.c,
+        targetMonthNet: getMonthNetCount(getUserRecord(deerData, targetId), date, day),
         curseStripped,
         borrowUsed: used + 1,
         borrowLeft: DAILY_BORROW_QUOTA - used - 1,

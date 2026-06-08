@@ -272,7 +272,7 @@ export function formatErrorMessage(result) {
         case 'borrow_self':
             return ERROR_MESSAGES.borrow_self;
         case 'borrow_poor':
-            return ERROR_MESSAGES.borrow_poor(result.min ?? 2);
+            return ERROR_MESSAGES.borrow_poor(result.min ?? 2, result.monthNet);
         case 'bumper_used':
             return ERROR_MESSAGES.bumper_used(
                 result.bumperUsed ?? DAILY_BUMPER_QUOTA,

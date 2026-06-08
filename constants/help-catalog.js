@@ -63,7 +63,7 @@ export const HELP_SECTIONS = {
             { cmd: `戒${D_SHOW}`, desc: '自律 -1（可扣到负数）', quota: '不限次数' },
             { cmd: `${D_SHOW}况 / @ta ${D_SHOW}况`, desc: '今日鹿况渲染图（可围观）', quota: '含天象/咒福/配额一览' },
             { cmd: `看${D_SHOW} / @ta 看${D_SHOW} / 看${D_SHOW}6`, desc: '月历面板（支持 @ 围观）', quota: '💀格=鹿死原因缩写' },
-            { cmd: `${D_SHOW}榜 / ${D_SHOW}日榜 / 年榜`, desc: '排行（鹿死当日不计榜）', quota: '数据 Redis 持久' },
+            { cmd: `${D_SHOW}榜 / ${D_SHOW}日榜 / 年榜`, desc: '月/年榜按当月正负净值合计', quota: '日榜仍看当日 · 鹿死当日不计榜' },
         ],
     },
     friends: {
@@ -76,7 +76,7 @@ export const HELP_SECTIONS = {
             { cmd: `解${D_SHOW}咒@ta`, desc: '撕咒印（清全部层）', quota: `${DAILY_CLEANSE_CURSE_QUOTA} 次/日` },
             { cmd: `${D_SHOW}福@ta`, desc: `正面咒 · 每层 -${Math.round(BLESS_DEATH_REDUCE * 100)}% 鹿死`, quota: `${DAILY_BLESS_QUOTA} 次/日 · 最多 ${BLESS_MAX_STACKS} 层 ${BLESS_MAX_ROUNDS} 回合` },
             { cmd: `解${D_SHOW}福@ta`, desc: '收福咒（清全部层）', quota: `${DAILY_CLEANSE_BLESS_QUOTA} 次/日` },
-            { cmd: `借${D_SHOW}@ta`, desc: '你 +1 ta -1 · 顺带撕 1 层咒', quota: `${DAILY_BORROW_QUOTA} 次/日 · ta 需≥${BORROW_MIN_TARGET_COUNT}` },
+            { cmd: `借${D_SHOW}@ta`, desc: '你 +1 ta -1 · 顺带撕 1 层咒', quota: `${DAILY_BORROW_QUOTA} 次/日 · ta 当月净值≥${BORROW_MIN_TARGET_COUNT}` },
         ],
     },
     playful: {
@@ -99,9 +99,9 @@ export const HELP_SECTIONS = {
         title: '鹿林天象',
         emoji: '🌤',
         items: [
-            { cmd: `${WEATHER_CMD_SHOW}`, desc: '半天场次天象 + 15 维玩法修正明细', quota: '00:00 / 12:00 换场 · 群播见「鹿管配置」' },
+            { cmd: WEATHER_CMD_SHOW, desc: '当前半天场次详情卡（15 维度修正）', quota: '00:00 / 12:00 换场 · 群播见「鹿管配置」' },
+            { cmd: '天象一览 / 鹿林天象', desc: '八象图鉴 · 高亮当前天象', quota: '与「鹿环境」互补 · 不与通用天气抢指令' },
             { cmd: '鹿神赐福 [天气]', desc: '特权鹿使覆写天象（8 种可点名）', quota: `仅 QQ ${PRIVILEGED_QQ} · 非群管 · 至换场/再赐福` },
-            { cmd: '天象一览', desc: '☀️晴 🌧️细雨 ❄️瑞雪 ⛈️雷暴 🌫️鹿雾 🍃祥风 🌑阴霾 🌈鹿虹', quota: '晴/鹿虹偏吉 · 阴霾/雷暴偏凶 · 细雨偷鹿狂' },
         ],
     },
     eco: {

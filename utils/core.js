@@ -1,9 +1,9 @@
 import sharp from 'sharp';
 import fs from 'fs';
-import { pathToFileURL } from 'node:url';
-import { CHECK_IMG, DEERPIPE_IMG, MISANS_FONT } from '../constants/core.js';
+import { CHECK_IMG, DEERPIPE_IMG } from '../constants/core.js';
 import { WEATHER_CMD_HINT } from '../constants/commands.js';
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
+import { escapeXml, truncText, svgTextStyled, svgTextPlain } from './svg-base.js';
 import {
     calcMonthStats,
     calcYearStats,
@@ -83,22 +83,13 @@ function heatColor(count) {
     return { r: 230, g: 80, b: 80, a: 1 };
 }
 
-function escapeXml(text) {
-    return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
 function ensureDate(d) {
     if (d instanceof Date && Number.isFinite(d.getTime())) return d;
     return new Date();
 }
 
 function truncName(name, max = 16) {
-    const s = String(name ?? '鹿友');
-    return escapeXml(s.length > max ? `${s.slice(0, max)}…` : s);
+    return truncText(name, max);
 }
 
 function pickStatusTagline(status) {
@@ -107,11 +98,12 @@ function pickStatusTagline(status) {
     if (status.cursed) return pickRandom(STATUS_TAGLINES.cursed);
     if (status.blessed) return pickRandom(STATUS_TAGLINES.blessed);
     if (status.inRiskZone) return pickRandom(STATUS_TAGLINES.risk);
+    if (status.inWithdrawalZone) return pickRandom(STATUS_TAGLINES.withdrawal);
     return pickRandom(STATUS_TAGLINES.safe);
 }
 
 function statusTheme(status) {
-    const { dead, cursed, blessed, inRiskZone } = status;
+    const { dead, cursed, blessed, inRiskZone, inWithdrawalZone } = status;
     if (dead) {
         return {
             bgStops: '<stop offset="0%" style="stop-color:#1a0a0a"/><stop offset="100%" style="stop-color:#0d0404"/>',
@@ -160,6 +152,18 @@ function statusTheme(status) {
             panel: 'rgba(0,0,0,0.35)',
         };
     }
+    if (inWithdrawalZone) {
+        return {
+            bgStops: '<stop offset="0%" style="stop-color:#e8f4fc"/><stop offset="100%" style="stop-color:#d0e8f8"/>',
+            title: '#1a5276',
+            sub: '#2874a6',
+            line: '#154360',
+            muted: '#5dade2',
+            accent: '#3498db',
+            barBg: '#aed6f1',
+            panel: 'rgba(255,255,255,0.55)',
+        };
+    }
     return {
         bgStops: '<stop offset="0%" style="stop-color:#fff8f0"/><stop offset="100%" style="stop-color:#ffe8d6"/>',
         title: '#3d2818',
@@ -172,26 +176,6 @@ function statusTheme(status) {
     };
 }
 
-function svgFontFace() {
-    const uri = pathToFileURL(MISANS_FONT).href;
-    return `@font-face{font-family:'MiSans';src:url('${uri}') format('truetype');}`;
-}
-
-function svgTextStyled(content, width, height, extra = '') {
-    return Buffer.from(
-        `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <filter id="txtShadow" x="-8%" y="-8%" width="116%" height="116%">
-                    <feDropShadow dx="0" dy="1.2" stdDeviation="2.2" flood-color="#000" flood-opacity="0.75"/>
-                </filter>
-                <style>${svgFontFace()}</style>
-                ${extra}
-            </defs>
-            ${content}
-        </svg>`,
-    );
-}
-
 function quotaBar(used, total, width = 200) {
     const t = Math.max(1, total);
     const u = Math.min(used, t);
@@ -199,11 +183,7 @@ function quotaBar(used, total, width = 200) {
     return { fill, width, label: `${u}/${t}` };
 }
 
-function svgText(content, width, height, extra = '') {
-    return Buffer.from(
-        `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${extra}${content}</svg>`
-    );
-}
+const svgText = svgTextPlain;
 
 /**
  * @param {object} options highlightDay=高亮日期, forceDeadBanner=强制显示鹿死横幅
@@ -450,14 +430,18 @@ export async function generateStatusImage(now, name, status) {
     const theme = statusTheme(status);
     const dead = status.dead;
     const tagline = pickStatusTagline(status);
-    const moodEmoji = dead ? '💀' : (status.cursed ? '☠️' : (status.blessed ? '✨' : (status.inRiskZone ? '🔥' : '🦌')));
+    const moodEmoji = dead ? '💀' : (status.cursed ? '☠️' : (status.blessed ? '✨' : (status.inRiskZone ? '🔥' : (status.inWithdrawalZone ? '📘' : '🦌'))));
     const safeLimit = status.safeLimit ?? DAILY_SAFE_LIMIT;
-    const countText = dead ? `鹿死 · 丢失 ${status.lostCount}` : `${status.count} / ${safeLimit}`;
+    const countText = dead
+        ? `鹿死 · 丢失 ${status.lostCount}`
+        : (status.inWithdrawalZone ? `戒鹿 ${status.count} 次` : `${status.count} / ${safeLimit}`);
     const riskLine = dead
         ? `死因：${escapeXml(status.deathReasonText || '未知')}${status.killedByName ? ` · 凶手 ${escapeXml(status.killedByName)}` : ''}`
-        : (status.inRiskZone
-            ? `⚠️ 高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
-            : `✅ 安全区 · 还可 🦌 ${status.safeLeft} 次`);
+        : (status.inWithdrawalZone
+            ? `📘 戒鹿区 · 当月净值 ${status.monthNet ?? status.count} · 再 🦌 ${status.recoveryNeeded} 次回安全线`
+            : (status.inRiskZone
+                ? `⚠️ 高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
+                : `✅ 安全区 · 还可 🦌 ${status.safeLeft} 次`));
 
     const wx = status.weather?.weatherId
         ? (WEATHER_CATALOG[status.weather.weatherId] || WEATHER_CATALOG.sunny)

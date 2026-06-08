@@ -810,7 +810,7 @@ export const ERROR_MESSAGES = {
     splash_no_victims: '日榜前五里没有可溅的活人',
     borrow_used: '今日借鹿已用过，🦌友也不是提款机',
     borrow_self: '不能借自己的🦌，左手借右手不算',
-    borrow_poor: (min) => `对方今日不足 ${min} 次，借无可借`,
+    borrow_poor: (min, net) => `对方当月净值不足 ${min}（正负合计${net != null ? `，现 ${net}` : ''}），借无可借`,
     bumper_used: (used, total) => `今日碰瓷鹿已用完（${used}/${total}）`,
     bumper_self: '不能碰瓷自己，自恋请直接🦌',
     lottery_used: '今日鹿签已抽过，鹿神不接复读机',
@@ -833,6 +833,7 @@ export const ERROR_MESSAGES = {
 export const STATUS_TAGLINES = {
     dead: ['鹿灵已散，冥界业务照常营业', '社死现场，可索命托梦还阳签', '功德归零，尸体仍能搞事'],
     risk: ['鞭刑预备役，再🦌可能当场去世', '高危赌徒，鹿神在盯着你', '超限区蹦迪，谨慎发🦌'],
+    withdrawal: ['戒鹿区营业中，今日次数为负', '回头是岸，但账本还在记', '自律大师，再🦌才能回安全线'],
     safe: ['荤素搭配区，鹿德尚充沛', '优雅选手，尚未丧心病狂', '今日人设：节制鹿'],
     cursed: ['咒印缠身，自🦌如走钢丝', '叠毒生效中，别手贱', '天咒候选席请入座'],
     blessed: ['鹿福护体，今日欧气在线', '金光护体，超限也敢试探', '福咒加身，阎王爷让三分'],
