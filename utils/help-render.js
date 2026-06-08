@@ -1,7 +1,7 @@
 import fs from 'fs';
 import sharp from 'sharp';
 import { DEERPIPE_IMG } from '../constants/core.js';
-import { escapeXml, truncText, textCentered } from './svg-base.js';
+import { escapeXml, truncText, textCentered, textEmoji, TXT, TXT_SOFT, svgTextStyled } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
     HELP_FOOTER,
@@ -55,24 +55,25 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
     let y = HEADER_H + PAD;
     const blocks = [];
     blocks.push(`
-        <text x="${IMG_W / 2}" y="34" font-size="28" font-family="MiSans,sans-serif" fill="#ff6b35" text-anchor="middle" font-weight="bold">${escapeXml(HELP_TAGLINE)}</text>
-        <text x="${IMG_W / 2}" y="62" font-size="20" font-family="MiSans,sans-serif" fill="#5c3d2e" text-anchor="middle" font-weight="bold">${escapeXml(pageDef.title)}</text>
-        <text x="${IMG_W / 2}" y="88" font-size="15" font-family="MiSans,sans-serif" fill="#8b5a3c" text-anchor="middle">${escapeXml(pageDef.subtitle)}</text>
-        ${textCentered(IMG_W / 2, 118, truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52), 'font-family="MiSans,sans-serif"', { size: 13, fill: '#a07050' })}
+        ${textCentered(IMG_W / 2, 34, escapeXml(HELP_TAGLINE), TXT, { size: 28, fill: '#ff6b35', weight: 'bold' })}
+        ${textCentered(IMG_W / 2, 62, escapeXml(pageDef.title), TXT, { size: 20, fill: '#5c3d2e', weight: 'bold' })}
+        ${textCentered(IMG_W / 2, 88, escapeXml(pageDef.subtitle), TXT_SOFT, { size: 15, fill: '#8b5a3c' })}
+        ${textCentered(IMG_W / 2, 118, truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52), TXT_SOFT, { size: 13, fill: '#a07050' })}
     `);
     for (const sec of sections) {
         y += LINE_H;
         blocks.push(`
-            <text x="${PAD}" y="${y}" font-size="20" font-family="MiSans,sans-serif" fill="#5c3d2e" font-weight="bold">${sec.emoji} ${escapeXml(sec.title)}</text>
+            ${textEmoji(PAD, y, sec.emoji, { size: 20 })}
+            <text ${TXT} x="${PAD + 28}" y="${y}" font-size="20" fill="#5c3d2e" font-weight="bold">${escapeXml(sec.title)}</text>
         `);
         y += 6;
         for (const item of sec.items) {
             y += LINE_H;
             const tag = item.tag ? ` [${item.tag}]` : '';
             blocks.push(`
-                <text x="${PAD + 6}" y="${y}" font-size="16" font-family="MiSans,sans-serif" fill="#3d2914" font-weight="bold">${escapeXml(item.cmd)}${escapeXml(tag)}</text>
-                <text x="${DESC_X}" y="${y}" font-size="15" font-family="MiSans,sans-serif" fill="#6b4a32">${truncDesc(item.desc)}</text>
-                <text x="${PAD + 6}" y="${y + 18}" font-size="13" font-family="MiSans,sans-serif" fill="#a07050">└ ${truncText(item.quota, 42)}</text>
+                <text ${TXT} x="${PAD + 6}" y="${y}" font-size="16" fill="#3d2914" font-weight="bold">${escapeXml(item.cmd)}${escapeXml(tag)}</text>
+                <text ${TXT_SOFT} x="${DESC_X}" y="${y}" font-size="15" fill="#6b4a32">${truncDesc(item.desc)}</text>
+                <text ${TXT_SOFT} x="${PAD + 6}" y="${y + 18}" font-size="13" fill="#a07050">└ ${truncText(item.quota, 42)}</text>
             `);
             y += ITEM_EXTRA;
         }
@@ -80,22 +81,18 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
     }
 
     const foot = `${HELP_FOOTER} · ${pageIndex + 1}/${totalPages}`;
-    blocks.push(`
-        <text x="${IMG_W / 2}" y="${imgH - 28}" font-size="13" font-family="MiSans,sans-serif" fill="#b8956a" text-anchor="middle">${escapeXml(foot)}</text>
-    `);
-    return Buffer.from(`
-        <svg width="${IMG_W}" height="${imgH}" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="bg${pageIndex}" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#fff5eb"/>
-                    <stop offset="50%" style="stop-color:#ffe4cc"/>
-                    <stop offset="100%" style="stop-color:#ffd4b8"/>
-                </linearGradient>
-            </defs>
-            <rect width="${IMG_W}" height="${imgH}" fill="url(#bg${pageIndex})" rx="16"/>
-            <rect x="8" y="8" width="${IMG_W - 16}" height="${imgH - 16}" fill="none" stroke="#ff9a56" stroke-width="3" rx="14" stroke-dasharray="8 6"/>
-            ${blocks.join('\n')}
-        </svg>
+    blocks.push(textCentered(IMG_W / 2, imgH - 28, escapeXml(foot), TXT_SOFT, { size: 13, fill: '#b8956a' }));
+    const body = `
+        <rect width="${IMG_W}" height="${imgH}" fill="url(#bg${pageIndex})" rx="16"/>
+        <rect x="8" y="8" width="${IMG_W - 16}" height="${imgH - 16}" fill="none" stroke="#ff9a56" stroke-width="3" rx="14" stroke-dasharray="8 6"/>
+        ${blocks.join('\n')}
+    `;
+    return svgTextStyled(body, IMG_W, imgH, `
+        <linearGradient id="bg${pageIndex}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#fff5eb"/>
+            <stop offset="50%" style="stop-color:#ffe4cc"/>
+            <stop offset="100%" style="stop-color:#ffd4b8"/>
+        </linearGradient>
     `);
 }
 

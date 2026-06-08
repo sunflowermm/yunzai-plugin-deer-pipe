@@ -28,14 +28,19 @@ import {
     buildDuelSpark,
     buildStatGrid,
     statGridRowCount,
+    statGridHeight,
     buildFooterBar,
+    buildCenteredPanel,
     textCentered,
+    textCenteredEmoji,
+    textEmoji,
+    buildCenteredEmojiTitle,
+    buildCenteredEmojiLine,
     parseDayCountRatio,
     DEFAULT_CARD_W,
     STAT_COLS,
     TXT,
     TXT_SOFT,
-    TXT_PLAIN,
 } from './svg-base.js';
 
 const CARD_W = DEFAULT_CARD_W;
@@ -48,11 +53,7 @@ const DUEL_PANEL_H = 100;
 const SIMPLE_HEADER_H = 80;
 const STAT_GAP_Y = 48;
 const TITLE_BELOW_PANEL = 28;
-
-function truncPlain(text, max = 16) {
-    const s = String(text ?? '');
-    return s.length > max ? `${s.slice(0, max)}…` : s;
-}
+const STAT_CHIP_H = 34;
 
 function pct(n) {
     const v = Number(n) || 0;
@@ -79,7 +80,7 @@ export async function generateWeatherCatalogImage(currentWeatherId = null) {
         const bg = active ? theme.highlight : 'transparent';
         rows += `
             <rect x="16" y="${y - 24}" width="${CARD_W - 32}" height="${rowH - 8}" rx="10" fill="${bg}" stroke="${active ? theme.accent : 'transparent'}" stroke-width="2"/>
-            <text ${TXT_PLAIN} x="28" y="${y}" font-size="20">${def.emoji}</text>
+            ${textEmoji(28, y, def.emoji, { size: 20 })}
             <text ${TXT} x="58" y="${y}" font-size="17" fill="${theme.title}" font-weight="bold">${escapeXml(def.name)}${active ? ' · 当前' : ''}</text>
             <text ${TXT_SOFT} x="${CARD_W - 28}" y="${y}" font-size="13" fill="${theme.muted}" text-anchor="end">权重 ${def.weight}</text>
             ${textCentered(CX, y + 22, truncText(def.tip, 56), TXT_SOFT, { size: 13, fill: theme.sub })}
@@ -90,7 +91,7 @@ export async function generateWeatherCatalogImage(currentWeatherId = null) {
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, hashSeed('weather-catalog'))}
-        ${textCentered(CX, 44, '🌤 天象一览 · 鹿林八象', TXT, { size: 26, fill: theme.title, weight: 'bold' })}
+        ${buildCenteredEmojiTitle(CX, 44, '🌤', '天象一览 · 鹿林八象', { emojiSize: 26, titleSize: 26, style: TXT, fill: theme.title })}
         ${textCentered(CX, 72, `00:00 / 12:00 换场 · 查本场「${escapeXml(WEATHER_CMD_HINT)}」`, TXT_SOFT, { size: 14, fill: theme.muted })}
         ${rows}
         ${textCentered(CX, H - 30, '晴/鹿虹偏吉 · 阴霾/雷暴偏凶', TXT_SOFT, { size: 12, fill: theme.muted })}
@@ -110,7 +111,8 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
         ? `鹿神赐福${state.adminBy ? ` · QQ ${state.adminBy}` : ''}`
         : '鹿林天象随机';
     const detailLines = formatWeatherEffectsDetail(effects).split('\n');
-    let y = 168;
+    const detailTop = 168;
+    let y = detailTop;
     let grid = '';
     for (const line of detailLines) {
         grid += textCentered(CX, y, escapeXml(line), TXT_SOFT, { size: 14, fill: theme.line });
@@ -118,18 +120,18 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
     }
     const H = Math.max(340, y + 56);
     const flavor = pickRandom(CARD_FLAVOR.weather || CARD_FLAVOR.default);
+    const metaLine = `安全区 ${effects.safeBonus >= 0 ? '+' : ''}${effects.safeBonus || 0} · 鹿死 ${pct(effects.deathDelta)}`;
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, hashSeed('weather-detail', state?.weatherId))}
-        <rect x="16" y="16" width="${CARD_W - 32}" height="96" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1"/>
-        ${textCentered(CX, 48, def.emoji, TXT_PLAIN, { size: 40 })}
+        ${buildCenteredPanel(CX, 16, CARD_W - 32, 96, theme)}
+        ${textCenteredEmoji(CX, 48, def.emoji, { size: 40 })}
         ${textCentered(CX, 76, escapeXml(`${period} · ${def.name}`), TXT, { size: 22, fill: theme.title, weight: 'bold' })}
         ${textCentered(CX, 98, escapeXml(`来源：${src}`), TXT_SOFT, { size: 13, fill: theme.sub })}
         ${textCentered(CX, 128, '玩法修正', TXT, { size: 15, fill: theme.line, weight: 'bold' })}
-        ${textCentered(CX, 150, truncText(def.tip, 52), TXT_SOFT, { size: 14, fill: theme.muted })}
+        ${buildCenteredEmojiLine(CX, 150, null, def.tip, theme, 52)}
         ${grid}
-        ${buildFooterBar(CARD_W, H - 28, flavor, theme, 46)}
-        ${textCentered(CX, H - 8, `安全区 ${effects.safeBonus >= 0 ? '+' : ''}${effects.safeBonus || 0} · 鹿死 ${pct(effects.deathDelta)}`, TXT_SOFT, { size: 12, fill: theme.muted })}
+        ${buildFooterBar(CARD_W, H - 20, `${flavor} · ${metaLine}`, theme, 56)}
     `;
     return renderStyledCard(CARD_W, H, inner, 'weather');
 }
@@ -338,13 +340,13 @@ function buildPlayfulStatRows(result, { helperName, targetName } = {}) {
     }
 
     if (targetName && !DUEL_TYPES.has(result.type) && !['fake_withdraw', 'howl', 'howl_dead', 'howl_dead_haunt', 'lottery', 'group_splash'].includes(result.type)) {
-        rows.unshift({ label: '对象', value: truncPlain(targetName, 10), color: '#ffd700' });
+        rows.unshift({ label: '对象', value: truncText(targetName, 10), color: '#ffd700' });
     }
     if (helperName && !DUEL_TYPES.has(result.type)) {
-        rows.unshift({ label: '发起', value: truncPlain(helperName, 10), color: '#88c8ff' });
+        rows.unshift({ label: '发起', value: truncText(helperName, 10), color: '#88c8ff' });
     }
     if (result.weatherTip) {
-        rows.push({ label: '天象', value: truncPlain(result.weatherTip, 14), color: '#63b3ed' });
+        rows.push({ label: '天象', value: truncText(result.weatherTip, 14), color: '#63b3ed' });
     }
 
     return rows;
@@ -420,7 +422,7 @@ function buildDuelTitleBlock(meta, theme, subtitle) {
     const bandH = subtitle ? 72 : 44;
     return `
         <rect x="24" y="${bandTop}" width="${CARD_W - 48}" height="${bandH}" rx="10" fill="${theme.panel}" opacity="0.35"/>
-        ${textCentered(CX, titleY, meta.emoji, TXT_PLAIN, { size: 16 })}
+        ${textCenteredEmoji(CX, titleY, meta.emoji, { size: 16 })}
         ${textCentered(CX, titleY + 20, escapeXml(meta.title), TXT, { size: 14, fill: theme.title, weight: 'bold' })}
         ${subtitle ? textCentered(CX, titleY + 40, truncText(subtitle, 38), TXT_SOFT, { size: 11, fill: theme.muted }) : ''}
     `;
@@ -432,22 +434,22 @@ function buildDuelHeaderSvg({ leftName, rightName, meta, theme, subtitle, winner
     const cy = AVATAR_TOP + AVATAR_SIZE / 2;
     const nameY = AVATAR_TOP + AVATAR_SIZE + 16;
     const crown = (side) => (winnerSide === side
-        ? `<text ${TXT_PLAIN} x="${side === 'left' ? lx : rx}" y="${AVATAR_TOP - 2}" font-size="20" text-anchor="middle">👑</text>`
+        ? textCenteredEmoji(side === 'left' ? lx : rx, AVATAR_TOP - 2, '👑', { size: 20 })
         : '');
     const badge = outcomeBadge
         ? buildRibbonBadge(CX, DUEL_PANEL_TOP + 4, outcomeBadge[0], outcomeBadge[1])
         : '';
     return `
         ${badge}
-        <rect x="16" y="${DUEL_PANEL_TOP}" width="${CARD_W - 32}" height="${DUEL_PANEL_H}" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.5"/>
+        ${buildCenteredPanel(CX, DUEL_PANEL_TOP, CARD_W - 32, DUEL_PANEL_H, theme)}
         ${buildDuelSpark(CX, cy, theme)}
         ${buildVsBadge(CX, cy, theme)}
         ${crown('left')}
         ${crown('right')}
         <circle cx="${lx}" cy="${cy}" r="${AVATAR_SIZE / 2 + 2}" fill="none" stroke="${winnerSide === 'left' ? '#ffd700' : theme.accent}" stroke-width="${winnerSide === 'left' ? 3 : 2}" opacity="0.9"/>
         <circle cx="${rx}" cy="${cy}" r="${AVATAR_SIZE / 2 + 2}" fill="none" stroke="${winnerSide === 'right' ? '#ffd700' : theme.accent}" stroke-width="${winnerSide === 'right' ? 3 : 2}" opacity="0.9"/>
-        ${textCentered(lx, nameY, truncPlain(leftName, 9), TXT_SOFT, { size: 12, fill: theme.sub, weight: winnerSide === 'left' ? 'bold' : undefined })}
-        ${textCentered(rx, nameY, truncPlain(rightName, 9), TXT_SOFT, { size: 12, fill: theme.sub, weight: winnerSide === 'right' ? 'bold' : undefined })}
+        ${textCentered(lx, nameY, truncText(leftName, 9), TXT_SOFT, { size: 12, fill: theme.sub, weight: winnerSide === 'left' ? 'bold' : undefined })}
+        ${textCentered(rx, nameY, truncText(rightName, 9), TXT_SOFT, { size: 12, fill: theme.sub, weight: winnerSide === 'right' ? 'bold' : undefined })}
         ${buildDuelTitleBlock(meta, theme, subtitle)}
     `;
 }
@@ -458,8 +460,8 @@ function buildSimpleHeaderSvg({ meta, theme, outcomeBadge }) {
         : '';
     return `
         ${badge}
-        <rect x="16" y="16" width="${CARD_W - 32}" height="${SIMPLE_HEADER_H}" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.5"/>
-        ${textCentered(CX, 48, meta.emoji, TXT_PLAIN, { size: 36 })}
+        ${buildCenteredPanel(CX, 16, CARD_W - 32, SIMPLE_HEADER_H, theme)}
+        ${textCenteredEmoji(CX, 48, meta.emoji, { size: 36 })}
         ${textCentered(CX, 78, escapeXml(meta.title), TXT, { size: 20, fill: theme.title, weight: 'bold' })}
     `;
 }
@@ -510,9 +512,9 @@ export async function generateInteractionCard({
     const winnerSide = isDuel ? resolveDuelWinner(result) : null;
     const outcomeBadge = OUTCOME_BADGE[result?.type] || null;
     const statsTop = isDuel ? duelTitleBottom(Boolean(subtitle)) + 20 : 16 + SIMPLE_HEADER_H + 16;
-    const statGrid = buildStatGrid(rows, theme, statsTop, CARD_W, { cols: STAT_COLS, gapY: STAT_GAP_Y, countRatio });
     const statRows = statGridRowCount(rows, STAT_COLS);
-    const statsBottom = statsTop + statRows * STAT_GAP_Y;
+    const statGrid = buildStatGrid(rows, theme, statsTop, CARD_W, { cols: STAT_COLS, gapY: STAT_GAP_Y, countRatio });
+    const statsBottom = statsTop + statGridHeight(statRows, STAT_GAP_Y, STAT_CHIP_H);
 
     let extraBlock = '';
     let contentBottom = statsBottom + 12;
@@ -524,19 +526,20 @@ export async function generateInteractionCard({
     extraBlock += extraLinesBlock;
     contentBottom = extraBottom;
 
-    const footerY = Math.max(contentBottom + 10, statsBottom + 18);
+    const footerY = Math.max(contentBottom + 14, statsBottom + 16);
+    const cardH = footerY + 34;
     const flavor = pickCardFlavor(result?.type);
     const header = isDuel
         ? buildDuelHeaderSvg({ leftName: helperName, rightName: targetName, meta, theme, subtitle, winnerSide, outcomeBadge })
         : buildSimpleHeaderSvg({ meta, theme, outcomeBadge });
     const inner = `
-        <rect width="${CARD_W}" height="${footerY + 34}" rx="16" fill="url(#cardBg)"/>
-        ${buildCardDecorations(CARD_W, footerY + 34, theme, hashSeed(result?.type, helperId, targetId, headline))}
+        <rect width="${CARD_W}" height="${cardH}" rx="16" fill="url(#cardBg)"/>
+        ${buildCardDecorations(CARD_W, cardH, theme, hashSeed(result?.type, helperId, targetId, headline))}
         ${header}
         ${statGrid}
         ${extraBlock}
         ${buildFooterBar(CARD_W, footerY, flavor, theme, 48)}
     `;
     const overlays = isDuel ? await buildAvatarOverlays(helperId, targetId, winnerSide) : [];
-    return renderStyledCard(CARD_W, footerY + 34, inner, meta.theme, overlays);
+    return renderStyledCard(CARD_W, cardH, inner, meta.theme, overlays);
 }

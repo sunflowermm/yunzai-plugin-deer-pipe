@@ -1,9 +1,8 @@
 import sharp from 'sharp';
 import fs from 'fs';
 import { CHECK_IMG, DEERPIPE_IMG } from '../constants/core.js';
-import { WEATHER_CMD_HINT } from '../constants/commands.js';
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
-import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs } from './svg-base.js';
+import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs, textCentered, textCenteredEmoji, buildFooterBar, buildCenteredPanel, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, buildSectionTitle, buildCenteredEmojiLine, TXT, TXT_SOFT } from './svg-base.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
 import {
     calcMonthStats,
@@ -191,13 +190,6 @@ function statusTheme(status) {
         panel: 'rgba(255,255,255,0.55)',
         highlight: 'rgba(230,126,34,0.12)',
     };
-}
-
-function quotaBar(used, total, width = 200) {
-    const t = Math.max(1, total);
-    const u = Math.min(used, t);
-    const fill = Math.round((u / t) * width);
-    return { fill, width, label: `${u}/${t}` };
 }
 
 const svgText = svgTextPlain;
@@ -429,7 +421,7 @@ export async function generateYearImage(now, name, userRecord) {
 export async function generateStatusImage(now, name, status) {
     now = ensureDate(now);
     const W = 740;
-    const H = 680;
+    const CX = W / 2;
     const theme = statusTheme(status);
     const dead = status.dead;
     const tagline = pickStatusTagline(status);
@@ -439,106 +431,106 @@ export async function generateStatusImage(now, name, status) {
         ? `鹿死 · 丢失 ${status.lostCount}`
         : (status.inWithdrawalZone ? `戒鹿 ${status.count} 次` : `${status.count} / ${safeLimit}`);
     const riskLine = dead
-        ? `死因：${escapeXml(status.deathReasonText || '未知')}${status.killedByName ? ` · 凶手 ${escapeXml(status.killedByName)}` : ''}`
+        ? `死因：${status.deathReasonText || '未知'}${status.killedByName ? ` · 凶手 ${status.killedByName}` : ''}`
         : (status.inWithdrawalZone
-            ? `📘 戒鹿区 · 当月净值 ${status.monthNet ?? status.count} · 再 🦌 ${status.recoveryNeeded} 次回安全线`
+            ? `戒鹿区 · 当月净值 ${status.monthNet ?? status.count} · 再 🦌 ${status.recoveryNeeded} 次回安全线`
             : (status.inRiskZone
-                ? `⚠️ 高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
-                : `✅ 安全区 · 还可 🦌 ${status.safeLeft} 次`));
+                ? `高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
+                : `安全区 · 还可 🦌 ${status.safeLeft} 次`));
     const wx = status.weather?.weatherId
         ? (WEATHER_CATALOG[status.weather.weatherId] || WEATHER_CATALOG.sunny)
         : null;
     const periodLabel = status.weather?.periodKey
         ? parseWeatherPeriodSlot(status.weather.periodKey)
         : '';
-    const weatherLine = wx
-        ? `${wx.emoji} ${periodLabel}${wx.name}${status.weather?.source === 'admin' ? '·赐福' : ''} · ${escapeXml(wx.tip)}`
+    const weatherText = wx
+        ? `${periodLabel}${wx.name}${status.weather?.source === 'admin' ? '·赐福' : ''} · ${wx.tip}`
         : '天象：加载中…';
     let auraLine = '';
     if (status.cursed && status.blessed) {
-        auraLine = `☠️咒 ×${status.curseStacks} · ✨福 ×${status.blessStacks} · 对冲中`;
+        auraLine = `咒 ×${status.curseStacks} · 福 ×${status.blessStacks} · 对冲中`;
     } else if (status.cursed) {
-        auraLine = `咒印 ×${status.curseStacks} · 剩 ${status.curseRounds} 回合 · 叠毒 +${status.curseBonusPct}%${status.curseAscended ? ' · ⚡天咒' : ''}`;
+        auraLine = `咒印 ×${status.curseStacks} · 剩 ${status.curseRounds} 回合 · 叠毒 +${status.curseBonusPct}%${status.curseAscended ? ' · 天咒' : ''}`;
     } else if (status.blessed) {
         auraLine = `鹿福 ×${status.blessStacks} · 剩 ${status.blessRounds} 回合 · 减鹿死 -${status.blessReducePct}%`;
     } else if (status.urgeBuff) {
-        auraLine = '📣 被催更：下次安全自🦌 +1';
+        auraLine = '被催更：下次安全自🦌 +1';
     } else {
         auraLine = '咒福：无 · 今日气运看天';
     }
 
-    const helpBar = quotaBar(status.helperHelpUsed, DAILY_HELP_QUOTA);
-    const wdBar = quotaBar(status.helperWithdrawUsed, DAILY_HELP_WITHDRAW_QUOTA);
-    const rows = dead ? [
-        ['冥咒', `${status.spectralCurseUsed ?? 0}/${DAILY_SPECTRAL_CURSE_QUOTA}`, '#e8b4ff'],
-        ['索命', `${status.vengeanceUsed ?? 0}/${DAILY_VENGEANCE_QUOTA}`, '#ff8888'],
-        ['托梦', status.dreamUsed ? '已用' : '可用', '#88c8ff'],
-        ['还阳签', status.reviveLotteryUsed ? '已用' : '可用', '#88ffaa'],
-        ['鹿鸣', `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, '#88ffcc'],
-        ['鹿碑', '可用', '#cccccc'],
+    const helpUsed = status.helperHelpUsed ?? 0;
+    const wdUsed = status.helperWithdrawUsed ?? 0;
+    const gridItems = dead ? [
+        { label: '冥咒', value: `${status.spectralCurseUsed ?? 0}/${DAILY_SPECTRAL_CURSE_QUOTA}`, color: '#e8b4ff' },
+        { label: '索命', value: `${status.vengeanceUsed ?? 0}/${DAILY_VENGEANCE_QUOTA}`, color: '#ff8888' },
+        { label: '托梦', value: status.dreamUsed ? '已用' : '可用', color: '#88c8ff' },
+        { label: '还阳签', value: status.reviveLotteryUsed ? '已用' : '可用', color: '#88ffaa' },
+        { label: '鹿鸣', value: `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, color: '#88ffcc' },
+        { label: '鹿碑', value: '可用', color: '#cccccc' },
     ] : [
-        ['偷鹿', `${status.stealUsed}/${DAILY_STEAL_QUOTA}`, '#ffb347'],
-        ['鹿咒', `${status.curseUsed}/${DAILY_CURSE_QUOTA}`, '#d4a5ff'],
-        ['鹿福', `${status.blessUsed ?? 0}/${DAILY_BLESS_QUOTA}`, '#7dffb0'],
-        ['解咒', `${status.cleanseUsed ?? 0}/${DAILY_CLEANSE_CURSE_QUOTA}`, '#88ffaa'],
-        ['解福', `${status.cleanseBlessUsed ?? 0}/${DAILY_CLEANSE_BLESS_QUOTA}`, '#aaffcc'],
-        ['催鹿', `${status.urgeUsed}/${DAILY_URGE_QUOTA}`, '#88c8ff'],
-        ['擂台', `${status.arenaUsed}/${DAILY_ARENA_QUOTA}`, '#ff8888'],
-        ['皇城', `${status.imperialUsed}/${DAILY_IMPERIAL_QUOTA}`, '#ffd700'],
-        ['群溅', status.groupSplashUsed ? '已用' : '可用', '#66ddcc'],
-        ['诈戒', `${status.fakeWithdrawUsed}/${DAILY_FAKE_WITHDRAW_QUOTA}`, '#cc99ff'],
-        ['借鹿', status.borrowUsed ? '已用' : '可用', '#ffcc88'],
-        ['碰瓷', `${status.bumperUsed ?? 0}/${DAILY_BUMPER_QUOTA}`, '#ffaa88'],
-        ['鹿签', status.lotteryUsed ? '已用' : '可用', '#ffee88'],
-        ['献祭', status.sacrificeUsed ? '已用' : '可用', '#ff9966'],
-        ['倒贴', status.greedUsed ? '已用' : '可用', '#ff7788'],
-        ['鹿鸣', `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, '#88ffaa'],
+        { label: '偷鹿', value: `${status.stealUsed}/${DAILY_STEAL_QUOTA}`, color: '#ffb347' },
+        { label: '鹿咒', value: `${status.curseUsed}/${DAILY_CURSE_QUOTA}`, color: '#d4a5ff' },
+        { label: '鹿福', value: `${status.blessUsed ?? 0}/${DAILY_BLESS_QUOTA}`, color: '#7dffb0' },
+        { label: '解咒', value: `${status.cleanseUsed ?? 0}/${DAILY_CLEANSE_CURSE_QUOTA}`, color: '#88ffaa' },
+        { label: '解福', value: `${status.cleanseBlessUsed ?? 0}/${DAILY_CLEANSE_BLESS_QUOTA}`, color: '#aaffcc' },
+        { label: '催鹿', value: `${status.urgeUsed}/${DAILY_URGE_QUOTA}`, color: '#88c8ff' },
+        { label: '擂台', value: `${status.arenaUsed}/${DAILY_ARENA_QUOTA}`, color: '#ff8888' },
+        { label: '皇城', value: `${status.imperialUsed}/${DAILY_IMPERIAL_QUOTA}`, color: '#ffd700' },
+        { label: '群溅', value: status.groupSplashUsed ? '已用' : '可用', color: '#66ddcc' },
+        { label: '诈戒', value: `${status.fakeWithdrawUsed}/${DAILY_FAKE_WITHDRAW_QUOTA}`, color: '#cc99ff' },
+        { label: '借鹿', value: status.borrowUsed ? '已用' : '可用', color: '#ffcc88' },
+        { label: '碰瓷', value: `${status.bumperUsed ?? 0}/${DAILY_BUMPER_QUOTA}`, color: '#ffaa88' },
+        { label: '鹿签', value: status.lotteryUsed ? '已用' : '可用', color: '#ffee88' },
+        { label: '献祭', value: status.sacrificeUsed ? '已用' : '可用', color: '#ff9966' },
+        { label: '倒贴', value: status.greedUsed ? '已用' : '可用', color: '#ff7788' },
+        { label: '同归', value: status.togetherUsed ? '已用' : '可用', color: '#88ddff' },
+        { label: '鹿鸣', value: `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, color: '#88ffaa' },
     ];
-    let grid = '';
-    const gx0 = 20;
-    const gy0 = 390;
-    const colW = 175;
-    const cols = 4;
-    rows.forEach((row, i) => {
-        const col = i % cols;
-        const rowIdx = Math.floor(i / cols);
-        const x = gx0 + col * colW;
-        const y = gy0 + rowIdx * 44;
-        grid += `<text filter="url(#txtShadow)" x="${x}" y="${y}" font-size="15" font-family="MiSans,sans-serif" fill="${theme.line}">${row[0]} <tspan fill="${row[2]}" font-weight="bold">${escapeXml(row[1])}</tspan></text>`;
-    });
-    const txt = 'filter="url(#txtShadow)" font-family="MiSans,sans-serif"';
-    const footer = dead
-        ? `冥界玩法见上 · 活人帮🦌可救活 · ${WEATHER_CMD_HINT}看天象`
-        : `同归 ${status.togetherUsed ? '已用' : '可用'} · 献祭 ${status.sacrificeUsed ? '已用' : '可用'} · 倒贴 ${status.greedUsed ? '已用' : '可用'}`;
+
+    const WEATHER_TOP = 108;
+    const WEATHER_H = 40;
+    const PANEL_W = W - 32;
+    const STAT_TOP = WEATHER_TOP + WEATHER_H + 24;
+    const QUOTA_TITLE_Y = STAT_TOP + 162;
+    const QUOTA_TOP = QUOTA_TITLE_Y + 20;
+    const GRID_TITLE_Y = QUOTA_TOP + 56;
+    const GRID_COLS = 4;
+    const GRID_GAP_Y = 36;
+    const gridRows = labelValueGridRowCount(gridItems.length, GRID_COLS);
+    const gridTop = GRID_TITLE_Y + 20;
+    const flavorY = gridTop + gridRows * GRID_GAP_Y + 24;
+    const H = flavorY + 40;
+
+    const quotaSvg = buildQuotaBarStack(CX, QUOTA_TOP, [
+        { label: '帮鹿', used: helpUsed, total: DAILY_HELP_QUOTA, color: '#e67e22' },
+        { label: '帮戒', used: wdUsed, total: DAILY_HELP_WITHDRAW_QUOTA, color: '#3498db' },
+    ], theme);
+    const gridSvg = buildLabelValueGrid(gridItems, theme, gridTop, W, { cols: GRID_COLS, gapY: GRID_GAP_Y });
+
+    const auraFill = status.cursed ? '#f0d0ff' : (status.blessed ? '#d0ffd8' : theme.line);
     const flavorLine = pickStatusFlavor(status);
     const decoSeed = hashSeed(name, now.toDateString(), status.count, dead);
+    const dateMeta = `${now.getMonth() + 1}/${now.getDate()} · deer-pipe`;
+
     const svg = `
         <rect width="${W}" height="${H}" rx="16" fill="url(#sbg)"/>
         ${buildCardDecorations(W, H, theme, decoSeed)}
-        <rect x="16" y="118" width="${W - 32}" height="44" rx="10" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1"/>
-        <text ${txt} x="28" y="146" font-size="14" fill="${theme.line}">${weatherLine}</text>
-        <text ${txt} x="36" y="48" font-size="30" fill="${theme.title}" font-weight="bold">📊 今日鹿况</text>
-        <text ${txt} x="36" y="78" font-size="22" fill="${theme.sub}">${truncName(name)}</text>
-        <text ${txt} x="36" y="102" font-size="14" fill="${theme.muted}" font-style="italic">${escapeXml(tagline)}</text>
-        <text x="110" y="195" font-size="68" font-family="MiSans,sans-serif">${moodEmoji}</text>
-        <text ${txt} x="210" y="175" font-size="34" fill="${theme.title}" font-weight="bold">${escapeXml(countText)}</text>
-        <text ${txt} x="210" y="205" font-size="16" fill="${theme.sub}">尝试 ${status.attempts} 次</text>
-        <text ${txt} x="210" y="230" font-size="15" fill="${theme.line}">${riskLine}</text>
-        <text ${txt} x="36" y="268" font-size="15" fill="${status.cursed ? '#f0d0ff' : (status.blessed ? '#d0ffd8' : theme.line)}">${escapeXml(auraLine)}</text>
-        <text ${txt} x="36" y="300" font-size="14" fill="${theme.muted}">帮🦌配额</text>
-        <rect x="110" y="288" width="${helpBar.width}" height="14" rx="7" fill="${theme.barBg}"/>
-        <rect x="110" y="288" width="${helpBar.fill}" height="14" rx="7" fill="#e67e22"/>
-        <text ${txt} x="320" y="300" font-size="14" fill="${theme.line}">${helpBar.label}</text>
-        <text ${txt} x="390" y="300" font-size="14" fill="${theme.muted}">帮戒</text>
-        <rect x="440" y="288" width="${wdBar.width}" height="14" rx="7" fill="${theme.barBg}"/>
-        <rect x="440" y="288" width="${wdBar.fill}" height="14" rx="7" fill="#3498db"/>
-        <text ${txt} x="650" y="300" font-size="14" fill="${theme.line}" text-anchor="end">${wdBar.label}</text>
-        <text ${txt} x="36" y="368" font-size="14" fill="${theme.muted}" font-weight="bold">玩法配额</text>
-        ${grid}
-        <rect x="24" y="${H - 58}" width="${W - 48}" height="26" rx="8" fill="${theme.highlight || theme.panel}" opacity="0.7"/>
-        <text ${txt} x="${W / 2}" y="${H - 40}" font-size="12" fill="${theme.muted}" text-anchor="middle" font-style="italic">${escapeXml(flavorLine)}</text>
-        <text ${txt} x="36" y="${H - 14}" font-size="13" fill="${theme.muted}">${footer}</text>
-        <text ${txt} x="${W - 36}" y="${H - 14}" font-size="12" fill="${theme.muted}" text-anchor="end">${now.getMonth() + 1}/${now.getDate()} · deer-pipe</text>
+        ${textCentered(CX, 44, '今日鹿况', TXT, { size: 28, fill: theme.title, weight: 'bold' })}
+        ${textCentered(CX, 72, truncName(name, 18), TXT, { size: 20, fill: theme.sub })}
+        ${textCentered(CX, 94, escapeXml(tagline), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
+        ${buildCenteredPanel(CX, WEATHER_TOP, PANEL_W, WEATHER_H, theme)}
+        ${buildCenteredEmojiLine(CX, WEATHER_TOP + 26, wx?.emoji, weatherText, theme, 44)}
+        ${textCenteredEmoji(CX, STAT_TOP + 28, moodEmoji, { size: 36 })}
+        ${textCentered(CX, STAT_TOP + 68, escapeXml(countText), TXT, { size: 30, fill: theme.title, weight: 'bold' })}
+        ${textCentered(CX, STAT_TOP + 94, `尝试 ${status.attempts} 次`, TXT_SOFT, { size: 15, fill: theme.sub })}
+        ${textCentered(CX, STAT_TOP + 114, truncText(riskLine, 52), TXT_SOFT, { size: 14, fill: theme.line })}
+        ${textCentered(CX, STAT_TOP + 138, escapeXml(auraLine), TXT_SOFT, { size: 14, fill: auraFill })}
+        ${buildSectionTitle(CX, QUOTA_TITLE_Y, '互助配额', theme)}
+        ${quotaSvg}
+        ${buildSectionTitle(CX, GRID_TITLE_Y, '玩法配额', theme)}
+        ${gridSvg}
+        ${buildFooterBar(W, flavorY, `${flavorLine} · ${dateMeta}`, theme, 56)}
     `;
     return sharp({
         create: { width: W, height: H, channels: 4, background: { r: 255, g: 245, b: 235, alpha: 1 } },

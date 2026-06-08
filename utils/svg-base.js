@@ -28,6 +28,8 @@ export const TXT = `${SVG_FONT} filter="url(#txtShadow)"`;
 export const TXT_SOFT = `${SVG_FONT} filter="url(#txtSoft)"`;
 /** 无阴影（emoji、高对比小字） */
 export const TXT_PLAIN = SVG_FONT;
+/** emoji 专用（勿用 MiSans，否则 sharp 渲染为黑块） */
+export const TXT_EMOJI = 'font-family="Segoe UI Emoji,Apple Color Emoji,Noto Color Emoji,sans-serif"';
 
 const SVG_FILTER_DEFS = `
     <filter id="txtShadow" x="-4%" y="-4%" width="108%" height="108%">
@@ -278,6 +280,120 @@ export function buildFooterBar(canvasW, y, text, theme, maxLen = 48) {
         <rect x="20" y="${y - 6}" width="${canvasW - 40}" height="28" rx="8" fill="${theme.highlight || theme.panel}" opacity="0.55"/>
         ${textCentered(canvasW / 2, y + 12, truncText(text, maxLen), TXT_SOFT, { size: 12, fill: theme.muted, italic: true })}
     `;
+}
+
+export const QUOTA_BAR_W = 128;
+const QUOTA_LABEL_W = 36;
+const QUOTA_COUNT_W = 36;
+const QUOTA_INNER_GAP = 8;
+
+/** 水平居中面板 */
+export function buildCenteredPanel(cx, top, width, height, theme) {
+    return `<rect x="${cx - width / 2}" y="${top}" width="${width}" height="${height}" rx="10" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1"/>`;
+}
+
+/** 单行配额条（标签 + 进度 + 计数），以 cx 为中心 */
+export function buildQuotaBarRow(cx, y, label, used, total, barColor, theme, barW = QUOTA_BAR_W) {
+    const t = Math.max(1, total);
+    const u = Math.min(Math.max(0, used), t);
+    const fill = Math.round((u / t) * barW);
+    const rowW = QUOTA_LABEL_W + QUOTA_INNER_GAP + barW + QUOTA_INNER_GAP + QUOTA_COUNT_W;
+    const x0 = cx - rowW / 2;
+    const barX = x0 + QUOTA_LABEL_W + QUOTA_INNER_GAP;
+    const countX = barX + barW + QUOTA_INNER_GAP + QUOTA_COUNT_W;
+    return `
+        <text ${TXT_SOFT} x="${x0 + QUOTA_LABEL_W / 2}" y="${y + 12}" font-size="13" fill="${theme.muted}" text-anchor="middle">${escapeXml(label)}</text>
+        <rect x="${barX}" y="${y}" width="${barW}" height="14" rx="7" fill="${theme.barBg}"/>
+        <rect x="${barX}" y="${y}" width="${fill}" height="14" rx="7" fill="${barColor}"/>
+        <text ${TXT_SOFT} x="${countX}" y="${y + 12}" font-size="13" fill="${theme.line}" text-anchor="end">${u}/${t}</text>
+    `;
+}
+
+/** 多行配额条，逐行居中（避免并排重叠） */
+export function buildQuotaBarStack(cx, topY, items, theme, rowGap = 24) {
+    return items.map((item, i) => buildQuotaBarRow(
+        cx,
+        topY + i * rowGap,
+        item.label,
+        item.used,
+        item.total,
+        item.color,
+        theme,
+        item.barW,
+    )).join('');
+}
+
+/** 标签 + 高亮值网格，每行按列数居中 */
+export function buildLabelValueGrid(items, theme, topY, canvasW, {
+    cols = 4,
+    colW = 158,
+    gapX = 14,
+    gapY = 36,
+} = {}) {
+    let out = '';
+    for (let i = 0; i < items.length; i += cols) {
+        const group = items.slice(i, i + cols);
+        const rowW = group.length * colW + (group.length - 1) * gapX;
+        const startX = (canvasW - rowW) / 2;
+        const rowIdx = Math.floor(i / cols);
+        const y = topY + rowIdx * gapY;
+        group.forEach((item, colIdx) => {
+            const cx = startX + colIdx * (colW + gapX) + colW / 2;
+            const label = escapeXml(String(item.label ?? item[0] ?? ''));
+            const value = escapeXml(String(item.value ?? item[1] ?? ''));
+            const color = item.color ?? item[2] ?? theme.accent;
+            out += `<text ${TXT_SOFT} x="${cx}" y="${y}" font-size="15" fill="${theme.line}" text-anchor="middle">${label} <tspan fill="${color}" font-weight="bold">${value}</tspan></text>`;
+        });
+    }
+    return out;
+}
+
+export function labelValueGridRowCount(count, cols = 4) {
+    return Math.ceil(Math.max(0, count) / cols);
+}
+
+/** 节标题（居中） */
+export function buildSectionTitle(cx, y, text, theme) {
+    return textCentered(cx, y, escapeXml(text), TXT_SOFT, { size: 14, fill: theme.muted, weight: 'bold' });
+}
+
+/** 单行 emoji（勿用 MiSans） */
+export function textEmoji(x, y, emoji, { size = 20, anchor = 'start' } = {}) {
+    return `<text ${TXT_EMOJI} x="${x}" y="${y}" font-size="${size}" text-anchor="${anchor}">${escapeXml(String(emoji ?? ''))}</text>`;
+}
+
+/** 居中 emoji */
+export function textCenteredEmoji(cx, y, emoji, { size = 24 } = {}) {
+    return textEmoji(cx, y, emoji, { size, anchor: 'middle' });
+}
+
+/** 居中：emoji + 文字（tspan 混排，避免 MiSans 黑块） */
+export function buildCenteredEmojiLine(cx, y, emoji, text, theme, maxLen = 44) {
+    const line = truncText(text, maxLen);
+    if (!emoji) {
+        return textCentered(cx, y, line, TXT_SOFT, { size: 13, fill: theme.line });
+    }
+    return `<text x="${cx}" y="${y}" font-size="13" fill="${theme.line}" text-anchor="middle" ${TXT_SOFT}>
+        <tspan ${TXT_EMOJI} font-size="14">${escapeXml(String(emoji))}</tspan>
+        <tspan> ${line}</tspan>
+    </text>`;
+}
+
+/** 居中：emoji + 标题 */
+export function buildCenteredEmojiTitle(cx, y, emoji, title, { emojiSize = 18, titleSize = 14, style = TXT, fill, weight = 'bold' } = {}) {
+    const fillAttr = fill ? ` fill="${fill}"` : '';
+    const weightAttr = weight ? ` font-weight="${weight}"` : '';
+    return `<text x="${cx}" y="${y}" font-size="${titleSize}" text-anchor="middle" ${style}${fillAttr}${weightAttr}>
+        <tspan ${TXT_EMOJI} font-size="${emojiSize}">${escapeXml(String(emoji ?? ''))}</tspan>
+        <tspan> ${escapeXml(String(title ?? ''))}</tspan>
+    </text>`;
+}
+
+/** stat 网格占用高度（含 chip 本体） */
+export function statGridHeight(rowCount, gapY = 48, chipH = 34) {
+    const rows = Math.max(0, rowCount);
+    if (!rows) return 0;
+    return (rows - 1) * gapY + chipH + 8;
 }
 
 /** 虚线边框 + 背景光点 */
