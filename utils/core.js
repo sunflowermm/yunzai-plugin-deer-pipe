@@ -424,7 +424,14 @@ export async function generateStatusImage(now, name, status) {
     const CX = W / 2;
     const theme = statusTheme(status);
     const dead = status.dead;
-    const tagline = pickStatusTagline(status);
+    const profHint = status.professionRequired
+        ? '🎭未转职'
+        : (status.professionName
+            ? `${status.professionEmoji || ''}${status.professionName}${status.professionLocked ? '·已锁定' : ''}`
+            : '');
+    const tagline = status.professionRequired
+        ? '请先转职：转职鹿医 / 转职戒师 / 转职卷王 / 转职巡游'
+        : [pickStatusTagline(status), profHint].filter(Boolean).join(' · ');
     const moodEmoji = dead ? '💀' : (status.cursed ? '☠️' : (status.blessed ? '✨' : (status.inRiskZone ? '🔥' : (status.inWithdrawalZone ? '📘' : '🦌'))));
     const safeLimit = status.safeLimit ?? DAILY_SAFE_LIMIT;
     const countText = dead
@@ -486,6 +493,13 @@ export async function generateStatusImage(now, name, status) {
         { label: '倒贴', value: status.greedUsed ? '已用' : '可用', color: '#ff7788' },
         { label: '同归', value: status.togetherUsed ? '已用' : '可用', color: '#88ddff' },
         { label: '鹿鸣', value: `${status.howlUsed}/${DAILY_HOWL_QUOTA}`, color: '#88ffaa' },
+        {
+            label: '专属技',
+            value: status.professionRequired
+                ? '未转职'
+                : (status.jobSkillUsed ? '已用' : (status.patrolBuffPending ? '巡游蓄势' : '可用')),
+            color: '#ffdd88',
+        },
     ];
 
     const WEATHER_TOP = 108;
@@ -502,9 +516,11 @@ export async function generateStatusImage(now, name, status) {
     const flavorY = gridTop + gridRows * GRID_GAP_Y + 24;
     const H = flavorY + 40;
 
+    const helpMax = status.helpQuotaMax ?? DAILY_HELP_QUOTA;
+    const wdMax = status.helpWithdrawQuotaMax ?? DAILY_HELP_WITHDRAW_QUOTA;
     const quotaSvg = buildQuotaBarStack(CX, QUOTA_TOP, [
-        { label: '帮鹿', used: helpUsed, total: DAILY_HELP_QUOTA, color: '#e67e22' },
-        { label: '帮戒', used: wdUsed, total: DAILY_HELP_WITHDRAW_QUOTA, color: '#3498db' },
+        { label: '帮鹿', used: helpUsed, total: helpMax, color: '#e67e22' },
+        { label: '帮戒', used: wdUsed, total: wdMax, color: '#3498db' },
     ], theme);
     const gridSvg = buildLabelValueGrid(gridItems, theme, gridTop, W, { cols: GRID_COLS, gapY: GRID_GAP_Y });
 

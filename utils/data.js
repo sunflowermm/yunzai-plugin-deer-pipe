@@ -66,6 +66,9 @@ import {
     IMPERIAL_WIN_DEDUCT,
     IMPERIAL_KING_WIN_BONUS,
     META_PREFIX,
+    PATROL_WEATHER_AMP,
+    GRINDER_SKILL_LU_GAIN,
+    ASCETIC_SKILL_WITHDRAW,
     OVERLIMIT_DEATH_CHANCE_BASE,
     OVERLIMIT_DEATH_CHANCE_STEP,
     TOGETHER_FALL_COST,
@@ -76,6 +79,27 @@ import {
 } from '../constants/game.js';
 
 import { recordHelpAction } from './help-log.js';
+import {
+    getProfessionDef,
+    getProfessionMods,
+    getHelpQuotaLimit,
+    getHelpWithdrawQuotaLimit,
+    getDayProfessionId,
+    hasDayProfession,
+    setDayProfession,
+    scaleWeatherForProfession,
+    jobMetaKey,
+    resolveProfessionId,
+    weatherForAction,
+    hasUsedJobSkill,
+    markJobSkillUsed,
+    setPatrolBuff,
+    hasPatrolBuff,
+    getJobSkillSnapshot,
+    rejectIfWrongProfession,
+    patrolBuffKey,
+    jobSkillUsedKey,
+} from './profession.js';
 
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 const DAY_KEY_RE = /^\d{1,2}$/;
@@ -330,7 +354,8 @@ export function getHelperQuota(monthData, day) {
 }
 
 export function getHelperQuotaLeft(monthData, day) {
-    return Math.max(0, DAILY_HELP_QUOTA - getHelperQuota(monthData, day).used);
+    const limit = getHelpQuotaLimit(monthData, day);
+    return Math.max(0, limit - getHelperQuota(monthData, day).used);
 }
 
 export function getHelperWithdrawQuota(monthData, day) {
@@ -341,17 +366,53 @@ export function getHelperWithdrawQuota(monthData, day) {
 }
 
 export function getHelperWithdrawQuotaLeft(monthData, day) {
-    return Math.max(0, DAILY_HELP_WITHDRAW_QUOTA - getHelperWithdrawQuota(monthData, day).used);
+    const limit = getHelpWithdrawQuotaLimit(monthData, day);
+    return Math.max(0, limit - getHelperWithdrawQuota(monthData, day).used);
+}
+
+/** 当日互助配额快照（职业上限 + 已用/剩余） */
+export function getHelperQuotaSnapshot(monthData, day) {
+    if (!hasDayProfession(monthData, day)) {
+        return {
+            professionRequired: true,
+            profession: null,
+            locked: false,
+            help: { used: 0, max: 0, left: 0 },
+            withdraw: { used: 0, max: 0, left: 0 },
+        };
+    }
+    const profession = getProfessionMods(monthData, day);
+    const helpUsed = getHelperQuota(monthData, day).used;
+    const withdrawUsed = getHelperWithdrawQuota(monthData, day).used;
+    const helpMax = profession.helpQuota;
+    const withdrawMax = profession.helpWithdrawQuota;
+    return {
+        professionRequired: false,
+        profession,
+        locked: true,
+        help: {
+            used: helpUsed,
+            max: helpMax,
+            left: Math.max(0, helpMax - helpUsed),
+        },
+        withdraw: {
+            used: withdrawUsed,
+            max: withdrawMax,
+            left: Math.max(0, withdrawMax - withdrawUsed),
+        },
+    };
 }
 
 function consumeHelperWithdrawQuota(helperMonthData, day, targetId) {
+    const limit = getHelpWithdrawQuotaLimit(helperMonthData, day);
     const q = getHelperWithdrawQuota(helperMonthData, day);
     q.used += 1;
     const t = String(targetId);
     q.to[t] = (q.to[t] || 0) + 1;
     return {
         helpWithdrawUsed: q.used,
-        helpWithdrawLeft: Math.max(0, DAILY_HELP_WITHDRAW_QUOTA - q.used),
+        helpWithdrawLeft: Math.max(0, limit - q.used),
+        helpWithdrawMax: limit,
     };
 }
 
@@ -366,6 +427,9 @@ export function resetUserDayMeta(monthData, day) {
     if (!monthData) return;
     delete monthData[helperQuotaKey(day)];
     delete monthData[helperWithdrawQuotaKey(day)];
+    delete monthData[jobMetaKey(day)];
+    delete monthData[jobSkillUsedKey(day)];
+    delete monthData[patrolBuffKey(day)];
     delete monthData[togetherUsedKey(day)];
     delete monthData[imperialUsedKey(day)];
     delete monthData[arenaUsedKey(day)];
@@ -603,6 +667,36 @@ export function rejectIfActorDead(deerData, userId, date, day) {
     return null;
 }
 
+/** 玩法前：须当日已转职 */
+export function rejectIfNoProfession(deerData, userId, date, day) {
+    const monthData = getMonthData(getUserRecord(deerData, userId), date);
+    if (hasDayProfession(monthData, day)) return null;
+    return { ok: false, type: 'profession_required' };
+}
+
+function rejectUnlessPlayReady(deerData, userId, date, day) {
+    return rejectIfNoProfession(deerData, userId, date, day)
+        || rejectIfActorDead(deerData, userId, date, day);
+}
+
+function rejectUnlessGhostReady(deerData, userId, date, day) {
+    return rejectIfNoProfession(deerData, userId, date, day)
+        || rejectUnlessActorDead(deerData, userId, date, day);
+}
+
+function applyMedicHelpSynergy(entry, helperProf, result) {
+    if (!helperProf || !entry) return;
+    if (helperProf.helpCurseCleanseChance > 0 && getActiveCurseStacks(entry) > 0
+        && rollChance(helperProf.helpCurseCleanseChance)) {
+        stripOneCurseStack(entry);
+        result.medicCleanse = true;
+    }
+    if (helperProf.helpBlessChance > 0 && rollChance(helperProf.helpBlessChance)) {
+        applyBlessStacks(entry, 1);
+        result.medicBless = true;
+    }
+}
+
 /** 死亡生态：操作者须鹿死 */
 export function rejectUnlessActorDead(deerData, userId, date, day) {
     if (!isUserDeadToday(deerData, userId, date, day)) {
@@ -613,6 +707,8 @@ export function rejectUnlessActorDead(deerData, userId, date, day) {
 
 /** 皇城鹿宣战校验（不含标记消耗） */
 export function validateImperialStart(deerData, userId, date, day, members) {
+    const prof = rejectIfNoProfession(deerData, userId, date, day);
+    if (prof) return prof;
     const dead = rejectIfActorDead(deerData, userId, date, day);
     if (dead) return dead;
     const userMonth = getMonthData(getUserRecord(deerData, userId), date);
@@ -736,18 +832,22 @@ function clampDeathChance(v) {
     return Math.min(1, Math.max(0, v));
 }
 
-function resolvePlayModifiers(entry, weatherEffects = null) {
+function resolvePlayModifiers(entry, weatherEffects = null, professionMods = null) {
     const curse = getCurseInfo(entry);
     const bless = getBlessInfo(entry);
-    const wx = weatherEffects || {};
+    const wx = scaleWeatherForProfession(weatherEffects || {}, professionMods);
+    const prof = professionMods || {};
     return {
         curse,
         bless,
         wx,
-        safeLimit: Math.max(1, DAILY_SAFE_LIMIT + (wx.safeBonus || 0)),
-        deathDelta: (wx.deathDelta || 0) - (bless.deathReduce || 0) + (curse.deathBonus || 0),
-        stealDelta: wx.stealDelta || 0,
-        helpFailDelta: wx.helpFailDelta || 0,
+        prof,
+        safeLimit: Math.max(1, DAILY_SAFE_LIMIT + (wx.safeBonus || 0) + (prof.safeBonus || 0)),
+        deathDelta: (wx.deathDelta || 0) + (prof.deathDelta || 0) - (bless.deathReduce || 0) + (curse.deathBonus || 0),
+        stealDelta: (wx.stealDelta || 0) + (prof.stealDelta || 0),
+        helpFailDelta: (wx.helpFailDelta || 0) + (prof.helpFailDelta || 0),
+        lotteryLuckDelta: (wx.lotteryLuckDelta || 0) + (prof.lotteryLuckDelta || 0),
+        overlimitStepReduce: prof.overlimitStepReduce || 0,
     };
 }
 
@@ -767,13 +867,15 @@ export function consumeCurseRound(entry) {
 }
 
 function consumeHelperQuota(helperMonthData, day, targetId) {
+    const limit = getHelpQuotaLimit(helperMonthData, day);
     const q = getHelperQuota(helperMonthData, day);
     q.used += 1;
     const t = String(targetId);
     q.to[t] = (q.to[t] || 0) + 1;
     return {
         helpQuotaUsed: q.used,
-        helpQuotaLeft: Math.max(0, DAILY_HELP_QUOTA - q.used),
+        helpQuotaLeft: Math.max(0, limit - q.used),
+        helpQuotaMax: limit,
     };
 }
 
@@ -965,7 +1067,35 @@ export function calcYearStats(userRecord, year, now = new Date()) {
 export function getTodayStatus(monthData, day, { weather = null, weatherEffects = null } = {}) {
     const entry = getDayEntry(monthData, day) || createDayEntry(0);
     const dead = !!entry.d;
-    const mods = resolvePlayModifiers(entry, weatherEffects);
+    const chosen = hasDayProfession(monthData, day);
+    const profession = chosen ? getProfessionMods(monthData, day) : null;
+    if (!chosen) {
+        return {
+            entry,
+            count: dead ? 0 : entry.c,
+            dead,
+            professionRequired: true,
+            professionName: '未转职',
+            professionEmoji: '🎭',
+            professionTagline: '请先转职再使用玩法',
+            professionLocked: false,
+            helpQuotaMax: 0,
+            helpWithdrawQuotaMax: 0,
+            helperHelpUsed: 0,
+            helperHelpLeft: 0,
+            helperWithdrawUsed: 0,
+            helperWithdrawLeft: 0,
+            canLu: false,
+            canHelp: false,
+            attempts: entry.a,
+            safeLimit: DAILY_SAFE_LIMIT,
+            safeLeft: 0,
+            inRiskZone: false,
+            inWithdrawalZone: !dead && entry.c < 0,
+            weather,
+        };
+    }
+    const mods = resolvePlayModifiers(entry, weatherEffects, profession);
     const safeLimit = mods.safeLimit;
     const count = dead ? 0 : entry.c;
     const inWithdrawalZone = !dead && count < 0;
@@ -973,7 +1103,7 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
     const recoveryNeeded = inWithdrawalZone ? safeLimit - count : 0;
     const inRiskZone = !dead && count >= safeLimit;
     const monthNet = sumMonthNet(monthData, { upToDay: day }).sum;
-    let nextDeathChance = dead ? 0 : calcOverlimitDeathChance(entry.c);
+    let nextDeathChance = dead ? 0 : calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce);
     if (!dead && inRiskZone) {
         nextDeathChance = clampDeathChance(nextDeathChance + mods.deathDelta);
     }
@@ -995,13 +1125,23 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
         deathChanceStep: Math.round(OVERLIMIT_DEATH_CHANCE_STEP * 100),
         helpKillPercent: Math.round((HELP_FAIL_CHANCE + mods.helpFailDelta) * 100),
         helpWithdrawFailPercent: Math.round(
-            (HELP_WITHDRAW_FAIL_CHANCE + (weatherEffects?.helpWithdrawFailDelta || 0)) * 100,
+            (HELP_WITHDRAW_FAIL_CHANCE
+                + (weatherEffects?.helpWithdrawFailDelta || 0)
+                + (profession.helpWithdrawFailDelta || 0)) * 100,
         ),
         canLu: !dead,
         canHelp: !dead,
         deathReason: dead ? (entry.dr || DEATH_REASON.SELF) : '',
         deathReasonText: dead ? getDeathReasonText(entry.dr || DEATH_REASON.SELF) : '',
         killerId: dead ? (entry.dk || '') : '',
+        professionId: profession.id,
+        professionName: profession.name,
+        professionEmoji: profession.emoji,
+        professionTagline: profession.tagline,
+        professionLocked: true,
+        professionRequired: false,
+        helpQuotaMax: profession.helpQuota,
+        helpWithdrawQuotaMax: profession.helpWithdrawQuota,
         helperHelpUsed: getHelperQuota(monthData, day).used,
         helperHelpLeft: getHelperQuotaLeft(monthData, day),
         helperWithdrawUsed: getHelperWithdrawQuota(monthData, day).used,
@@ -1048,6 +1188,17 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
             blessReducePct: Math.round(bi.deathReduce * 100),
         }))(),
         urgeBuff: !!monthData?.[urgeBuffKey(day)],
+        ...(() => {
+            const js = getJobSkillSnapshot(monthData, day);
+            return {
+                jobSkillUsed: js.used,
+                jobSkillCanUse: js.canUse && !dead,
+                jobSkillName: js.skill?.name || '',
+                jobSkillCmd: js.skill?.cmd || '',
+                jobSkillDesc: js.skill?.desc || '',
+                patrolBuffPending: js.patrolPending,
+            };
+        })(),
         canUseSpecial: !dead,
         canUseDeathEcology: dead,
         canHelpOthers: !dead,
@@ -1085,6 +1236,8 @@ function rollHelpWithdrawFail(extra = 0) {
  * @param {object} [gameContext] weatherEffects 等
  */
 export function performLu(deerData, userId, date, day, gameContext = {}) {
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
     if (entry.d) {
@@ -1092,7 +1245,9 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
     }
 
     entry.a += 1;
-    const mods = resolvePlayModifiers(entry, gameContext.weatherEffects);
+    const profMods = getProfessionMods(monthData, day);
+    const { wx, patrolConsumed } = weatherForAction(gameContext, monthData, day);
+    const mods = resolvePlayModifiers(entry, wx, profMods);
     const curseBefore = mods.curse;
     const blessBefore = mods.bless;
     const hadActiveCurse = curseBefore.active;
@@ -1100,8 +1255,13 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
     const hadUrgeBuff = !!monthData[urgeBuffKey(day)];
     const safeLimit = mods.safeLimit;
     let urgeBonus = 0;
+    let grinderBonus = 0;
     if (entry.c < safeLimit) {
         entry.c += 1;
+        if (profMods?.safeLuDoubleChance && rollChance(profMods.safeLuDoubleChance)) {
+            entry.c += 1;
+            grinderBonus = 1;
+        }
         if (hadUrgeBuff) {
             entry.c += 1;
             urgeBonus = 1;
@@ -1113,12 +1273,13 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         const blessAfter = getBlessInfo(entry);
         return {
             ok: true,
-            type: urgeBonus ? 'safe_urged' : 'safe',
+            type: urgeBonus ? 'safe_urged' : (grinderBonus ? 'safe_grinder' : 'safe'),
             entry,
             count: entry.c,
             safeLeft: entry.c < 0 ? 0 : Math.max(0, safeLimit - entry.c),
             safeLimit,
             urgeBonus,
+            grinderBonus,
             hadCurse: hadActiveCurse,
             hadBless: hadActiveBless,
             curseStacks: curseBefore.stacks,
@@ -1128,10 +1289,13 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
             curseBonus: curseBefore.deathBonus,
             blessReduce: blessBefore.deathReduce,
             weatherTip: gameContext.weatherEffects?.tip || '',
+            weatherPatrolConsumed: patrolConsumed,
         };
     }
 
-    let deathChance = clampDeathChance(calcOverlimitDeathChance(entry.c) + mods.deathDelta);
+    let deathChance = clampDeathChance(
+        calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
+    );
     if (rollChance(deathChance)) {
         const snap = applyDeath(entry, { reason: DEATH_REASON.SELF });
         if (hadActiveCurse) consumeCurseRound(entry);
@@ -1153,6 +1317,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
             curseBonus: curseBefore.deathBonus,
             blessReduce: blessBefore.deathReduce,
             weatherTip: gameContext.weatherEffects?.tip || '',
+            weatherPatrolConsumed: patrolConsumed,
         };
     }
 
@@ -1171,7 +1336,9 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         entry,
         count: entry.c,
         deathChance,
-        nextDeathChance: clampDeathChance(calcOverlimitDeathChance(entry.c) + mods.deathDelta),
+        nextDeathChance: clampDeathChance(
+            calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
+        ),
         hadCurse: hadActiveCurse,
         hadBless: hadActiveBless,
         curseStacks: curseBefore.stacks,
@@ -1181,6 +1348,192 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         curseBonus: curseBefore.deathBonus,
         blessReduce: blessBefore.deathReduce,
         weatherTip: gameContext.weatherEffects?.tip || '',
+        weatherPatrolConsumed: patrolConsumed,
+    };
+}
+
+/** 当日转职（首次选定后锁定至次日 0 点；鹿死亦可转职以启用冥界玩法） */
+export function performSetProfession(deerData, userId, professionToken, date, day) {
+    const id = resolveProfessionId(professionToken);
+    if (!id) {
+        return { ok: false, type: 'profession_unknown', token: professionToken };
+    }
+    const monthData = ensureMonthData(deerData, userId, date);
+    const locked = hasDayProfession(monthData, day);
+    const currentId = locked ? getDayProfessionId(monthData, day) : null;
+    const next = getProfessionDef(id);
+    if (locked && id !== currentId) {
+        const current = getProfessionDef(currentId);
+        return { ok: false, type: 'profession_locked', profession: current };
+    }
+    if (!locked) {
+        setDayProfession(monthData, day, id);
+        return {
+            ok: true,
+            type: 'profession_set',
+            profession: next,
+            changed: true,
+            quota: getHelperQuotaSnapshot(monthData, day),
+        };
+    }
+    return {
+        ok: true,
+        type: 'profession_same',
+        profession: next,
+        changed: false,
+        quota: getHelperQuotaSnapshot(monthData, day),
+    };
+}
+
+/** 查询今日职业专属技状态 */
+export function performJobSkillInfo(deerData, userId, date, day) {
+    const monthData = ensureMonthData(deerData, userId, date);
+    const snap = getJobSkillSnapshot(monthData, day);
+    return { ok: true, type: 'job_skill_info', ...snap };
+}
+
+/** 巡游鹿专属：鹿巡 — 下一次玩法消费天象正向 ×1.35 */
+export function performRangerPatrol(deerData, userId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, userId, date, day, 'ranger');
+    if (wrong) return wrong;
+    const monthData = ensureMonthData(deerData, userId, date);
+    if (hasUsedJobSkill(monthData, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    if (hasPatrolBuff(monthData, day)) {
+        return { ok: false, type: 'patrol_buff_pending' };
+    }
+    markJobSkillUsed(monthData, day);
+    setPatrolBuff(monthData, day);
+    return { ok: true, type: 'job_skill_patrol', amp: PATROL_WEATHER_AMP };
+}
+
+/** 卷王鹿专属：卷王冲 — 强制安全自🦌 +2 */
+export function performGrinderRush(deerData, userId, date, day, gameContext = {}) {
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, userId, date, day, 'grinder');
+    if (wrong) return wrong;
+    const monthData = ensureMonthData(deerData, userId, date);
+    if (hasUsedJobSkill(monthData, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const entry = ensureDayEntry(monthData, day);
+    if (entry.d) {
+        return { ok: false, type: 'dead', entry, snap: entry.snap, lostCount: entry.snap };
+    }
+    markJobSkillUsed(monthData, day);
+    const profMods = getProfessionMods(monthData, day);
+    const { wx, patrolConsumed } = weatherForAction(gameContext, monthData, day);
+    const mods = resolvePlayModifiers(entry, wx, profMods);
+    const curseBefore = mods.curse;
+    const blessBefore = mods.bless;
+    const hadActiveCurse = curseBefore.active;
+    const hadActiveBless = blessBefore.active;
+    entry.a += GRINDER_SKILL_LU_GAIN;
+    entry.c += GRINDER_SKILL_LU_GAIN;
+    if (hadActiveCurse) consumeCurseRound(entry);
+    if (hadActiveBless) consumeBlessRound(entry);
+    return {
+        ok: true,
+        type: 'job_skill_grinder_rush',
+        entry,
+        count: entry.c,
+        gain: GRINDER_SKILL_LU_GAIN,
+        safeLimit: mods.safeLimit,
+        weatherTip: gameContext.weatherEffects?.tip || '',
+        weatherPatrolConsumed: patrolConsumed,
+    };
+}
+
+/** 鹿医师专属：愈鹿 — 不占帮鹿配额、零失手帮 +1 或救活 */
+export function performMedicHealSkill(deerData, helperId, targetId, date, day, gameContext = {}) {
+    const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, helperId, date, day, 'medic');
+    if (wrong) return wrong;
+    const helperMonth = ensureMonthData(deerData, helperId, date);
+    if (hasUsedJobSkill(helperMonth, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const helperProf = getProfessionMods(helperMonth, day);
+    const { wx, patrolConsumed } = weatherForAction(gameContext, helperMonth, day);
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const entry = ensureDayEntry(targetMonth, day);
+    const targetMods = resolvePlayModifiers(entry, wx);
+    const helpKey = String(helperId);
+    markJobSkillUsed(helperMonth, day);
+    let result;
+    if (entry.d) {
+        entry.d = 0;
+        entry.c = entry.snap || 0;
+        entry.snap = 0;
+        entry.dr = '';
+        entry.dk = '';
+        clearCurse(entry);
+        clearBless(entry);
+        entry.revived += 1;
+        if (!entry.helpBy) entry.helpBy = {};
+        entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
+        result = {
+            ok: true,
+            type: 'job_skill_medic_revive',
+            entry,
+            count: entry.c,
+            safeLimit: targetMods.safeLimit,
+            weatherPatrolConsumed: patrolConsumed,
+        };
+    } else {
+        if (!entry.helpBy) entry.helpBy = {};
+        entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
+        entry.a += 1;
+        entry.c += 1;
+        entry.helped += 1;
+        if (getCurseInfo(entry).active) {
+            entry.curR = Math.max(0, (entry.curR || 0) - 1);
+            if (entry.curR <= 0) clearCurse(entry);
+        }
+        result = {
+            ok: true,
+            type: 'job_skill_medic_help',
+            entry,
+            count: entry.c,
+            safeLimit: targetMods.safeLimit,
+            weatherPatrolConsumed: patrolConsumed,
+        };
+    }
+    applyMedicHelpSynergy(entry, helperProf, result);
+    recordHelpAction('help_lu', helperId, targetId, date);
+    return result;
+}
+
+/** 戒灵师专属：清规 — 不占帮戒配额、零失手 -2 */
+export function performAsceticCleanseSkill(deerData, helperId, targetId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, helperId, date, day, 'ascetic');
+    if (wrong) return wrong;
+    const helperMonth = ensureMonthData(deerData, helperId, date);
+    if (hasUsedJobSkill(helperMonth, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const entry = ensureDayEntry(targetMonth, day);
+    if (entry.d) {
+        return { ok: false, type: 'target_dead' };
+    }
+    markJobSkillUsed(helperMonth, day);
+    entry.a += 1;
+    adjustDayCount(entry, -ASCETIC_SKILL_WITHDRAW);
+    recordHelpAction('help_withdraw', helperId, targetId, date);
+    return {
+        ok: true,
+        type: 'job_skill_ascetic_cleanse',
+        entry,
+        count: entry.c,
+        withdrawAmount: ASCETIC_SKILL_WITHDRAW,
     };
 }
 
@@ -1188,29 +1541,36 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
  * 帮🦌 / 救活 / 拉下马
  */
 export function performHelpLu(deerData, helperId, targetId, date, day, gameContext = {}) {
-    const dead = rejectIfActorDead(deerData, helperId, date, day);
-    if (dead) return dead;
+    const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
+    if (blocked) return blocked;
     const helperMonth = ensureMonthData(deerData, helperId, date);
+    const helpLimit = getHelpQuotaLimit(helperMonth, day);
     const quotaLeft = getHelperQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
         return {
             ok: false,
             type: 'help_quota',
-            helpQuotaUsed: DAILY_HELP_QUOTA,
+            helpQuotaUsed: helpLimit,
             helpQuotaLeft: 0,
+            helpQuotaMax: helpLimit,
         };
     }
 
+    const helperProf = getProfessionMods(helperMonth, day);
+    const { wx, patrolConsumed } = weatherForAction(gameContext, helperMonth, day);
+    const helperWx = scaleWeatherForProfession(wx, helperProf);
     const monthData = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(monthData, day);
-    const targetMods = resolvePlayModifiers(entry, gameContext.weatherEffects);
-    const helpFailChance = clampDeathChance(HELP_FAIL_CHANCE + targetMods.helpFailDelta);
+    const targetMods = resolvePlayModifiers(entry, wx);
+    const helpFailChance = clampDeathChance(
+        HELP_FAIL_CHANCE + targetMods.helpFailDelta + (helperProf?.helpFailDelta || 0),
+    );
     const helpKey = String(helperId);
     let result;
     if (entry.d) {
-        const wx = wxOf(gameContext);
         const reviveFail = clampDeathChance(
-            HELP_FAIL_CHANCE + targetMods.helpFailDelta + (wx.reviveFailDelta || 0),
+            HELP_FAIL_CHANCE + targetMods.helpFailDelta + (helperProf?.helpFailDelta || 0)
+                + (helperWx.reviveFailDelta || 0) + (helperProf?.reviveFailDelta || 0),
         );
         if (rollChance(reviveFail)) {
             const quota = consumeHelperQuota(helperMonth, day, targetId);
@@ -1232,7 +1592,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
         entry.revived += 1;
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
-        result = { ok: true, type: 'revive', entry, count: entry.c };
+        result = { ok: true, type: 'revive', entry, count: entry.c, safeLimit: targetMods.safeLimit };
     } else {
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
@@ -1246,6 +1606,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 entry,
                 snap,
                 helpKillChance: helpFailChance,
+                safeLimit: targetMods.safeLimit,
             };
         } else if (entry.c >= targetMods.safeLimit) {
             result = {
@@ -1254,6 +1615,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 entry,
                 count: entry.c,
                 helpKillChance: helpFailChance,
+                safeLimit: targetMods.safeLimit,
             };
         } else {
             entry.c += 1;
@@ -1264,8 +1626,20 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 if (entry.curR <= 0) clearCurse(entry);
                 curseSoothe = true;
             }
-            result = { ok: true, type: 'help', entry, count: entry.c, curseSoothe };
+            result = {
+                ok: true,
+                type: 'help',
+                entry,
+                count: entry.c,
+                curseSoothe,
+                safeLimit: targetMods.safeLimit,
+                weatherPatrolConsumed: patrolConsumed,
+            };
         }
+    }
+
+    if (result?.ok && (result.type === 'help' || result.type === 'revive')) {
+        applyMedicHelpSynergy(entry, helperProf, result);
     }
 
     const quota = consumeHelperQuota(helperMonth, day, targetId);
@@ -1275,15 +1649,32 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
 
 /** 戒🦌（次数可为负，0 也可继续戒） */
 export function performWithdrawal(deerData, userId, date, day, { pastDay = false } = {}) {
+    if (!pastDay) {
+        const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+        if (blocked) return blocked;
+    }
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
     if (entry.d) {
         return { ok: false, type: 'withdrawal_dead' };
     }
 
+    const prof = pastDay ? null : getProfessionMods(monthData, day);
     entry.c -= 1;
+    let asceticBonus = 0;
+    if (!pastDay && prof?.selfWithdrawBonus && prof.selfWithdrawBonusChance
+        && rollChance(prof.selfWithdrawBonusChance)) {
+        entry.c -= prof.selfWithdrawBonus;
+        asceticBonus = prof.selfWithdrawBonus;
+    }
     if (!pastDay) entry.a += 1;
-    return { ok: true, type: 'withdrawal', entry, count: entry.c };
+    return {
+        ok: true,
+        type: asceticBonus ? 'withdrawal_ascetic' : 'withdrawal',
+        entry,
+        count: entry.c,
+        asceticBonus,
+    };
 }
 
 /** 同归鹿尽：双方各 -5，发起者每日一次，次数可负；鹿死者不可发起或成为目标 */
@@ -1292,7 +1683,7 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
         return { ok: false, type: 'together_self' };
     }
 
-    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const initiatorMonth = ensureMonthData(deerData, userId, date);
     if (hasUsedTogether(initiatorMonth, day)) {
@@ -1321,20 +1712,23 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
 
 /** 帮戒🦌：帮🦌友 -1，每日 3 次，可负 */
 export function performHelpWithdrawal(deerData, helperId, targetId, date, day, gameContext = {}) {
-    const dead = rejectIfActorDead(deerData, helperId, date, day);
-    if (dead) return dead;
+    const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
+    if (blocked) return blocked;
     const helperMonth = ensureMonthData(deerData, helperId, date);
-    const wx = wxOf(gameContext);
-    const withdrawFail = clampDeathChance(
-        HELP_WITHDRAW_FAIL_CHANCE + (wx.helpWithdrawFailDelta || 0),
-    );
+    const helperProf = getProfessionMods(helperMonth, day);
+    const { wx } = weatherForAction(gameContext, helperMonth, day);
+    const helperWx = scaleWeatherForProfession(wx, helperProf);
+    const withdrawFailExtra = (helperWx.helpWithdrawFailDelta || 0) + (helperProf?.helpWithdrawFailDelta || 0);
+    const withdrawFail = clampDeathChance(HELP_WITHDRAW_FAIL_CHANCE + withdrawFailExtra);
+    const withdrawLimit = getHelpWithdrawQuotaLimit(helperMonth, day);
     const quotaLeft = getHelperWithdrawQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
         return {
             ok: false,
             type: 'help_withdraw_quota',
-            helpWithdrawUsed: DAILY_HELP_WITHDRAW_QUOTA,
+            helpWithdrawUsed: withdrawLimit,
             helpWithdrawLeft: 0,
+            helpWithdrawMax: withdrawLimit,
         };
     }
 
@@ -1345,7 +1739,8 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
     }
 
     entry.a += 1;
-    if (rollHelpWithdrawFail(wx.helpWithdrawFailDelta || 0)) {
+    const inWithdrawalZone = entry.c < 0;
+    if (rollHelpWithdrawFail(withdrawFailExtra)) {
         const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
         recordHelpAction('help_withdraw', helperId, targetId, date);
         return {
@@ -1359,13 +1754,20 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
     }
 
     adjustDayCount(entry, -1);
+    let withdrawExtra = 0;
+    if (inWithdrawalZone) withdrawExtra += 1;
+    if (helperProf?.withdrawExtraChance && rollChance(helperProf.withdrawExtraChance)) {
+        withdrawExtra += helperProf.withdrawExtraAmount || 1;
+    }
+    if (withdrawExtra > 0) adjustDayCount(entry, -withdrawExtra);
     const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
     recordHelpAction('help_withdraw', helperId, targetId, date);
     return {
         ok: true,
-        type: 'help_withdraw',
+        type: withdrawExtra ? 'help_withdraw_extra' : 'help_withdraw',
         entry,
         count: entry.c,
+        withdrawExtra,
         ...quota,
     };
 }
@@ -1457,12 +1859,14 @@ export function validateArenaStart(deerData, challengerId, targetId, date, day) 
         return { ok: false, type: 'arena_self' };
     }
 
-    const actorDead = rejectIfActorDead(deerData, challengerId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, challengerId, date, day);
     if (actorDead) return actorDead;
     const targetDead = isUserDeadToday(deerData, targetId, date, day);
     if (targetDead) {
         return { ok: false, type: 'arena_target_dead' };
     }
+    const targetProf = rejectIfNoProfession(deerData, targetId, date, day);
+    if (targetProf) return targetProf;
 
     const challengerMonth = getMonthData(getUserRecord(deerData, challengerId), date);
     if (hasUsedArena(challengerMonth, day)) {
@@ -1527,7 +1931,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     if (String(thiefId) === String(targetId)) {
         return { ok: false, type: 'steal_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, thiefId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, thiefId, date, day);
     if (actorDead) return actorDead;
     const thiefMonth = ensureMonthData(deerData, thiefId, date);
     const used = readDailyUsed(thiefMonth, day, stealUsedKey);
@@ -1542,10 +1946,12 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     const thiefEntry = ensureDayEntry(thiefMonth, day);
     thiefEntry.a += 1;
     const curseStacks = getActiveCurseStacks(targetEntry);
-    const wx = wxOf(gameContext);
-    const stealBonus = curseStacks * STEAL_CURSE_BONUS_PER_STACK + (wx.stealDelta || 0);
+    const thiefProf = getProfessionMods(thiefMonth, day);
+    const { wx } = weatherForAction(gameContext, thiefMonth, day);
+    const scaledWx = scaleWeatherForProfession(wx, thiefProf);
+    const stealBonus = curseStacks * STEAL_CURSE_BONUS_PER_STACK + (scaledWx.stealDelta || 0);
     const successCap = Math.min(0.95, Math.max(0.05, STEAL_SUCCESS_CHANCE + stealBonus));
-    const backfireCap = successCap + Math.max(0.05, STEAL_BACKFIRE_CHANCE + (wx.stealBackfireDelta || 0));
+    const backfireCap = successCap + Math.max(0.05, STEAL_BACKFIRE_CHANCE + (scaledWx.stealBackfireDelta || 0));
     const roll = Math.random();
     if (roll < successCap) {
         adjustDayCount(targetEntry, -1);
@@ -1603,7 +2009,7 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
     if (String(casterId) === String(targetId)) {
         return { ok: false, type: 'curse_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, casterId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, casterId, date, day);
     if (actorDead) return actorDead;
     const casterMonth = ensureMonthData(deerData, casterId, date);
     const used = readDailyUsed(casterMonth, day, curseUsedKey);
@@ -1615,8 +2021,12 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     casterMonth[curseUsedKey(day)] = used + 1;
     let stacks = applyCurseStacks(targetEntry, 1);
-    const wx = wxOf(gameContext);
+    const casterProf = getProfessionMods(casterMonth, day);
+    const wx = scaleWeatherForProfession(wxOf(gameContext), casterProf);
     if ((wx.curseExtraChance || 0) > 0 && rollChance(wx.curseExtraChance)) {
+        stacks = applyCurseStacks(targetEntry, 1);
+    }
+    if ((casterProf?.curseApplyBonus || 0) > 0 && rollChance(casterProf.curseApplyBonus)) {
         stacks = applyCurseStacks(targetEntry, 1);
     }
 
@@ -1637,7 +2047,7 @@ export function performCleanseCurse(deerData, helperId, targetId, date, day) {
     if (String(helperId) === String(targetId)) {
         return { ok: false, type: 'curse_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, helperId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, helperId, date, day);
     if (actorDead) return actorDead;
     const helperMonth = ensureMonthData(deerData, helperId, date);
     const used = readDailyUsed(helperMonth, day, cleanseUsedKey);
@@ -1668,7 +2078,7 @@ export function performBlessDeer(deerData, casterId, targetId, date, day) {
     if (String(casterId) === String(targetId)) {
         return { ok: false, type: 'bless_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, casterId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, casterId, date, day);
     if (actorDead) return actorDead;
     const casterMonth = ensureMonthData(deerData, casterId, date);
     const used = readDailyUsed(casterMonth, day, blessUsedKey);
@@ -1679,7 +2089,11 @@ export function performBlessDeer(deerData, casterId, targetId, date, day) {
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     casterMonth[blessUsedKey(day)] = used + 1;
-    const stacks = applyBlessStacks(targetEntry, 1);
+    const casterProf = getProfessionMods(casterMonth, day);
+    let stacks = applyBlessStacks(targetEntry, 1);
+    if ((casterProf?.blessApplyBonus || 0) > 0 && rollChance(casterProf.blessApplyBonus)) {
+        stacks = applyBlessStacks(targetEntry, 1);
+    }
     return {
         ok: true,
         type: 'bless',
@@ -1696,7 +2110,7 @@ export function performCleanseBless(deerData, helperId, targetId, date, day) {
     if (String(helperId) === String(targetId)) {
         return { ok: false, type: 'bless_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, helperId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, helperId, date, day);
     if (actorDead) return actorDead;
     const helperMonth = ensureMonthData(deerData, helperId, date);
     const used = readDailyUsed(helperMonth, day, cleanseBlessUsedKey);
@@ -1727,7 +2141,7 @@ export function performSacrificeDeer(deerData, userId, targetId, date, day) {
     if (String(userId) === String(targetId)) {
         return { ok: false, type: 'sacrifice_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const selfMonth = ensureMonthData(deerData, userId, date);
     if (readDailyUsed(selfMonth, day, sacrificeUsedKey) >= DAILY_SACRIFICE_QUOTA) {
@@ -1762,7 +2176,7 @@ export function performSacrificeDeer(deerData, userId, targetId, date, day) {
 
 /** 诈戒：文案像戒🦌，实际 +1 */
 export function performFakeWithdrawal(deerData, userId, date, day) {
-    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const monthData = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(monthData, day, fakeWithdrawUsedKey);
@@ -1791,7 +2205,7 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
     if (String(userId) === String(targetId)) {
         return { ok: false, type: 'urge_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const selfMonth = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(selfMonth, day, urgeUsedKey);
@@ -1901,7 +2315,7 @@ export function performGreedDeer(deerData, userId, targetId, date, day, gameCont
     if (String(userId) === String(targetId)) {
         return { ok: false, type: 'greed_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const selfMonth = ensureMonthData(deerData, userId, date);
     if (readDailyUsed(selfMonth, day, greedUsedKey) >= DAILY_GREED_QUOTA) {
@@ -1945,7 +2359,7 @@ export function performGreedDeer(deerData, userId, targetId, date, day, gameCont
 
 /** 群鹿溅：日榜 Top5 各 -1，带咒者额外引爆，20% 叠咒，施术者反噬 -2 */
 export function performGroupSplash(deerData, casterId, memberIds, date, day, gameContext = {}) {
-    const actorDead = rejectIfActorDead(deerData, casterId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, casterId, date, day);
     if (actorDead) return actorDead;
     const targets = pickSplashTargetsFromDayRank(deerData, memberIds, casterId, date, GROUP_SPLASH_TOP_N);
     if (!targets.length) {
@@ -2024,7 +2438,7 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
     if (String(borrowerId) === String(targetId)) {
         return { ok: false, type: 'borrow_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, borrowerId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, borrowerId, date, day);
     if (actorDead) return actorDead;
     const borrowerMonth = ensureMonthData(deerData, borrowerId, date);
     const used = readDailyUsed(borrowerMonth, day, borrowUsedKey);
@@ -2063,7 +2477,7 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
     if (String(actorId) === String(targetId)) {
         return { ok: false, type: 'bumper_self' };
     }
-    const actorDead = rejectIfActorDead(deerData, actorId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, actorId, date, day);
     if (actorDead) return actorDead;
     const actorMonth = ensureMonthData(deerData, actorId, date);
     const used = readDailyUsed(actorMonth, day, bumperUsedKey);
@@ -2124,7 +2538,7 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
 
 /** 抽鹿签：单人每日运势（+1/-1/催更符/自咒/撕咒/空签） */
 export function performDeerLottery(deerData, userId, date, day, gameContext = {}) {
-    const actorDead = rejectIfActorDead(deerData, userId, date, day);
+    const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const monthData = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(monthData, day, lotteryUsedKey);
@@ -2135,7 +2549,8 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     monthData[lotteryUsedKey(day)] = used + 1;
     const entry = ensureDayEntry(monthData, day);
     entry.a += 1;
-    const wx = wxOf(gameContext);
+    const prof = getProfessionMods(monthData, day);
+    const wx = scaleWeatherForProfession(wxOf(gameContext), prof);
     let roll = Math.random() - (wx.lotteryLuckDelta || 0);
     roll = Math.max(0, Math.min(0.999, roll));
     let outcome;
@@ -2190,7 +2605,7 @@ export function performSpectralCurse(deerData, ghostId, targetId, date, day) {
     if (String(ghostId) === String(targetId)) {
         return { ok: false, type: 'spectral_curse_self' };
     }
-    const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
+    const mustDead = rejectUnlessGhostReady(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
     const ghostMonth = ensureMonthData(deerData, ghostId, date);
     const used = readDailyUsed(ghostMonth, day, spectralCurseUsedKey);
@@ -2218,7 +2633,7 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
     if (String(ghostId) === String(targetId)) {
         return { ok: false, type: 'vengeance_self' };
     }
-    const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
+    const mustDead = rejectUnlessGhostReady(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
     const ghostEntry = ensureDayEntry(ensureMonthData(deerData, ghostId, date), day);
     const killerId = ghostEntry.dk || '';
@@ -2297,7 +2712,7 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
     if (String(ghostId) === String(targetId)) {
         return { ok: false, type: 'dream_self' };
     }
-    const mustDead = rejectUnlessActorDead(deerData, ghostId, date, day);
+    const mustDead = rejectUnlessGhostReady(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
     const ghostMonth = ensureMonthData(deerData, ghostId, date);
     const used = readDailyUsed(ghostMonth, day, dreamUsedKey);
@@ -2334,7 +2749,7 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
 
 /** 还阳签：鹿死专属，小概率自救还阳 */
 export function performReviveLottery(deerData, userId, date, day) {
-    const mustDead = rejectUnlessActorDead(deerData, userId, date, day);
+    const mustDead = rejectUnlessGhostReady(deerData, userId, date, day);
     if (mustDead) return mustDead;
     const monthData = ensureMonthData(deerData, userId, date);
     const used = readDailyUsed(monthData, day, reviveLotteryUsedKey);
@@ -2383,7 +2798,7 @@ export function performReviveLottery(deerData, userId, date, day) {
     };
 }
 
-/** 鹿碑：鹿死专属，查看死因档案 */
+/** 鹿碑：鹿死专属，查看死因档案（无需转职） */
 export function performTombstone(deerData, userId, date, day) {
     const mustDead = rejectUnlessActorDead(deerData, userId, date, day);
     if (mustDead) return mustDead;
@@ -2403,6 +2818,8 @@ export function performTombstone(deerData, userId, date, day) {
 
 /** 擂台拒战：应战者 -1 次 */
 export function performArenaDecline(deerData, targetId, date, day, penalty = 1) {
+    const targetProf = rejectIfNoProfession(deerData, targetId, date, day);
+    if (targetProf) return targetProf;
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(targetMonth, day);
     if (!entry.d) {
@@ -2419,7 +2836,7 @@ export function performArenaDecline(deerData, targetId, date, day, penalty = 1) 
 
 /** 皇城鹿 PK 结算（不含标记，标记在宣战时完成） */
 export function settleImperialPk(deerData, challengerId, kingId, date, day, { win }) {
-    const dead = rejectIfActorDead(deerData, challengerId, date, day);
+    const dead = rejectUnlessPlayReady(deerData, challengerId, date, day);
     if (dead) return dead;
     const kingEntry = ensureDayEntry(ensureMonthData(deerData, kingId, date), day);
     const challengerEntry = ensureDayEntry(ensureMonthData(deerData, challengerId, date), day);

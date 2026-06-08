@@ -4,10 +4,12 @@
 import { D } from '../constants/commands.js';
 
 const TARGET_PREFIX_RE = new RegExp(
-    `^(?:同归${D}尽|帮戒${D}|擂台${D}|偷${D}|解${D}咒|解${D}福|${D}咒|冥${D}咒|献祭${D}|催${D}|倒贴${D}|借${D}|碰瓷${D}|索命${D}|托梦${D}|${D}福)`,
+    `^(?:同归${D}尽|帮戒${D}|擂台${D}|偷${D}|解${D}咒|解${D}福|${D}咒|冥${D}咒|献祭${D}|催${D}|倒贴${D}|借${D}|碰瓷${D}|索命${D}|托梦${D}|${D}福|清规${D})`,
 );
 
 const HELP_PREFIX_RE = new RegExp(`^帮${D}`);
+
+const MEDIC_SKILL_RE = new RegExp(`^(?:愈${D}|${D}愈)`);
 
 const FRIEND_ADD_RE = new RegExp(`^添加${D}友`);
 
@@ -33,6 +35,22 @@ export async function resolveHelpTargetId(e) {
     }
     const stripped = String(e.msg).trim().replace(HELP_PREFIX_RE, '').trim();
     return stripped || null;
+}
+
+/** 鹿医师专属：愈鹿 / 鹿愈 */
+export async function resolveMedicSkillTargetId(e) {
+    if (e.at) return e.at;
+    if (e?.reply_id !== undefined) {
+        const reply = await e.getReply();
+        return reply?.user_id ?? null;
+    }
+    const stripped = String(e.msg).trim().replace(MEDIC_SKILL_RE, '').trim();
+    return stripped || null;
+}
+
+/** 戒灵师专属：清规 */
+export async function resolveAsceticSkillTargetId(e) {
+    return resolveTargetId(e);
 }
 
 export async function resolveFriendTargetId(e, { remove = false } = {}) {

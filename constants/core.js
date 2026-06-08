@@ -16,3 +16,5 @@ export const REDIS_YUNZAI_DEER_PIPE_WEATHER = "Yz:deer_pipe:weather";
 export const REDIS_YUNZAI_DEER_PIPE_HELP_LOG = "Yz:deer_pipe:help_log";
 /** 日度鹿王加冕存档 */
 export const REDIS_YUNZAI_DEER_PIPE_KING_ARCHIVE = "Yz:deer_pipe:king_archive";
+/** 每日 0:00 职业重置群播去重（按自然日） */
+export const REDIS_YUNZAI_DEER_PIPE_PROF_RESET_SENT = "Yz:deer_pipe:prof_reset_sent";

@@ -126,7 +126,7 @@ export { getDeathReasonText, getDeathCellLabel } from '../constants/game.js';
 
 function quotaHint(result) {
     return result.helpQuotaLeft != null
-        ? `（帮🦌剩余 ${result.helpQuotaLeft}/${DAILY_HELP_QUOTA}）`
+        ? `（帮🦌剩余 ${result.helpQuotaLeft}/${result.helpQuotaMax ?? DAILY_HELP_QUOTA}）`
         : '';
 }
 
@@ -137,7 +137,8 @@ function riskHint(result) {
 }
 
 function weatherHint(result) {
-    return result.weatherTip ? ` · 天象：${result.weatherTip}` : '';
+    const patrol = result.weatherPatrolConsumed ? ' · 天象巡游生效' : '';
+    return (result.weatherTip ? ` · 天象：${result.weatherTip}` : '') + patrol;
 }
 
 function modifierDeathNote(result) {
@@ -149,8 +150,34 @@ function modifierDeathNote(result) {
 
 function withdrawQuotaHint(result) {
     return result.helpWithdrawLeft != null
-        ? `（帮戒🦌剩余 ${result.helpWithdrawLeft}/${DAILY_HELP_WITHDRAW_QUOTA}）`
+        ? `（帮戒🦌剩余 ${result.helpWithdrawLeft}/${result.helpWithdrawMax ?? DAILY_HELP_WITHDRAW_QUOTA}）`
         : '';
+}
+
+/** 互助配额查询/职业面板文案 */
+export function formatHelperQuotaReply(snapshot, mode = 'all') {
+    if (snapshot?.professionRequired) {
+        return [
+            '🎭 今日尚未转职，玩法已封印',
+            ERROR_MESSAGES.profession_required,
+            '转职后发送「鹿配额」查看互助剩余',
+        ].join('\n');
+    }
+    if (!snapshot?.profession) return '无法读取互助配额';
+    const { profession, locked, help, withdraw } = snapshot;
+    const lockNote = locked ? '已锁定' : '未转职·可转职';
+    const lines = [`${profession.emoji} ${profession.name}（${lockNote}）`];
+    if (mode === 'all' || mode === 'help') {
+        lines.push(`帮鹿：剩余 ${help.left}/${help.max}（已用 ${help.used}）`);
+    }
+    if (mode === 'all' || mode === 'withdraw') {
+        lines.push(`帮戒：剩余 ${withdraw.left}/${withdraw.max}（已用 ${withdraw.used}）`);
+    }
+    if (mode === 'all') {
+        lines.push(profession.tagline);
+        lines.push('转职：转职鹿医 / 转职戒师 / 转职卷王 / 转职巡游');
+    }
+    return lines.join('\n');
 }
 
 /** 失败/拒绝类文案 */
@@ -166,12 +193,30 @@ export function formatErrorMessage(result) {
             return pickRandom(HELPER_DEAD_MESSAGES) || ERROR_MESSAGES.helper_dead;
         case 'target_dead':
             return pickRandom(TARGET_DEAD_MESSAGES) || ERROR_MESSAGES.target_dead;
-        case 'help_quota':
+        case 'help_quota': {
+            const max = result.helpQuotaMax ?? DAILY_HELP_QUOTA;
+            const used = result.helpQuotaUsed ?? max;
             return result.message || pickRandom(HELP_QUOTA_MESSAGES)
-                || ERROR_MESSAGES.help_quota(DAILY_HELP_QUOTA, DAILY_HELP_QUOTA);
-        case 'help_withdraw_quota':
+                || ERROR_MESSAGES.help_quota(used, max);
+        }
+        case 'help_withdraw_quota': {
+            const max = result.helpWithdrawMax ?? DAILY_HELP_WITHDRAW_QUOTA;
+            const used = result.helpWithdrawUsed ?? max;
             return pickRandom(HELP_WITHDRAW_QUOTA_MESSAGES)
-                || ERROR_MESSAGES.help_withdraw_quota(DAILY_HELP_WITHDRAW_QUOTA, DAILY_HELP_WITHDRAW_QUOTA);
+                || ERROR_MESSAGES.help_withdraw_quota(used, max);
+        }
+        case 'profession_unknown':
+            return ERROR_MESSAGES.profession_unknown(result.token);
+        case 'profession_locked':
+            return ERROR_MESSAGES.profession_locked(result.profession?.name || '当前职业');
+        case 'profession_required':
+            return ERROR_MESSAGES.profession_required;
+        case 'job_skill_used':
+            return ERROR_MESSAGES.job_skill_used;
+        case 'job_skill_wrong_profession':
+            return ERROR_MESSAGES.job_skill_wrong_profession(result.expected, result.current);
+        case 'patrol_buff_pending':
+            return ERROR_MESSAGES.patrol_buff_pending;
         case 'withdrawal_dead':
             return ERROR_MESSAGES.withdrawal_dead;
         case 'empty':
@@ -333,6 +378,8 @@ export function formatActionMessage(result, ctx = {}) {
     switch (result.type) {
         case 'safe':
             return `${pickRandom(SAFE_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
+        case 'safe_grinder':
+            return `${pickRandom(SAFE_MESSAGES)} 卷王连击 +${result.grinderBonus || 1}！（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
         case 'safe_urged':
             return `${pickRandom(SAFE_MESSAGES)} ${pickRandom(URGE_BUFF_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
         case 'risky':
@@ -371,7 +418,8 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '你'} 救 ${targetName || 'ta'} ${pickRandom(HELP_REVIVE_FAIL_MESSAGES)}（${helpFailPct}% 固定概率 · 仍鹿死）${q}`;
         case 'help': {
             const soothe = result.curseSoothe ? ' · 顺手下咒回合 -1' : '';
-            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${DAILY_SAFE_LIMIT}）${soothe}${q}`;
+            const medic = result.medicCleanse ? ' · 鹿医撕咒' : (result.medicBless ? ' · 鹿医贴福' : '');
+            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${q}`;
         }
         case 'help_kill':
             return `${helperName || '你'} 误伤 ${targetName || 'ta'}！${pickDeathMessage(DEATH_REASON.HELP)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}`;
@@ -381,10 +429,14 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '你'} 想拉 ${targetName || 'ta'} 下马，${pickRandom(HELP_FAIL_MESSAGES)}（${helpFailPct}% 未触发）${q}`;
         case 'withdrawal':
             return `${pickRandom(WITHDRAWAL_MESSAGES)}（剩余 ${result.count} 次）`;
+        case 'withdrawal_ascetic':
+            return `${pickRandom(WITHDRAWAL_MESSAGES)} 戒灵师再 -${result.asceticBonus || 1}！（剩余 ${result.count} 次）`;
         case 'together_fall':
             return `${pickRandom(TOGETHER_FALL_MESSAGES)}\n你：${result.selfCount} 次 · ${targetName || 'ta'}：${result.targetCount} 次（各 -${result.cost}）`;
         case 'help_withdraw':
             return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)}（现 ${result.count} 次）${wq}`;
+        case 'help_withdraw_extra':
+            return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)} 戒灵师联动再 -${result.withdrawExtra || 1}！（现 ${result.count} 次）${wq}`;
         case 'help_withdraw_fail': {
             const failPct = Math.round((result.failChance ?? HELP_WITHDRAW_FAIL_CHANCE) * 100);
             return `${helperName || '你'} 帮戒 ${targetName || 'ta'} ${pickRandom(HELP_WITHDRAW_FAIL_MESSAGES)}（${failPct}% 失手 · 仍为 ${result.count} 次）${wq}`;
@@ -550,6 +602,57 @@ export function formatActionMessage(result, ctx = {}) {
                 '冥界可用：冥咒/索命/托梦/还阳签 · 活人请帮🦌救活',
             ].join('\n');
         }
+        case 'profession_set': {
+            const p = result.profession;
+            if (result.quota) {
+                return [
+                    `${p.emoji} 转职成功：${p.name}（今日已锁定）`,
+                    formatHelperQuotaReply(result.quota, 'all'),
+                ].join('\n');
+            }
+            return [
+                `${p.emoji} 转职成功：${p.name}（今日已锁定）`,
+                p.tagline,
+                `帮鹿 ${p.helpQuota}/日 · 帮戒 ${p.helpWithdrawQuota}/日`,
+            ].join('\n');
+        }
+        case 'profession_same': {
+            const p = result.profession;
+            const quotaText = result.quota ? `\n${formatHelperQuotaReply(result.quota, 'all')}` : '';
+            return `你已是 ${p.emoji}${p.name}，无需重复转职${quotaText}`;
+        }
+        case 'job_skill_info': {
+            if (result.professionRequired) {
+                return [
+                    '🎭 今日尚未转职，专属技不可用',
+                    ERROR_MESSAGES.profession_required,
+                ].join('\n');
+            }
+            const skill = result.skill;
+            const statusLine = result.used
+                ? '今日专属技：已使用'
+                : (result.patrolPending ? '今日专属技：可用 · 天象巡游已蓄势' : '今日专属技：可用');
+            return [
+                `⚡ ${skill?.name || '专属技'}`,
+                skill?.desc || '',
+                `指令：${skill?.cmd || '见说明书'}`,
+                statusLine,
+            ].join('\n');
+        }
+        case 'job_skill_patrol':
+            return `🦌 天象巡游开启！下一次玩法天象正向修正 ×${result.amp || 1.35}（与巡游被动叠加）`;
+        case 'job_skill_grinder_rush':
+            return `🔥 卷王冲锋！强制安全 +${result.gain || 2}（现 ${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
+        case 'job_skill_medic_revive': {
+            const medic = result.medicCleanse ? ' · 妙手撕咒' : (result.medicBless ? ' · 顺手贴福' : '');
+            return `${helperName || '你'} 妙手愈鹿救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 不占帮鹿配额）${medic}`;
+        }
+        case 'job_skill_medic_help': {
+            const medic = result.medicCleanse ? ' · 妙手撕咒' : (result.medicBless ? ' · 顺手贴福' : '');
+            return `${helperName || '你'} 妙手愈鹿帮 ${targetName || 'ta'} +1（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT} · 零失手 · 不占配额）${medic}${weatherHint(result)}`;
+        }
+        case 'job_skill_ascetic_cleanse':
+            return `${helperName || '你'} 清规戒律！帮 ${targetName || 'ta'} -${result.withdrawAmount || 2}（现 ${result.count} 次 · 零失手 · 不占帮戒配额）`;
         default:
             return result.message || '操作完成';
     }

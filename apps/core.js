@@ -1,13 +1,21 @@
 import { ERROR_MESSAGES, UI_MESSAGES } from '../constants/game.js';
-import { REG, formatMonthLabel, parseViewMonthToken } from '../constants/commands.js';
+import { REG, cleanCommandMsg, formatMonthLabel, parseViewMonthToken } from '../constants/commands.js';
+import { PROFESSION_LIST_TEXT, PROFESSION_SYNERGY_TEXT } from '../constants/profession.js';
 import {
+    getHelperQuotaSnapshot,
     getMonthData,
     getTodayStatus,
     getUserRecord,
     hasMonthData,
     performHelpLu,
     performLu,
+    performSetProfession,
     performWithdrawal,
+    performJobSkillInfo,
+    performRangerPatrol,
+    performGrinderRush,
+    performMedicHealSkill,
+    performAsceticCleanseSkill,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
@@ -16,9 +24,10 @@ import { replyDeerPanel, replyInteractionResult, replyStatusPanel } from '../uti
 import {
     formatActionMessage,
     formatErrorMessage,
+    formatHelperQuotaReply,
     formatViewEmpty,
 } from '../utils/messages.js';
-import { getMemberName, resolveHelpTargetId, resolveSubjectUser } from '../utils/plugin-common.js';
+import { getMemberName, resolveHelpTargetId, resolveSubjectUser, resolveMedicSkillTargetId, resolveAsceticSkillTargetId } from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 export class DeerPipe extends plugin {
@@ -35,6 +44,17 @@ export class DeerPipe extends plugin {
                 { reg: REG.view, fnc: 'viewLu' },
                 { reg: REG.status, fnc: 'luStatus' },
                 { reg: REG.help, fnc: 'helpLu' },
+                { reg: REG.profession, fnc: 'professionInfo' },
+                { reg: REG.transferProfession, fnc: 'transferProfession' },
+                { reg: REG.helperQuota, fnc: 'helperQuotaInfo' },
+                { reg: REG.helpQuotaQuery, fnc: 'helpLuQuotaInfo' },
+                { reg: REG.helpWithdrawQuotaQuery, fnc: 'helpWithdrawQuotaInfo' },
+                { reg: REG.jobSkillInfo, fnc: 'jobSkillInfo' },
+                { reg: REG.rangerPatrol, fnc: 'rangerPatrol' },
+                { reg: REG.medicHealSkill, fnc: 'medicHealSkill' },
+                { reg: REG.medicHealSkillAlt, fnc: 'medicHealSkill' },
+                { reg: REG.asceticCleanseSkill, fnc: 'asceticCleanseSkill' },
+                { reg: REG.grinderRush, fnc: 'grinderRush' },
             ],
         });
     }
@@ -116,6 +136,60 @@ export class DeerPipe extends plugin {
         });
     }
 
+    async professionInfo() {
+        const text = await this.buildQuotaReplyText('all', true);
+        await this.reply(text, true);
+    }
+
+    async helperQuotaInfo() {
+        const text = await this.buildQuotaReplyText('all', false);
+        await this.reply(text, true);
+    }
+
+    async helpLuQuotaInfo() {
+        const text = await this.buildQuotaReplyText('help', false);
+        await this.reply(text, true);
+    }
+
+    async helpWithdrawQuotaInfo() {
+        const text = await this.buildQuotaReplyText('withdraw', false);
+        await this.reply(text, true);
+    }
+
+    async buildQuotaReplyText(mode, withCatalog) {
+        const { user_id } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
+        const snapshot = getHelperQuotaSnapshot(monthData, day);
+        const lines = [formatHelperQuotaReply(snapshot, mode)];
+        if (withCatalog) {
+            lines.push('——', PROFESSION_LIST_TEXT, '——', '联动', PROFESSION_SYNERGY_TEXT);
+            lines.push('——', '专属技（1次/日）', '鹿技 · 鹿巡 · 愈鹿@ · 清规@ · 卷王冲');
+        }
+        return lines.join('\n');
+    }
+
+    async transferProfession() {
+        const msg = cleanCommandMsg(this.e.msg);
+        const token = msg.replace(/^转职(?:🦌|鹿)?/, '').trim();
+        if (!token) {
+            await this.professionInfo();
+            return;
+        }
+        const { user_id } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performSetProfession(deerData, user_id, token, date, day);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        await this.reply(formatActionMessage(result), true);
+    }
+
     async helpLu() {
         const { user_id, card, nickname } = this.e.sender;
         const targetId = await resolveHelpTargetId(this.e);
@@ -135,6 +209,134 @@ export class DeerPipe extends plugin {
         const deerData = await loadDeerData();
         const ctx = await loadGameContext(date);
         const result = performHelpLu(deerData, user_id, targetId, date, day, ctx);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const targetName = await getMemberName(this.e, targetId);
+        const text = formatActionMessage(result, {
+            helperName: card || nickname,
+            targetName,
+        });
+        await replyInteractionResult(this.e, {
+            date,
+            name: targetName,
+            userId: targetId,
+            deerData,
+            text,
+            result,
+            helperName: card || nickname,
+            targetName,
+            helperId: user_id,
+            targetId,
+            dayOverride: day,
+            withPanel: true,
+            duel: true,
+        });
+    }
+
+    async jobSkillInfo() {
+        const { user_id } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performJobSkillInfo(deerData, user_id, date, day);
+        await this.reply(formatActionMessage(result), true);
+    }
+
+    async rangerPatrol() {
+        const { user_id, card, nickname } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performRangerPatrol(deerData, user_id, date, day);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        await this.reply(formatActionMessage(result), true);
+    }
+
+    async grinderRush() {
+        const { user_id, card, nickname } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const ctx = await loadGameContext(date);
+        const result = performGrinderRush(deerData, user_id, date, day, ctx);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const text = formatActionMessage(result);
+        await replyDeerPanel(this.e, {
+            date, name: card || nickname, userId: user_id, deerData, text, dayOverride: day,
+        });
+    }
+
+    async medicHealSkill() {
+        const { user_id, card, nickname } = this.e.sender;
+        const targetId = await resolveMedicSkillTargetId(this.e);
+        if (!targetId) {
+            await this.reply(ERROR_MESSAGES.no_target, true);
+            return;
+        }
+        const friends = await loadFriends();
+        if (!canHelpFriend(friends, user_id, targetId)) {
+            await this.reply(ERROR_MESSAGES.not_friend, true);
+            return;
+        }
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const ctx = await loadGameContext(date);
+        const result = performMedicHealSkill(deerData, user_id, targetId, date, day, ctx);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const targetName = await getMemberName(this.e, targetId);
+        const text = formatActionMessage(result, {
+            helperName: card || nickname,
+            targetName,
+        });
+        await replyInteractionResult(this.e, {
+            date,
+            name: targetName,
+            userId: targetId,
+            deerData,
+            text,
+            result,
+            helperName: card || nickname,
+            targetName,
+            helperId: user_id,
+            targetId,
+            dayOverride: day,
+            withPanel: true,
+            duel: true,
+        });
+    }
+
+    async asceticCleanseSkill() {
+        const { user_id, card, nickname } = this.e.sender;
+        const targetId = await resolveAsceticSkillTargetId(this.e);
+        if (!targetId) {
+            await this.reply(ERROR_MESSAGES.no_target, true);
+            return;
+        }
+        const friends = await loadFriends();
+        if (!canHelpFriend(friends, user_id, targetId)) {
+            await this.reply(ERROR_MESSAGES.not_friend, true);
+            return;
+        }
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performAsceticCleanseSkill(deerData, user_id, targetId, date, day);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;

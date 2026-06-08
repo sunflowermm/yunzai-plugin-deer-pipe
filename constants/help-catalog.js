@@ -3,6 +3,7 @@
  */
 import { D_SHOW, WEATHER_CMD_SHOW } from './commands.js';
 import { PRIVILEGED_QQ } from './game.js';
+import { PROFESSION_HELP_RANGE, PROFESSION_LIST_TEXT, PROFESSION_WITHDRAW_RANGE } from './profession.js';
 import {
     ARENA_STAKE,
     DAILY_ARENA_QUOTA,
@@ -71,8 +72,9 @@ export const HELP_SECTIONS = {
         emoji: '🤝',
         items: [
             { cmd: `添加${D_SHOW}友@ta`, desc: '双向结缘', quota: '互助/解咒/借鹿需好友' },
-            { cmd: `帮${D_SHOW}@ta`, desc: '代🦌 / 救活鹿死', quota: `${DAILY_HELP_QUOTA} 次/日 · 失手 ${Math.round(HELP_FAIL_CHANCE * 100)}%` },
-            { cmd: `帮戒${D_SHOW}@ta`, desc: '帮 ta -1', quota: `${DAILY_HELP_WITHDRAW_QUOTA} 次/日 · 失手 ${Math.round(HELP_WITHDRAW_FAIL_CHANCE * 100)}%` },
+            { cmd: `帮${D_SHOW}@ta`, desc: '代🦌 / 救活鹿死', quota: `依职业 ${PROFESSION_HELP_RANGE[0]}~${PROFESSION_HELP_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_FAIL_CHANCE * 100)}% 起` },
+            { cmd: `帮戒${D_SHOW}@ta`, desc: '帮 ta -1', quota: `依职业 ${PROFESSION_WITHDRAW_RANGE[0]}~${PROFESSION_WITHDRAW_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_WITHDRAW_FAIL_CHANCE * 100)}% 起` },
+            { cmd: `${D_SHOW}配额 / 帮${D_SHOW}次数 / 帮戒${D_SHOW}次数`, desc: '查今日互助剩余次数', quota: '与职业上限联动 · 须先转职' },
             { cmd: `解${D_SHOW}咒@ta`, desc: '撕咒印（清全部层）', quota: `${DAILY_CLEANSE_CURSE_QUOTA} 次/日` },
             { cmd: `${D_SHOW}福@ta`, desc: `正面咒 · 每层 -${Math.round(BLESS_DEATH_REDUCE * 100)}% 鹿死`, quota: `${DAILY_BLESS_QUOTA} 次/日 · 最多 ${BLESS_MAX_STACKS} 层 ${BLESS_MAX_ROUNDS} 回合` },
             { cmd: `解${D_SHOW}福@ta`, desc: '收福咒（清全部层）', quota: `${DAILY_CLEANSE_BLESS_QUOTA} 次/日` },
@@ -95,6 +97,19 @@ export const HELP_SECTIONS = {
             { cmd: `抽${D_SHOW}签`, desc: '运势签 · ±1/催更符/自咒/撕咒/空签', quota: `${DAILY_LOTTERY_QUOTA} 次/日 · 吃天象 lotteryLuck` },
         ],
     },
+    profession: {
+        title: '每日鹿职业',
+        emoji: '🎭',
+        items: [
+            { cmd: `${D_SHOW}职业`, desc: '【每日必做】选定职业后玩法解锁', quota: '未转职封印全部玩法 · 仅鹿碑/看榜/帮助可用' },
+            { cmd: '转职鹿医 / 转职戒师 / 转职卷王 / 转职巡游', desc: '首次转职后当日锁定', quota: '各职业 buff/天象联动见说明书' },
+            { cmd: `${D_SHOW}技`, desc: '查看今日专属技状态', quota: '每职业 1 次/日' },
+            { cmd: `${D_SHOW}巡`, desc: '巡游专属：下一次玩法天象正向 ×1.35', quota: '仅巡游鹿 · 1 次/日' },
+            { cmd: '愈鹿@ / 鹿愈@', desc: '鹿医专属：零失手帮 +1/救活', quota: '不占帮鹿配额 · 1 次/日' },
+            { cmd: '清规@', desc: '戒灵专属：零失手帮 -2', quota: '不占帮戒配额 · 1 次/日' },
+            { cmd: '卷王冲 / 卷冲', desc: '卷王专属：强制安全自🦌 +2', quota: '1 次/日' },
+        ],
+    },
     weather: {
         title: '鹿林天象',
         emoji: '🌤',
@@ -108,7 +123,7 @@ export const HELP_SECTIONS = {
         title: '生态机制',
         emoji: '🧬',
         items: [
-            { cmd: '机制·安全/超限', desc: `前 ${DAILY_SAFE_LIMIT} 次低风险，之后每次 +2% 鹿死`, quota: '天象 deathDelta · 鹿福每层 -5% 对冲' },
+            { cmd: '机制·安全/超限', desc: `安全区=前 N 次自🦌零鹿死（默认 ${DAILY_SAFE_LIMIT}）；超限后每次 +2% 鹿死`, quota: '卷王/天象 safeBonus 可抬高 N · 鹿况图可见' },
             { cmd: '机制·咒福叠层', desc: `咒 ${CURSE_MAX_STACKS} 层上限 · 福 ${BLESS_MAX_STACKS} 层 · 可互解`, quota: `${CURSE_MAX_ROUNDS} 回合内生效 · ${CURSE_ASCENDED_STACKS} 层称天咒` },
             { cmd: '机制·催更符', desc: '对被催的 0 次者，下次自🦌/被帮 +1', quota: '催带咒目标 = 咒回合 -1' },
             { cmd: '机制·全局联动', desc: '偷/帮/碰瓷/倒贴/鸣/溅/签/救活/叠咒概率均吃天象', quota: `鹿况图与「${WEATHER_CMD_SHOW}」可看实时修正` },
@@ -154,7 +169,7 @@ export const HELP_SECTIONS = {
         items: [
             { cmd: `我的${D_SHOW}友`, desc: '查看结缘列表', quota: '绝交指令同添加格式' },
             { cmd: `看${D_SHOW}历 / ${D_SHOW}历`, desc: '年度/月度鹿迹热力图', quota: '与看🦌月历同源数据' },
-            { cmd: '控制台·鹿管配置', desc: '天象定时/赐福群播 · mode · 群号 Tags', quota: 'data/deer_pipe/config.yaml' },
+            { cmd: '控制台·鹿管配置', desc: '天象/鹿王群播 · mode · 群号 Tags', quota: '鹿王 00:00 加冕昨日日榜第一 · data/deer_pipe/config.yaml' },
         ],
     },
     easter: {
@@ -175,7 +190,7 @@ export const HELP_PAGES = [
         key: 'live',
         title: '活鹿篇 · 玩法与天象',
         subtitle: '发送「鹿帮助」· 第 1/2 张 · 鹿与🦌等价',
-        sectionKeys: ['base', 'friends', 'playful', 'weather', 'eco'],
+        sectionKeys: ['base', 'profession', 'friends', 'playful', 'weather', 'eco'],
     },
     {
         key: 'beyond',

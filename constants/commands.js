@@ -62,6 +62,17 @@ export const REG = {
     addFriend: `^添加${D}友(.*)`,
     delFriend: `^绝交${D}友(.*)`,
     myFriend: `^我的${D}友$`,
+    profession: `^${D}职业$`,
+    transferProfession: `^转职(?:${D})?(.+)$`,
+    helperQuota: `^(${D}配额|互助配额)$`,
+    helpQuotaQuery: `^帮${D}次数$`,
+    helpWithdrawQuotaQuery: `^帮戒${D}次数$`,
+    jobSkillInfo: `^${D}技$`,
+    rangerPatrol: `^${D}巡$`,
+    medicHealSkill: `^愈${D}`,
+    medicHealSkillAlt: `^${D}愈`,
+    asceticCleanseSkill: `^清规${D}`,
+    grinderRush: `^(卷王冲|卷冲)$`,
 };
 
 /** 清洗指令文本（去 CQ 码、@、误粘 QQ 号） */

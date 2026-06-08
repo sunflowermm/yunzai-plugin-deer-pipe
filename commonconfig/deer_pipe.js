@@ -72,7 +72,7 @@ export default class DeerPipeConfig extends ConfigBase {
                         king_broadcast: {
                             type: 'object',
                             label: '日度鹿王群播',
-                            description: '每日 12:00 结算昨日日榜第一并加冕推送',
+                            description: '每日 00:00 结算昨日鹿王加冕，并可选推送职业重置提醒',
                             component: 'SubForm',
                             fields: {
                                 enabled: {
@@ -102,6 +102,13 @@ export default class DeerPipeConfig extends ConfigBase {
                                     min: 0,
                                     default: 500,
                                     component: 'InputNumber',
+                                },
+                                profession_reset: {
+                                    type: 'boolean',
+                                    label: '0点职业重置提醒',
+                                    description: '与鹿王同批群播，提醒可重新转职',
+                                    default: true,
+                                    component: 'Switch',
                                 },
                             },
                         },

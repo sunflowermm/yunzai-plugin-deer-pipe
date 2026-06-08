@@ -108,7 +108,7 @@ export function buildKingCaption(result) {
 }
 
 /**
- * 12:00 定时：整理昨日日度鹿王并群播
+ * 0:00 定时：整理昨日日度鹿王并群播
  * @param {Date} [now] 触发时刻，默认取「昨日」完整日榜
  */
 export async function publishDailyKingCoronation(deerData, now = new Date()) {

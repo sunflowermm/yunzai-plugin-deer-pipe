@@ -9,9 +9,11 @@ weather_broadcast:
   # 多群推送间隔（毫秒），对齐向日葵早报 delay
   interval_ms: 500
 
-# 日度鹿王加冕群播（每日 12:00，结算昨日日榜第一）
+# 日度鹿王加冕 + 职业重置群播（每日 00:00）
 king_broadcast:
   enabled: true
   mode: selected
   group_ids: []
   interval_ms: 500
+  # 与鹿王同批推送「职业已重置、可转职」文字提醒
+  profession_reset: true

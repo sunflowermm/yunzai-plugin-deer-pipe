@@ -131,6 +131,7 @@ export const GROUP_SPLASH_CURSE_BURST_DAMAGE = 1;
 export const PRIVILEGED_QQ = '1814632762';
 
 export const META_PREFIX = {
+    JOB: '_job_',
     HELP: '_hq_',
     HELP_WITHDRAW: '_hwq_',
     TOGETHER: '_tf_',
@@ -155,7 +156,20 @@ export const META_PREFIX = {
     VENGEANCE: '_vg_',
     DREAM: '_dm_',
     REVIVE_LOT: '_rl_',
+    /** 当日职业专属技已用 */
+    JOB_SKILL: '_jsk_',
+    /** 巡游鹿：下一次玩法天象正向加成 pending */
+    PATROL_BUFF: '_ptl_',
 };
+
+/** 巡游专属技：下一次玩法天象正向再 × 此倍率（叠在职业天象 amp 之前） */
+export const PATROL_WEATHER_AMP = 1.35;
+
+/** 卷王专属技：强制安全自🦌次数 */
+export const GRINDER_SKILL_LU_GAIN = 2;
+
+/** 戒灵专属技：帮戒幅度（不占配额、零失手） */
+export const ASCETIC_SKILL_WITHDRAW = 2;
 
 /** QQ 头像 */
 export const QQ_AVATAR = (userId, size = 100) =>
@@ -346,6 +360,14 @@ export const HELP_QUOTA_CLEARANCE_MESSAGES = [
     '鹿清算！今日帮🦌/帮戒🦌配额全员回满',
     '互助额度大赦，帮🦌帮戒次数统统重置',
     '鹿使颁令：天下🦌友今日互助配额清零重来',
+];
+
+/** 每日 0:00 职业重置群播（首行固定，正文随机） */
+export const PROFESSION_RESET_BROADCAST_MESSAGES = [
+    '新的一天：必须先转职才能🦌/互助/互害！未转职所有玩法封印',
+    '鹿职业已刷新 · 转职鹿医/戒师/卷王/巡游 · 选定后当日锁定',
+    '先选路线再出门：鹿医救场、戒师拉戒、卷王苟安全区、巡游吃天象',
+    '发送「鹿职业」看 buff 联动 · 「鹿配额」查互助剩余',
 ];
 
 export const PLAYFUL_CLEARANCE_MESSAGES = [
@@ -762,6 +784,12 @@ export const ERROR_MESSAGES = {
     empty: '这天本来就没🦌过',
     help_quota: (used, total) => `今日帮🦌次数已用完（${used}/${total}），明天再来吧`,
     help_withdraw_quota: (used, total) => `今日帮戒🦌次数已用完（${used}/${total}）`,
+    profession_unknown: (token) => `未知职业「${token || '?'}」，发送「鹿职业」查看可转职列表`,
+    profession_required: '今日尚未转职！请先发送：转职鹿医 / 转职戒师 / 转职卷王 / 转职巡游（或「鹿职业」查看详情）',
+    profession_locked: (name) => `今日已锁定为${name}，次日 0 点后可重选 · 发送「鹿配额」查剩余`,
+    job_skill_used: '今日职业专属技已用过，明日 0 点重置',
+    job_skill_wrong_profession: (expected, current) => `该专属技需「${expected}」，你今日是「${current}」`,
+    patrol_buff_pending: '天象巡游已蓄势，请先完成一次玩法再开「鹿巡」',
     helper_dead: '你已🦌死，今日无法帮🦌他人，请先被救活',
     no_target: '请 @🦌友 或引用消息指定对象',
     not_friend: 'ta 还不是你的🦌友！\n「添加🦌友@ta」一次添加，双方互见名单并可互助',
@@ -871,11 +899,17 @@ export function formatChancePercent(chance) {
     return String(Math.round(n * 100));
 }
 
-/** 自🦌超限区：第 4 次 BASE，之后每次 +STEP，上限 100% */
-export function calcOverlimitDeathChance(currentCount) {
-    if (currentCount < DAILY_SAFE_LIMIT) return 0;
-    const idx = currentCount - DAILY_SAFE_LIMIT + 1;
-    return Math.min(1, OVERLIMIT_DEATH_CHANCE_BASE + (idx - 1) * OVERLIMIT_DEATH_CHANCE_STEP);
+/**
+ * 自🦌超限区鹿死概率：超过 safeLimit 后第 1 次 BASE，之后每次 +STEP
+ * @param {number} currentCount 当前次数（判定前）
+ * @param {number} [safeLimit] 当日安全区上限（默认 3，卷王/天象可抬高）
+ */
+export function calcOverlimitDeathChance(currentCount, safeLimit = DAILY_SAFE_LIMIT, stepReduce = 0) {
+    const limit = Math.max(1, Number(safeLimit) || DAILY_SAFE_LIMIT);
+    if (currentCount < limit) return 0;
+    const idx = currentCount - limit + 1;
+    const step = Math.max(0.005, OVERLIMIT_DEATH_CHANCE_STEP - (Number(stepReduce) || 0));
+    return Math.min(1, OVERLIMIT_DEATH_CHANCE_BASE + (idx - 1) * step);
 }
 
 export function isPrivileged(userId) {
