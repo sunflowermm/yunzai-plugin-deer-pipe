@@ -2374,6 +2374,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
             targetCount: targetEntry.c,
             stealUsed: used + 1,
             stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
+            stealMax: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal),
             curseStacks,
             stealBonus,
         };
@@ -2392,6 +2393,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
             targetCount: targetEntry.c,
             stealUsed: used + 1,
             stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
+            stealMax: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal),
             curseStacks,
             stealBonus,
             curseBackfire,
@@ -2409,6 +2411,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
         targetCount: targetEntry.c,
         stealUsed: used + 1,
         stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
+        stealMax: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal),
         curseStacks,
         stealBonus,
         curseBackfire,
@@ -2444,7 +2447,8 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
         ok: true,
         type: 'curse',
         curseUsed: used + 1,
-        curseLeft: getProfessionQuotaLimit(monthData, day, QUOTA.curse) - used - 1,
+        curseLeft: getProfessionQuotaLimit(casterMonth, day, QUOTA.curse) - used - 1,
+        curseMax: getProfessionQuotaLimit(casterMonth, day, QUOTA.curse),
         curseStacks: stacks,
         curseRounds: targetEntry.curR,
         bonus: CURSE_DEATH_BONUS,
@@ -2476,7 +2480,8 @@ export function performCleanseCurse(deerData, helperId, targetId, date, day) {
         ok: true,
         type: 'cleanse_curse',
         cleanseUsed: used + 1,
-        cleanseLeft: getProfessionQuotaLimit(monthData, day, QUOTA.cleanseCurse) - used - 1,
+        cleanseLeft: getProfessionQuotaLimit(helperMonth, day, QUOTA.cleanseCurse) - used - 1,
+        cleanseMax: getProfessionQuotaLimit(helperMonth, day, QUOTA.cleanseCurse),
         clearedStacks,
     };
 }
@@ -2504,7 +2509,8 @@ export function performBlessDeer(deerData, casterId, targetId, date, day) {
         ok: true,
         type: 'bless',
         blessUsed: used + 1,
-        blessLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bless) - used - 1,
+        blessLeft: getProfessionQuotaLimit(casterMonth, day, QUOTA.bless) - used - 1,
+        blessMax: getProfessionQuotaLimit(casterMonth, day, QUOTA.bless),
         blessStacks: stacks,
         blessRounds: targetEntry.bleR,
         reduce: BLESS_DEATH_REDUCE,
@@ -2535,7 +2541,8 @@ export function performCleanseBless(deerData, helperId, targetId, date, day) {
         ok: true,
         type: 'cleanse_bless',
         cleanseBlessUsed: used + 1,
-        cleanseBlessLeft: getProfessionQuotaLimit(monthData, day, QUOTA.cleanseBless) - used - 1,
+        cleanseBlessLeft: getProfessionQuotaLimit(helperMonth, day, QUOTA.cleanseBless) - used - 1,
+        cleanseBlessMax: getProfessionQuotaLimit(helperMonth, day, QUOTA.cleanseBless),
         clearedStacks,
     };
 }
@@ -2599,6 +2606,7 @@ export function performFakeWithdrawal(deerData, userId, date, day) {
         fakeCount,
         fakeWithdrawUsed: used + 1,
         fakeWithdrawLeft: getProfessionQuotaLimit(monthData, day, QUOTA.fakeWithdraw) - used - 1,
+        fakeWithdrawMax: getProfessionQuotaLimit(monthData, day, QUOTA.fakeWithdraw),
     };
 }
 
@@ -2632,7 +2640,8 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
         ok: true,
         type: 'urge',
         urgeUsed: used + 1,
-        urgeLeft: getProfessionQuotaLimit(monthData, day, QUOTA.urge) - used - 1,
+        urgeLeft: getProfessionQuotaLimit(selfMonth, day, QUOTA.urge) - used - 1,
+        urgeMax: getProfessionQuotaLimit(selfMonth, day, QUOTA.urge),
         buffApplied: targetWasZero,
         curseUrged,
         targetCount: targetEntry.c,
@@ -2671,6 +2680,7 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
             lostCount: entry.snap ?? 0,
             howlUsed: used + 1,
             howlLeft: getProfessionQuotaLimit(monthData, day, QUOTA.howl) - used - 1,
+            howlMax: getProfessionQuotaLimit(monthData, day, QUOTA.howl),
             ghostEffect,
             killerId,
             curseStacks: killerId && ghostEffect === 'haunt_killer'
@@ -2713,6 +2723,7 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
         curseDispelled,
         howlUsed: used + 1,
         howlLeft: getProfessionQuotaLimit(monthData, day, QUOTA.howl) - used - 1,
+        howlMax: getProfessionQuotaLimit(monthData, day, QUOTA.howl),
     };
 }
 
@@ -2832,7 +2843,8 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day, gam
         burstDamage: GROUP_SPLASH_CURSE_BURST_DAMAGE,
         casterCount: casterEntry.c,
         splashUsed: used + 1,
-        splashLeft: getProfessionQuotaLimit(monthData, day, QUOTA.groupSplash) - used - 1,
+        splashLeft: getProfessionQuotaLimit(casterMonth, day, QUOTA.groupSplash) - used - 1,
+        splashMax: getProfessionQuotaLimit(casterMonth, day, QUOTA.groupSplash),
     };
 }
 
@@ -2869,7 +2881,8 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
         targetMonthNet: getMonthNetCount(getUserRecord(deerData, targetId), date, day),
         curseStripped,
         borrowUsed: used + 1,
-        borrowLeft: getProfessionQuotaLimit(monthData, day, QUOTA.borrow) - used - 1,
+        borrowLeft: getProfessionQuotaLimit(borrowerMonth, day, QUOTA.borrow) - used - 1,
+        borrowMax: getProfessionQuotaLimit(borrowerMonth, day, QUOTA.borrow),
     };
 }
 
@@ -2910,7 +2923,8 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
             targetCount: targetEntry.c,
             curseApplied,
             bumperUsed: used + 1,
-            bumperLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bumper) - used - 1,
+            bumperLeft: getProfessionQuotaLimit(actorMonth, day, QUOTA.bumper) - used - 1,
+            bumperMax: getProfessionQuotaLimit(actorMonth, day, QUOTA.bumper),
         };
     }
     if (roll < winChance + BUMPER_DRAW_CHANCE) {
@@ -2922,7 +2936,8 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
             selfCount: actorEntry.c,
             targetCount: targetEntry.c,
             bumperUsed: used + 1,
-            bumperLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bumper) - used - 1,
+            bumperLeft: getProfessionQuotaLimit(actorMonth, day, QUOTA.bumper) - used - 1,
+            bumperMax: getProfessionQuotaLimit(actorMonth, day, QUOTA.bumper),
         };
     }
     adjustDayCount(actorEntry, -BUMPER_FAIL_PENALTY);
@@ -2933,7 +2948,8 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
         targetCount: targetEntry.c,
         penalty: BUMPER_FAIL_PENALTY,
         bumperUsed: used + 1,
-        bumperLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bumper) - used - 1,
+        bumperLeft: getProfessionQuotaLimit(actorMonth, day, QUOTA.bumper) - used - 1,
+        bumperMax: getProfessionQuotaLimit(actorMonth, day, QUOTA.bumper),
     };
 }
 
@@ -2997,6 +3013,7 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
         curseRounds: ci.rounds,
         lotteryUsed: used + 1,
         lotteryLeft: getProfessionQuotaLimit(monthData, day, QUOTA.lottery) - used - 1,
+        lotteryMax: getProfessionQuotaLimit(monthData, day, QUOTA.lottery),
     };
 }
 
@@ -3019,7 +3036,8 @@ export function performSpectralCurse(deerData, ghostId, targetId, date, day) {
         ok: true,
         type: 'spectral_curse',
         spectralCurseUsed: used + 1,
-        spectralCurseLeft: getProfessionQuotaLimit(monthData, day, QUOTA.spectralCurse) - used - 1,
+        spectralCurseLeft: getProfessionQuotaLimit(ghostMonth, day, QUOTA.spectralCurse) - used - 1,
+        spectralCurseMax: getProfessionQuotaLimit(ghostMonth, day, QUOTA.spectralCurse),
         curseStacks: stacks,
         curseRounds: targetEntry.curR,
         ascended: stacks >= CURSE_ASCENDED_STACKS,
@@ -3058,7 +3076,8 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
                 curseStacks: stacks,
                 targetCount: targetEntry.c,
                 vengeanceUsed: used + 1,
-                vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
+                vengeanceLeft: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance) - used - 1,
+                vengeanceMax: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance),
             };
         }
         if (roll < VENGEANCE_CURSE_CHANCE + VENGEANCE_DEDUCT_CHANCE) {
@@ -3070,7 +3089,8 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
                 mode: 'killer',
                 targetCount: targetEntry.c,
                 vengeanceUsed: used + 1,
-                vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
+                vengeanceLeft: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance) - used - 1,
+                vengeanceMax: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance),
             };
         }
         return {
@@ -3078,7 +3098,8 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
             type: 'vengeance_fail',
             mode: 'killer',
             vengeanceUsed: used + 1,
-            vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
+            vengeanceLeft: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance) - used - 1,
+            vengeanceMax: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance),
         };
     }
 
@@ -3091,7 +3112,8 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
             curseStacks: stacks,
             targetCount: targetEntry.c,
             vengeanceUsed: used + 1,
-            vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
+            vengeanceLeft: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance) - used - 1,
+            vengeanceMax: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance),
         };
     }
     return {
@@ -3099,7 +3121,8 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
         type: 'vengeance_fail',
         mode: 'substitute',
         vengeanceUsed: used + 1,
-        vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
+        vengeanceLeft: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance) - used - 1,
+        vengeanceMax: getProfessionQuotaLimit(ghostMonth, day, QUOTA.vengeance),
     };
 }
 
@@ -3137,7 +3160,8 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
         curseRounds: getCurseRoundsLeft(targetEntry),
         curseStacks: getActiveCurseStacks(targetEntry),
         dreamUsed: used + 1,
-        dreamLeft: getProfessionQuotaLimit(monthData, day, QUOTA.dream) - used - 1,
+        dreamLeft: getProfessionQuotaLimit(ghostMonth, day, QUOTA.dream) - used - 1,
+        dreamMax: getProfessionQuotaLimit(ghostMonth, day, QUOTA.dream),
     };
 }
 
@@ -3150,6 +3174,8 @@ export function performReviveLottery(deerData, userId, date, day) {
     if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(monthData, day, reviveLotteryUsedKey);
     monthData[reviveLotteryUsedKey(day)] = used + 1;
+    const reviveMax = getProfessionQuotaLimit(monthData, day, QUOTA.reviveLottery);
+    const reviveLeft = Math.max(0, reviveMax - used - 1);
     const entry = ensureDayEntry(monthData, day);
     const snap = entry.snap ?? 0;
     const roll = Math.random();
@@ -3162,7 +3188,8 @@ export function performReviveLottery(deerData, userId, date, day) {
             count: entry.c,
             restored: snap,
             reviveLotteryUsed: used + 1,
-            reviveLotteryLeft: 0,
+            reviveLotteryLeft: reviveLeft,
+            reviveLotteryMax: reviveMax,
         };
     }
     if (roll < REVIVE_LOTTERY_FULL_CHANCE + REVIVE_LOTTERY_WEAK_CHANCE) {
@@ -3178,7 +3205,8 @@ export function performReviveLottery(deerData, userId, date, day) {
             type: 'revive_lottery_weak',
             count: entry.c,
             reviveLotteryUsed: used + 1,
-            reviveLotteryLeft: 0,
+            reviveLotteryLeft: reviveLeft,
+            reviveLotteryMax: reviveMax,
         };
     }
     return {
@@ -3186,7 +3214,8 @@ export function performReviveLottery(deerData, userId, date, day) {
         type: 'revive_lottery_blank',
         lostCount: snap,
         reviveLotteryUsed: used + 1,
-        reviveLotteryLeft: 0,
+        reviveLotteryLeft: reviveLeft,
+        reviveLotteryMax: reviveMax,
     };
 }
 

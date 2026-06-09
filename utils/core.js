@@ -46,6 +46,7 @@ import {
     getDeathReasonText,
     pickRandom,
 } from '../constants/game.js';
+import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 const BOX_W = 100;
@@ -348,10 +349,10 @@ export async function generateYearImage(now, name, userRecord) {
         left: 0,
     }];
     compositeArray.push({
-        input: svgText(`
-            <text x="${IMG_W / 2}" y="40" font-size="30" font-family="DeerFont" fill="#ffd700" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
-            <text x="${IMG_W / 2}" y="72" font-size="22" font-family="DeerFont" fill="#e8e8e8" text-anchor="middle">${truncName(name, 20)}</text>
-            <text x="${IMG_W / 2}" y="102" font-size="16" font-family="DeerFont" fill="#aaa" text-anchor="middle">
+        input: svgTextStyled(`
+            <text ${TXT} x="${IMG_W / 2}" y="40" font-size="30" fill="#ffd700" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
+            <text ${TXT} x="${IMG_W / 2}" y="72" font-size="22" fill="#e8e8e8" text-anchor="middle">${truncName(name, 20)}</text>
+            <text ${TXT_SOFT} x="${IMG_W / 2}" y="102" font-size="16" fill="#aaa" text-anchor="middle">
                 全年净值 ${stats.total} · ${stats.activeDays} 活跃日 · 💀${stats.deathDays || 0}天 · 最猛 ${stats.maxMonth}月(${stats.maxMonthCount})
             </text>
         `, IMG_W, TITLE_H),
@@ -419,7 +420,7 @@ export async function generateStatusImage(now, name, status) {
             ? `${status.professionEmoji || ''}${status.professionName}${status.professionLocked ? '·已锁定' : ''}`
             : '');
     const tagline = status.professionRequired
-        ? '请先转职：转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等'
+        ? `请先转职：${TRANSFER_PROFESSION_HINT}`
         : [pickStatusTagline(status), profHint].filter(Boolean).join(' · ');
     const moodEmoji = dead ? '💀' : (status.cursed ? '☠️' : (status.blessed ? '✨' : (status.inRiskZone ? '🔥' : (status.inWithdrawalZone ? '📘' : '🦌'))));
     const safeLimit = status.safeLimit ?? DAILY_SAFE_LIMIT;

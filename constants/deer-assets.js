@@ -1,4 +1,5 @@
 import path from 'path';
+import { readFileSync } from 'node:fs';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
 import { PROFESSIONS } from './profession.js';
 import { QUOTA_GROUPS } from './profession-quotas.js';
@@ -10,6 +11,17 @@ export const ASSET_ROOT = `${PLUGIN_ROOT}/assets`;
 export const DEERPIPE_LOGO = `${ASSET_ROOT}/deerpipe@100x82.png`;
 export const CHECK_MARK = `${ASSET_ROOT}/check@96x100.png`;
 export const DEER_FONT = `${ASSET_ROOT}/Genshin.ttf`;
+
+let _fontB64Cache = null;
+
+/** sharp 栅格 SVG 用：base64 内嵌字体（librsvg 不支持外部 file://） */
+export function getFontBase64DataUri() {
+    if (!_fontB64Cache) {
+        _fontB64Cache = readFileSync(DEER_FONT).toString('base64');
+    }
+    return `data:font/ttf;base64,${_fontB64Cache}`;
+}
+
 export const PROFESSION_CATALOG_ART = `${ASSET_ROOT}/professions/catalog.png`;
 
 export function professionArtPath(professionId) {

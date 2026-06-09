@@ -3,7 +3,7 @@
  */
 import { REDIS_YUNZAI_DEER_PIPE_PROF_RESET_SENT } from '../constants/core.js';
 import { DAILY_SAFE_LIMIT, pickRandom, PROFESSION_RESET_BROADCAST_MESSAGES } from '../constants/game.js';
-import { PROFESSION_LIST_TEXT } from '../constants/profession.js';
+import { PROFESSION_LIST_TEXT, TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
 import hub, { resolveKingBroadcastGroupIds, sleepMs } from '../lib/deer-hub.js';
 
 function formatDayKey(date) {
@@ -24,7 +24,7 @@ export function buildProfessionResetCaption(now = new Date()) {
         '⚠️ 每日必须先转职，否则🦌/互助/互害/冥界技能全部封印',
         '——',
         PROFESSION_LIST_TEXT,
-        '指令：鹿职业 · 鹿配额 · 转职鹿医/戒师/卷王/巡游',
+        `指令：鹿职业 · 鹿配额 · ${TRANSFER_PROFESSION_HINT}`,
     ].join('\n');
 }
 

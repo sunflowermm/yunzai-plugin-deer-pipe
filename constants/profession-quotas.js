@@ -440,6 +440,13 @@ export function resolveProfessionQuotas(professionId) {
 
 }
 
+/** 配额分母：优先 max，否则 used+left，最后 fallback */
+export function resolveQuotaDenom({ used, left, max, fallback }) {
+    if (max != null) return max;
+    if (used != null && left != null) return used + left;
+    return fallback ?? 0;
+}
+
 /** 格式化职业专精配额摘要 */
 export function formatProfessionQuotaSummary(professionId, mode = 'brief') {
     const q = resolveProfessionQuotas(professionId);

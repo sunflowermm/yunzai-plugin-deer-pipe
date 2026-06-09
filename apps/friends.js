@@ -1,4 +1,4 @@
-import puppeteer from "../../../lib/puppeteer/puppeteer.js";
+import { screenshot } from '../utils/deer-screenshot.js';
 import FriendsModel from "../model/friends.js";
 import { isNumeric } from "../utils/common.js";
 import {
@@ -50,7 +50,7 @@ export class Friends extends plugin {
             listTitle,
             friendCount: friendsData.length,
         });
-        return puppeteer.screenshot("friends", data);
+        return screenshot('friends', data);
     }
 
     async addDeerFriend(e) {

@@ -8,6 +8,7 @@ export {
     DEERPIPE_LOGO,
     CHECK_MARK,
     DEER_FONT,
+    getFontBase64DataUri,
     HELP_SECTION_ART,
     verifyArtManifest,
 } from './deer-assets.js';

@@ -8,13 +8,31 @@ import { WEATHER_CMD_HINT } from '../constants/commands.js';
 import { formatWeatherEffectsDetail } from './weather.js';
 import {
     ARENA_STAKE,
+    BLESS_MAX_ROUNDS,
+    CURSE_MAX_ROUNDS,
+    DAILY_BLESS_QUOTA,
+    DAILY_CLEANSE_CURSE_QUOTA,
+    DAILY_CURSE_QUOTA,
+    DAILY_HOWL_QUOTA,
     DAILY_SAFE_LIMIT,
+    DAILY_STEAL_QUOTA,
     IMPERIAL_LOSE_DEDUCT,
     IMPERIAL_WIN_DEDUCT,
     TOGETHER_FALL_COST,
     pickRandom,
 } from '../constants/game.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
+import { resolveQuotaDenom } from '../constants/profession-quotas.js';
+
+function cardQuotaDenom(result, usedKey, leftKey, maxKey, fallback) {
+    return resolveQuotaDenom({
+        used: result[usedKey],
+        left: result[leftKey],
+        max: result[maxKey],
+        fallback,
+    });
+}
+
 import {
     escapeXml,
     truncText,
@@ -212,24 +230,24 @@ function buildPlayfulStatRows(result, { helperName, targetName } = {}) {
         case 'steal_curse_fail':
             push('你', `${result.thiefCount ?? '?'} 次`, '#ff6b81');
             push('目标', `${result.targetCount ?? '?'} 次`, '#ffd700');
-            push('偷鹿配额', `${result.stealUsed ?? '?'}/${result.stealLeft != null ? result.stealUsed + result.stealLeft : '?'}`, '#ccc');
+            push('偷鹿配额', `${result.stealUsed ?? '?'}/${cardQuotaDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}`, '#ccc');
             if (result.stealBonus > 0) push('借咒加成', `+${Math.round(result.stealBonus * 100)}%`, '#c39bff');
             break;
         case 'curse':
             push('咒层', `×${result.curseStacks}`, '#c39bff');
-            push('回合', `${result.curseRounds}/${result.curseRounds != null ? 3 : '?'}`, '#e8d4ff');
+            push('回合', `${result.curseRounds}/${CURSE_MAX_ROUNDS}`, '#e8d4ff');
             push('叠毒', `+${Math.round((result.bonus ?? 0.1) * (result.curseStacks ?? 1) * 100)}%`, '#ff8888');
-            push('配额', `${result.curseUsed}/?`, '#ccc');
+            push('配额', `${result.curseUsed}/${cardQuotaDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA)}`, '#ccc');
             if (result.ascended) push('状态', '⚡天咒', '#ffd700');
             break;
         case 'cleanse_curse':
             push('撕咒', `${result.clearedStacks} 层`, '#7dffb0');
-            push('配额', `${result.cleanseUsed}/?`, '#ccc');
+            push('配额', `${result.cleanseUsed}/${cardQuotaDenom(result, 'cleanseUsed', 'cleanseLeft', 'cleanseMax', DAILY_CLEANSE_CURSE_QUOTA)}`, '#ccc');
             break;
         case 'bless':
             push('福层', `×${result.blessStacks}`, '#7dffb0');
-            push('回合', `${result.blessRounds}/?`, '#d8ffd8');
-            push('配额', `${result.blessUsed}/?`, '#ccc');
+            push('回合', `${result.blessRounds}/${BLESS_MAX_ROUNDS}`, '#d8ffd8');
+            push('配额', `${result.blessUsed}/${cardQuotaDenom(result, 'blessUsed', 'blessLeft', 'blessMax', DAILY_BLESS_QUOTA)}`, '#ccc');
             break;
         case 'cleanse_bless':
             push('收福', `${result.clearedStacks} 层`, '#7dffb0');
@@ -258,7 +276,7 @@ function buildPlayfulStatRows(result, { helperName, targetName } = {}) {
         case 'howl_dead':
         case 'howl_dead_haunt':
             push('次数', `${result.count ?? 0}`, '#68d391');
-            push('配额', `${result.howlUsed}/?`, '#ccc');
+            push('配额', `${result.howlUsed}/${cardQuotaDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA)}`, '#ccc');
             if (result.howlEffect) push('效果', result.howlEffect, '#ffd700');
             break;
         case 'group_splash':

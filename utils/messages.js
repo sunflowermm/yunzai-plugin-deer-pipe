@@ -121,8 +121,19 @@ import {
     FRIEND_REMOVE_MESSAGES,
     UI_MESSAGES,
 } from '../constants/game.js';
+import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
+import { resolveQuotaDenom } from '../constants/profession-quotas.js';
 
 export { getDeathReasonText, getDeathCellLabel } from '../constants/game.js';
+
+function qDenom(result, usedKey, leftKey, maxKey, fallback) {
+    return resolveQuotaDenom({
+        used: result[usedKey],
+        left: result[leftKey],
+        max: result[maxKey],
+        fallback,
+    });
+}
 
 function quotaHint(result) {
     return result.helpQuotaLeft != null
@@ -178,7 +189,7 @@ export function formatHelperQuotaReply(snapshot, mode = 'all') {
         if (snapshot.playSummary) {
             lines.push(`今日配额：${snapshot.playSummary}`);
         }
-        lines.push('转职：转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等');
+        lines.push(`转职：${TRANSFER_PROFESSION_HINT}`);
     }
     return lines.join('\n');
 }
@@ -260,27 +271,30 @@ export function formatErrorMessage(result) {
         case 'steal_empty':
             return ERROR_MESSAGES.steal_empty;
         case 'curse_used':
-            return ERROR_MESSAGES.curse_used(result.curseUsed ?? DAILY_CURSE_QUOTA, DAILY_CURSE_QUOTA);
+            return ERROR_MESSAGES.curse_used(
+                result.curseUsed ?? qDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA),
+                qDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA),
+            );
         case 'curse_self':
             return ERROR_MESSAGES.curse_self;
         case 'cleanse_used':
             return ERROR_MESSAGES.cleanse_used(
-                result.cleanseUsed ?? DAILY_CLEANSE_CURSE_QUOTA,
-                DAILY_CLEANSE_CURSE_QUOTA,
+                result.cleanseUsed ?? qDenom(result, 'cleanseUsed', 'cleanseLeft', 'cleanseMax', DAILY_CLEANSE_CURSE_QUOTA),
+                qDenom(result, 'cleanseUsed', 'cleanseLeft', 'cleanseMax', DAILY_CLEANSE_CURSE_QUOTA),
             );
         case 'cleanse_no_curse':
             return ERROR_MESSAGES.cleanse_no_curse;
         case 'bless_used':
             return ERROR_MESSAGES.bless_used(
-                result.blessUsed ?? DAILY_BLESS_QUOTA,
-                DAILY_BLESS_QUOTA,
+                result.blessUsed ?? qDenom(result, 'blessUsed', 'blessLeft', 'blessMax', DAILY_BLESS_QUOTA),
+                qDenom(result, 'blessUsed', 'blessLeft', 'blessMax', DAILY_BLESS_QUOTA),
             );
         case 'bless_self':
             return ERROR_MESSAGES.bless_self;
         case 'cleanse_bless_used':
             return ERROR_MESSAGES.cleanse_bless_used(
-                result.cleanseBlessUsed ?? DAILY_CLEANSE_BLESS_QUOTA,
-                DAILY_CLEANSE_BLESS_QUOTA,
+                result.cleanseBlessUsed ?? qDenom(result, 'cleanseBlessUsed', 'cleanseBlessLeft', 'cleanseBlessMax', DAILY_CLEANSE_BLESS_QUOTA),
+                qDenom(result, 'cleanseBlessUsed', 'cleanseBlessLeft', 'cleanseBlessMax', DAILY_CLEANSE_BLESS_QUOTA),
             );
         case 'cleanse_no_bless':
             return ERROR_MESSAGES.cleanse_no_bless;
@@ -294,13 +308,19 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.sacrifice_self;
         case 'fake_withdraw_used':
             return ERROR_MESSAGES.fake_withdraw_used(
-                result.fakeWithdrawUsed ?? DAILY_FAKE_WITHDRAW_QUOTA,
-                DAILY_FAKE_WITHDRAW_QUOTA,
+                result.fakeWithdrawUsed ?? qDenom(result, 'fakeWithdrawUsed', 'fakeWithdrawLeft', 'fakeWithdrawMax', DAILY_FAKE_WITHDRAW_QUOTA),
+                qDenom(result, 'fakeWithdrawUsed', 'fakeWithdrawLeft', 'fakeWithdrawMax', DAILY_FAKE_WITHDRAW_QUOTA),
             );
         case 'urge_used':
-            return ERROR_MESSAGES.urge_used(result.urgeUsed ?? DAILY_URGE_QUOTA, DAILY_URGE_QUOTA);
+            return ERROR_MESSAGES.urge_used(
+                result.urgeUsed ?? qDenom(result, 'urgeUsed', 'urgeLeft', 'urgeMax', DAILY_URGE_QUOTA),
+                qDenom(result, 'urgeUsed', 'urgeLeft', 'urgeMax', DAILY_URGE_QUOTA),
+            );
         case 'howl_used':
-            return ERROR_MESSAGES.howl_used(result.howlUsed ?? DAILY_HOWL_QUOTA, DAILY_HOWL_QUOTA);
+            return ERROR_MESSAGES.howl_used(
+                result.howlUsed ?? qDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA),
+                qDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA),
+            );
         case 'howl_dead':
             return ERROR_MESSAGES.howl_dead;
         case 'greed_used':
@@ -309,8 +329,8 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.greed_self;
         case 'splash_used':
             return ERROR_MESSAGES.splash_used(
-                result.splashUsed ?? DAILY_GROUP_SPLASH_QUOTA,
-                DAILY_GROUP_SPLASH_QUOTA,
+                result.splashUsed ?? qDenom(result, 'splashUsed', 'splashLeft', 'splashMax', DAILY_GROUP_SPLASH_QUOTA),
+                qDenom(result, 'splashUsed', 'splashLeft', 'splashMax', DAILY_GROUP_SPLASH_QUOTA),
             );
         case 'splash_need_group':
             return ERROR_MESSAGES.splash_need_group;
@@ -328,8 +348,8 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.borrow_poor(result.min ?? 2, result.monthNet);
         case 'bumper_used':
             return ERROR_MESSAGES.bumper_used(
-                result.bumperUsed ?? DAILY_BUMPER_QUOTA,
-                DAILY_BUMPER_QUOTA,
+                result.bumperUsed ?? qDenom(result, 'bumperUsed', 'bumperLeft', 'bumperMax', DAILY_BUMPER_QUOTA),
+                qDenom(result, 'bumperUsed', 'bumperLeft', 'bumperMax', DAILY_BUMPER_QUOTA),
             );
         case 'bumper_self':
             return ERROR_MESSAGES.bumper_self;
@@ -337,15 +357,15 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.lottery_used;
         case 'spectral_curse_used':
             return ERROR_MESSAGES.spectral_curse_used(
-                result.spectralCurseUsed ?? DAILY_SPECTRAL_CURSE_QUOTA,
-                DAILY_SPECTRAL_CURSE_QUOTA,
+                result.spectralCurseUsed ?? qDenom(result, 'spectralCurseUsed', 'spectralCurseLeft', 'spectralCurseMax', DAILY_SPECTRAL_CURSE_QUOTA),
+                qDenom(result, 'spectralCurseUsed', 'spectralCurseLeft', 'spectralCurseMax', DAILY_SPECTRAL_CURSE_QUOTA),
             );
         case 'spectral_curse_self':
             return ERROR_MESSAGES.spectral_curse_self;
         case 'vengeance_used':
             return ERROR_MESSAGES.vengeance_used(
-                result.vengeanceUsed ?? DAILY_VENGEANCE_QUOTA,
-                DAILY_VENGEANCE_QUOTA,
+                result.vengeanceUsed ?? qDenom(result, 'vengeanceUsed', 'vengeanceLeft', 'vengeanceMax', DAILY_VENGEANCE_QUOTA),
+                qDenom(result, 'vengeanceUsed', 'vengeanceLeft', 'vengeanceMax', DAILY_VENGEANCE_QUOTA),
             );
         case 'vengeance_self':
             return ERROR_MESSAGES.vengeance_self;
@@ -485,57 +505,58 @@ export function formatActionMessage(result, ctx = {}) {
             const bonus = result.stealBonus > 0
                 ? ` · 借咒 +${Math.round(result.stealBonus * 100)}%`
                 : '';
-            return `${helperName || '你'} ${pickRandom(STEAL_SUCCESS_MESSAGES)}${bonus}\n你：${result.thiefCount} 次 · ${targetName}：${result.targetCount} 次（偷鹿 ${result.stealUsed}/${DAILY_STEAL_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(STEAL_SUCCESS_MESSAGES)}${bonus}\n你：${result.thiefCount} 次 · ${targetName}：${result.targetCount} 次（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
         }
         case 'steal_fail':
-            return `${helperName || '你'} ${pickRandom(STEAL_FAIL_MESSAGES)}（偷鹿 ${result.stealUsed}/${DAILY_STEAL_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(STEAL_FAIL_MESSAGES)}（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
         case 'steal_backfire':
-            return `${helperName || '你'} ${pickRandom(STEAL_BACKFIRE_MESSAGES)} 现 ${result.thiefCount} 次（偷鹿 ${result.stealUsed}/${DAILY_STEAL_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(STEAL_BACKFIRE_MESSAGES)} 现 ${result.thiefCount} 次（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
         case 'steal_curse_backfire':
-            return `${helperName || '你'} ${pickRandom(STEAL_BACKFIRE_MESSAGES)} ${pickRandom(STEAL_CURSE_BACKFIRE_MESSAGES)} 现 ${result.thiefCount} 次（偷鹿 ${result.stealUsed}/${DAILY_STEAL_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(STEAL_BACKFIRE_MESSAGES)} ${pickRandom(STEAL_CURSE_BACKFIRE_MESSAGES)} 现 ${result.thiefCount} 次（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
         case 'steal_curse_fail':
-            return `${helperName || '你'} ${pickRandom(STEAL_FAIL_MESSAGES)} ${pickRandom(STEAL_CURSE_BACKFIRE_MESSAGES)}（偷鹿 ${result.stealUsed}/${DAILY_STEAL_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(STEAL_FAIL_MESSAGES)} ${pickRandom(STEAL_CURSE_BACKFIRE_MESSAGES)}（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
         case 'curse': {
             const asc = result.ascended ? ` ${pickRandom(CURSE_ASCENDED_MESSAGES)}` : '';
             const pct = Math.round((result.bonus ?? 0.1) * result.curseStacks * 100);
-            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(CURSE_MESSAGES)}（${result.curseStacks} 层 · 剩 ${result.curseRounds}/${CURSE_MAX_ROUNDS} 回合 · 叠毒 +${pct}%）${asc}（${result.curseUsed}/${DAILY_CURSE_QUOTA}）`;
+            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(CURSE_MESSAGES)}（${result.curseStacks} 层 · 剩 ${result.curseRounds}/${CURSE_MAX_ROUNDS} 回合 · 叠毒 +${pct}%）${asc}（${result.curseUsed}/${qDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA)}）`;
         }
         case 'cleanse_curse':
-            return `${helperName || '你'} 为 ${targetName || 'ta'} ${pickRandom(CLEANSE_CURSE_MESSAGES)}（撕掉 ${result.clearedStacks} 层 · ${result.cleanseUsed}/${DAILY_CLEANSE_CURSE_QUOTA}）`;
+            return `${helperName || '你'} 为 ${targetName || 'ta'} ${pickRandom(CLEANSE_CURSE_MESSAGES)}（撕掉 ${result.clearedStacks} 层 · ${result.cleanseUsed}/${qDenom(result, 'cleanseUsed', 'cleanseLeft', 'cleanseMax', DAILY_CLEANSE_CURSE_QUOTA)}）`;
         case 'bless': {
             const pct = Math.round((result.reduce ?? BLESS_DEATH_REDUCE) * result.blessStacks * 100);
-            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(BLESS_MESSAGES)}（${result.blessStacks} 层 · 剩 ${result.blessRounds}/${BLESS_MAX_ROUNDS} 回合 · 减鹿死 -${pct}%）（${result.blessUsed}/${DAILY_BLESS_QUOTA}）`;
+            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(BLESS_MESSAGES)}（${result.blessStacks} 层 · 剩 ${result.blessRounds}/${BLESS_MAX_ROUNDS} 回合 · 减鹿死 -${pct}%）（${result.blessUsed}/${qDenom(result, 'blessUsed', 'blessLeft', 'blessMax', DAILY_BLESS_QUOTA)}）`;
         }
         case 'cleanse_bless':
-            return `${helperName || '你'} 为 ${targetName || 'ta'} ${pickRandom(CLEANSE_BLESS_MESSAGES)}（撕掉 ${result.clearedStacks} 层 · ${result.cleanseBlessUsed}/${DAILY_CLEANSE_BLESS_QUOTA}）`;
+            return `${helperName || '你'} 为 ${targetName || 'ta'} ${pickRandom(CLEANSE_BLESS_MESSAGES)}（撕掉 ${result.clearedStacks} 层 · ${result.cleanseBlessUsed}/${qDenom(result, 'cleanseBlessUsed', 'cleanseBlessLeft', 'cleanseBlessMax', DAILY_CLEANSE_BLESS_QUOTA)}）`;
         case 'sacrifice': {
             const purge = result.cursePurged ? ' · 顺带净化 1 层咒' : '';
             return `${helperName || '你'} ${pickRandom(SACRIFICE_MESSAGES)}${purge}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次`;
         }
         case 'fake_withdraw':
-            return `${pickRandom(FAKE_WITHDRAW_MESSAGES)}（对外显示约 ${result.fakeCount} 次，实际 ${result.count} 次 · ${result.fakeWithdrawUsed}/${DAILY_FAKE_WITHDRAW_QUOTA}）`;
+            return `${pickRandom(FAKE_WITHDRAW_MESSAGES)}（对外显示约 ${result.fakeCount} 次，实际 ${result.count} 次 · ${result.fakeWithdrawUsed}/${qDenom(result, 'fakeWithdrawUsed', 'fakeWithdrawLeft', 'fakeWithdrawMax', DAILY_FAKE_WITHDRAW_QUOTA)}）`;
         case 'urge': {
             const buff = result.buffApplied ? '已贴催🦌符，下次自🦌 +1' : 'ta 今日已有🦌绩，符咒未生效';
             const curse = result.curseUrged ? ` · 咒回合 -1（剩 ${result.curseRounds}）` : '';
-            return `${helperName || '你'} ${pickRandom(URGE_MESSAGES)}（${buff}${curse} · ${result.urgeUsed}/${DAILY_URGE_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(URGE_MESSAGES)}（${buff}${curse} · ${result.urgeUsed}/${qDenom(result, 'urgeUsed', 'urgeLeft', 'urgeMax', DAILY_URGE_QUOTA)}）`;
         }
         case 'howl': {
             const base = pickHowlMessage(result.count, false);
+            const howlCap = qDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA);
             if (result.howlEffect === 'bonus_cleanse') {
-                return `${base}\n${pickRandom(HOWL_BONUS_MESSAGES)} 吉兆震散 1 层咒！现 ${result.count} 次（${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
+                return `${base}\n${pickRandom(HOWL_BONUS_MESSAGES)} 吉兆震散 1 层咒！现 ${result.count} 次（${result.howlUsed}/${howlCap}）`;
             }
             if (result.howlEffect === 'bonus') {
-                return `${base}\n${pickRandom(HOWL_BONUS_MESSAGES)} 现 ${result.count} 次（${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
+                return `${base}\n${pickRandom(HOWL_BONUS_MESSAGES)} 现 ${result.count} 次（${result.howlUsed}/${howlCap}）`;
             }
             if (result.howlEffect === 'trap') {
-                return `${base}\n${pickRandom(HOWL_TRAP_MESSAGES)} 现 ${result.count} 次（${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
+                return `${base}\n${pickRandom(HOWL_TRAP_MESSAGES)} 现 ${result.count} 次（${result.howlUsed}/${howlCap}）`;
             }
-            return `${base}（${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
+            return `${base}（${result.howlUsed}/${howlCap}）`;
         }
         case 'howl_dead':
-            return `${pickHowlMessage(0, true)}（${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
+            return `${pickHowlMessage(0, true)}（${result.howlUsed}/${qDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA)}）`;
         case 'howl_dead_haunt':
-            return `${pickHowlMessage(0, true)}\n${pickRandom(HOWL_DEAD_HAUNT_MESSAGES)}（鸣魂 ${result.howlUsed}/${DAILY_HOWL_QUOTA}）`;
+            return `${pickHowlMessage(0, true)}\n${pickRandom(HOWL_DEAD_HAUNT_MESSAGES)}（鸣魂 ${result.howlUsed}/${qDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA)}）`;
         case 'greed_success': {
             const strip = result.curseStripped ? ' · 顺手撕 1 层咒' : '';
             return `${helperName || '你'} ${pickRandom(GREED_SUCCESS_MESSAGES)}${strip}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次`;
@@ -549,20 +570,20 @@ export function formatActionMessage(result, ctx = {}) {
             const burstNote = result.burstCount > 0
                 ? `\n${pickRandom(GROUP_SPLASH_BURST_MESSAGES)}（${result.burstCount} 人）`
                 : '';
-            return `${helperName || '你'} ${pickRandom(GROUP_SPLASH_MESSAGES)} 日榜 Top${result.targetCount} 命中 ${result.totalHit} 人各 -${result.damage}${burstNote}${curseNote} · 你反噬 -${result.recoil} 现 ${result.casterCount} 次（群鹿溅 ${result.splashUsed}/${DAILY_GROUP_SPLASH_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(GROUP_SPLASH_MESSAGES)} 日榜 Top${result.targetCount} 命中 ${result.totalHit} 人各 -${result.damage}${burstNote}${curseNote} · 你反噬 -${result.recoil} 现 ${result.casterCount} 次（群鹿溅 ${result.splashUsed}/${qDenom(result, 'splashUsed', 'splashLeft', 'splashMax', DAILY_GROUP_SPLASH_QUOTA)}）`;
         }
         case 'borrow': {
             const strip = result.curseStripped ? ' · 利息撕 1 层咒' : '';
-            return `${helperName || '你'} 向 ${targetName || 'ta'} ${pickRandom(BORROW_MESSAGES)}${strip}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次（借鹿 ${result.borrowUsed}/${DAILY_BORROW_QUOTA}）`;
+            return `${helperName || '你'} 向 ${targetName || 'ta'} ${pickRandom(BORROW_MESSAGES)}${strip}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次（借鹿 ${result.borrowUsed}/${qDenom(result, 'borrowUsed', 'borrowLeft', 'borrowMax', DAILY_BORROW_QUOTA)}）`;
         }
         case 'bumper_win': {
             const curse = result.curseApplied ? ` ${pickRandom(BUMPER_CURSE_EXTRA)}` : '';
-            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(BUMPER_WIN_MESSAGES)}${curse}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次（碰瓷 ${result.bumperUsed}/${DAILY_BUMPER_QUOTA}）`;
+            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(BUMPER_WIN_MESSAGES)}${curse}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次（碰瓷 ${result.bumperUsed}/${qDenom(result, 'bumperUsed', 'bumperLeft', 'bumperMax', DAILY_BUMPER_QUOTA)}）`;
         }
         case 'bumper_draw':
-            return `${helperName || '你'} 与 ${targetName || 'ta'} ${pickRandom(BUMPER_DRAW_MESSAGES)}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次（碰瓷 ${result.bumperUsed}/${DAILY_BUMPER_QUOTA}）`;
+            return `${helperName || '你'} 与 ${targetName || 'ta'} ${pickRandom(BUMPER_DRAW_MESSAGES)}\n你：${result.selfCount} 次 · ${targetName}：${result.targetCount} 次（碰瓷 ${result.bumperUsed}/${qDenom(result, 'bumperUsed', 'bumperLeft', 'bumperMax', DAILY_BUMPER_QUOTA)}）`;
         case 'bumper_fail':
-            return `${helperName || '你'} ${pickRandom(BUMPER_FAIL_MESSAGES)} 现 ${result.selfCount} 次（碰瓷 ${result.bumperUsed}/${DAILY_BUMPER_QUOTA}）`;
+            return `${helperName || '你'} ${pickRandom(BUMPER_FAIL_MESSAGES)} 现 ${result.selfCount} 次（碰瓷 ${result.bumperUsed}/${qDenom(result, 'bumperUsed', 'bumperLeft', 'bumperMax', DAILY_BUMPER_QUOTA)}）`;
         case 'lottery': {
             const outcomeMap = {
                 plus: LOTTERY_PLUS_MESSAGES,
@@ -576,20 +597,20 @@ export function formatActionMessage(result, ctx = {}) {
             const curseNote = result.curseStacks > 0
                 ? ` · 咒 ${result.curseStacks} 层`
                 : '';
-            return `${pickRandom(msgs)} 现 ${result.count} 次${curseNote}（鹿签 ${result.lotteryUsed}/${DAILY_LOTTERY_QUOTA}）`;
+            return `${pickRandom(msgs)} 现 ${result.count} 次${curseNote}（鹿签 ${result.lotteryUsed}/${qDenom(result, 'lotteryUsed', 'lotteryLeft', 'lotteryMax', DAILY_LOTTERY_QUOTA)}）`;
         }
         case 'spectral_curse': {
             const asc = result.ascended ? ` ${pickRandom(CURSE_ASCENDED_MESSAGES)}` : '';
-            return `${helperName || '亡魂'} 对 ${targetName || 'ta'} ${pickRandom(SPECTRAL_CURSE_MESSAGES)}（${result.curseStacks} 层 · 剩 ${result.curseRounds}/${CURSE_MAX_ROUNDS} 回合）${asc}（冥咒 ${result.spectralCurseUsed}/${DAILY_SPECTRAL_CURSE_QUOTA}）`;
+            return `${helperName || '亡魂'} 对 ${targetName || 'ta'} ${pickRandom(SPECTRAL_CURSE_MESSAGES)}（${result.curseStacks} 层 · 剩 ${result.curseRounds}/${CURSE_MAX_ROUNDS} 回合）${asc}（冥咒 ${result.spectralCurseUsed}/${qDenom(result, 'spectralCurseUsed', 'spectralCurseLeft', 'spectralCurseMax', DAILY_SPECTRAL_CURSE_QUOTA)}）`;
         }
         case 'vengeance_curse':
-            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_CURSE_MESSAGES)}（${targetName || '凶手'} 现 ${result.targetCount} 次 · 咒 ${result.curseStacks} 层 · 索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_CURSE_MESSAGES)}（${targetName || '凶手'} 现 ${result.targetCount} 次 · 咒 ${result.curseStacks} 层 · 索命 ${result.vengeanceUsed}/${qDenom(result, 'vengeanceUsed', 'vengeanceLeft', 'vengeanceMax', DAILY_VENGEANCE_QUOTA)}）`;
         case 'vengeance_deduct':
-            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_DEDUCT_MESSAGES)}（${targetName || '凶手'} 现 ${result.targetCount} 次 · 索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_DEDUCT_MESSAGES)}（${targetName || '凶手'} 现 ${result.targetCount} 次 · 索命 ${result.vengeanceUsed}/${qDenom(result, 'vengeanceUsed', 'vengeanceLeft', 'vengeanceMax', DAILY_VENGEANCE_QUOTA)}）`;
         case 'vengeance_substitute':
-            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_SUBSTITUTE_MESSAGES)}（${targetName || '替身'} 现 ${result.targetCount} 次 · 咒 ${result.curseStacks} 层 · 索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_SUBSTITUTE_MESSAGES)}（${targetName || '替身'} 现 ${result.targetCount} 次 · 咒 ${result.curseStacks} 层 · 索命 ${result.vengeanceUsed}/${qDenom(result, 'vengeanceUsed', 'vengeanceLeft', 'vengeanceMax', DAILY_VENGEANCE_QUOTA)}）`;
         case 'vengeance_fail':
-            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_FAIL_MESSAGES)}（索命 ${result.vengeanceUsed}/${DAILY_VENGEANCE_QUOTA}）`;
+            return `${helperName || '亡魂'} ${pickRandom(VENGEANCE_FAIL_MESSAGES)}（索命 ${result.vengeanceUsed}/${qDenom(result, 'vengeanceUsed', 'vengeanceLeft', 'vengeanceMax', DAILY_VENGEANCE_QUOTA)}）`;
         case 'dream': {
             const effectMsg = result.dreamEffect === 'soothe'
                 ? pickRandom(DREAM_SOOTHE_MESSAGES)
@@ -597,14 +618,14 @@ export function formatActionMessage(result, ctx = {}) {
             const curseNote = result.curseStacks > 0
                 ? ` · 咒剩 ${result.curseRounds} 回合`
                 : '';
-            return `${helperName || '亡魂'} 托梦 ${targetName || '🦌友'}：${effectMsg}${curseNote}（托梦 ${result.dreamUsed}/${DAILY_DREAM_QUOTA}）`;
+            return `${helperName || '亡魂'} 托梦 ${targetName || '🦌友'}：${effectMsg}${curseNote}（托梦 ${result.dreamUsed}/${qDenom(result, 'dreamUsed', 'dreamLeft', 'dreamMax', DAILY_DREAM_QUOTA)}）`;
         }
         case 'revive_lottery_full':
-            return `${pickRandom(REVIVE_LOTTERY_FULL_MESSAGES)} 恢复 ${result.restored} 次（还阳签 ${result.reviveLotteryUsed}/${DAILY_REVIVE_LOTTERY_QUOTA}）`;
+            return `${pickRandom(REVIVE_LOTTERY_FULL_MESSAGES)} 恢复 ${result.restored} 次（还阳签 ${result.reviveLotteryUsed}/${qDenom(result, 'reviveLotteryUsed', 'reviveLotteryLeft', 'reviveLotteryMax', DAILY_REVIVE_LOTTERY_QUOTA)}）`;
         case 'revive_lottery_weak':
-            return `${pickRandom(REVIVE_LOTTERY_WEAK_MESSAGES)} 现 ${result.count} 次（还阳签 ${result.reviveLotteryUsed}/${DAILY_REVIVE_LOTTERY_QUOTA}）`;
+            return `${pickRandom(REVIVE_LOTTERY_WEAK_MESSAGES)} 现 ${result.count} 次（还阳签 ${result.reviveLotteryUsed}/${qDenom(result, 'reviveLotteryUsed', 'reviveLotteryLeft', 'reviveLotteryMax', DAILY_REVIVE_LOTTERY_QUOTA)}）`;
         case 'revive_lottery_blank':
-            return `${pickRandom(REVIVE_LOTTERY_BLANK_MESSAGES)} 仍丢失 ${result.lostCount} 次（还阳签 ${result.reviveLotteryUsed}/${DAILY_REVIVE_LOTTERY_QUOTA}）`;
+            return `${pickRandom(REVIVE_LOTTERY_BLANK_MESSAGES)} 仍丢失 ${result.lostCount} 次（还阳签 ${result.reviveLotteryUsed}/${qDenom(result, 'reviveLotteryUsed', 'reviveLotteryLeft', 'reviveLotteryMax', DAILY_REVIVE_LOTTERY_QUOTA)}）`;
         case 'tombstone': {
             const reason = getDeathReasonText(result.deathReason);
             const killerLine = targetName

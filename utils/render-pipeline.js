@@ -1,12 +1,12 @@
 import sharp from 'sharp';
 
-/** 贴图在槽位内的缩放比（1 = 铺满槽位，整数像素对齐） */
-export const ART_FIT_SCALE = 1;
+/** 贴图在槽位内缩放（略小于 1 加快 trim/resize，肉眼差异小） */
+export const ART_FIT_SCALE = 0.88;
 
-/** SVG 栅格 DPI（与 svg width/height 像素 1:1） */
+/** SVG 栅格 DPI（与 width/height 1:1，72 为快出图基准） */
 export const SVG_RASTER_DPI = 72;
 
-export const PNG_OUT = Object.freeze({ compressionLevel: 6 });
+export const PNG_OUT = Object.freeze({ compressionLevel: 3 });
 
 /** 坐标/尺寸取整，避免 subpixel 叠图错位 */
 export function px(n) {

@@ -5,6 +5,7 @@ import { D_SHOW, WEATHER_CMD_SHOW } from './commands.js';
 import { BALANCED_FORMULA_HINT } from './balanced-score.js';
 import { PRIVILEGED_QQ } from './game.js';
 import { PROFESSION_HELP_RANGE, PROFESSION_LIST_TEXT, PROFESSION_WITHDRAW_RANGE } from './profession.js';
+import { PROFESSION_QUOTA_TABLE } from './profession-quotas.js';
 import {
     ARENA_STAKE,
     DAILY_ARENA_QUOTA,
@@ -89,8 +90,8 @@ export const HELP_SECTIONS = {
         title: '互害恶趣味',
         emoji: '😈',
         items: [
-            { cmd: `偷${D_SHOW}@ta`, desc: '35% 偷 1 · 带咒每层 +5%', quota: `依职业（窃光鹿最多 ${DAILY_STEAL_QUOTA + 3}）· 反噬 ${Math.round(STEAL_BACKFIRE_CHANCE * 100)}%` },
-            { cmd: `${D_SHOW}咒@ta`, desc: `叠毒 · 每层 +${Math.round(CURSE_DEATH_BONUS * 100)}% 鹿死`, quota: `依职业（叠咒鹿最多 6）· ${CURSE_ASCENDED_STACKS} 层天咒` },
+            { cmd: `偷${D_SHOW}@ta`, desc: '35% 偷 1 · 带咒每层 +5%', quota: `依职业（窃光鹿最多 ${PROFESSION_QUOTA_TABLE.rogue.steal}）· 反噬 ${Math.round(STEAL_BACKFIRE_CHANCE * 100)}%` },
+            { cmd: `${D_SHOW}咒@ta`, desc: `叠毒 · 每层 +${Math.round(CURSE_DEATH_BONUS * 100)}% 鹿死`, quota: `依职业（叠咒鹿最多 ${PROFESSION_QUOTA_TABLE.curser.curse}）· ${CURSE_ASCENDED_STACKS} 层天咒` },
             { cmd: `献祭${D_SHOW}@ta`, desc: '你 -2，ta +2', quota: `${DAILY_SACRIFICE_QUOTA} 次/日` },
             { cmd: `倒贴${D_SHOW}@ta`, desc: '50% 你+1 ta-1 / 败 -1', quota: `${DAILY_GREED_QUOTA} 次/日` },
             { cmd: `催${D_SHOW}@ta`, desc: '0 次叠催更 buff · 带咒者咒回合 -1', quota: `${DAILY_URGE_QUOTA} 次/日` },
@@ -106,9 +107,9 @@ export const HELP_SECTIONS = {
         emoji: '🎭',
         items: [
             { cmd: `${D_SHOW}职业`, desc: '【每日必做】选定职业后玩法解锁 · 附职业一览图', quota: '未转职封印全部玩法 · 仅鹿碑/看榜/帮助可用' },
-            { cmd: '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等', desc: '7 职业：巡游/鹿医师/戒灵/卷王/叠咒/福鹿使/窃光', quota: '首次转职后当日锁定 · 各职业全玩法次数不同' },
+            { cmd: '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等', desc: '7 职业：巡游鹿/鹿医师/戒灵师/卷王鹿/叠咒鹿/福鹿使/窃光鹿', quota: '首次转职后当日锁定 · 各职业全玩法次数不同' },
             { cmd: `${D_SHOW}技`, desc: '查看今日专属技状态', quota: '每职业 1 次/日' },
-            { cmd: `${D_SHOW}巡 / 愈鹿@ / 清规@ / 卷冲`, desc: '巡游/鹿医师/戒灵/卷王专属技', quota: '须对应职业 · 鹿医师帮鹿成功 12% 帮鹿次数+1' },
+            { cmd: `${D_SHOW}巡 / 愈鹿@ / 清规@ / 卷冲`, desc: '巡游/鹿医师/戒灵师/卷王专属技', quota: '须对应职业 · 鹿医师帮鹿成功 12% 帮鹿次数+1' },
             { cmd: '咒缚@ / 广福@ / 夜袭@', desc: '叠咒/福鹿使/窃光专属技', quota: '不占鹿咒/鹿福/偷鹿配额 · 1 次/日' },
         ],
     },

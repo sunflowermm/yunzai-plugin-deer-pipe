@@ -1,10 +1,12 @@
 import path from 'path';
-import fs from "fs";
+import { pathToFileURL } from 'node:url';
+import { FileUtils } from '../../../lib/utils/file-utils.js';
+import { DEER_FONT } from '../constants/core.js';
 
 export default class Base {
     static pluginName = (() => {
         const packageJsonPath = path.join('./plugins', 'yunzai-plugin-deer-pipe', 'package.json');
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        const packageJson = JSON.parse(FileUtils.readFileSync(packageJsonPath, 'utf8'));
         return packageJson.name;
     })();
     constructor (e = {}) {
@@ -28,7 +30,8 @@ export default class Base {
             saveId: this.userId,
             tplFile: `./plugins/${Base.pluginName}/resources/html/${this.model}/${this.model}.html`,
             /** 绝对路径 */
-            pluResPath: `${this._path}/plugins/${Base.pluginName}/resources/`
+            pluResPath: `${this._path}/plugins/${Base.pluginName}/resources/`,
+            assetFontUrl: pathToFileURL(DEER_FONT).href,
         }
     }
 }

@@ -1,8 +1,7 @@
 import sharp from 'sharp';
-import { pathToFileURL } from 'node:url';
-import { DEER_FONT } from '../constants/core.js';
+import { getFontBase64DataUri } from '../constants/core.js';
 import { QQ_AVATAR } from '../constants/game.js';
-import { compositeToPng, px, SVG_RASTER_DPI } from './render-pipeline.js';
+import { compositeToPng, PNG_OUT, px, SVG_RASTER_DPI } from './render-pipeline.js';
 
 export function escapeXml(text) {
     return String(text)
@@ -18,8 +17,7 @@ export function truncText(text, max = 16) {
 }
 
 function svgFontFace() {
-    const uri = pathToFileURL(DEER_FONT).href;
-    return `@font-face{font-family:'DeerFont';src:url('${uri}') format('truetype');}`;
+    return `@font-face{font-family:'DeerFont';src:url('${getFontBase64DataUri()}') format('truetype');font-weight:normal;font-style:normal;}`;
 }
 
 export const SVG_FONT = 'font-family="DeerFont,sans-serif"';
@@ -577,8 +575,7 @@ export async function renderStyledCard(width, height, innerSvg, themeKey = 'misc
         `<linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`,
     );
     const svgLayer = await sharp(svg, { density: SVG_RASTER_DPI })
-        .resize(w, h, { fit: 'fill' })
-        .png()
+        .png(PNG_OUT)
         .toBuffer();
     return compositeToPng(w, h, [{ input: svgLayer, top: 0, left: 0 }, ...overlays]);
 }
