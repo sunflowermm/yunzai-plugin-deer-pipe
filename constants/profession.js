@@ -126,10 +126,6 @@ export const PROFESSION_ALIASES = {
     窃光: 'rogue',
 };
 
-function formatQuotaBrief(profId) {
-    return formatProfessionQuotaSummary(profId, 'brief');
-}
-
 function formatProfessionPerk(p) {
     const parts = [];
     if (p.safeBonus) parts.push(`安全+${p.safeBonus}`);

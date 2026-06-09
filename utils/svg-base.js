@@ -29,7 +29,7 @@ export const TXT = `${SVG_FONT} filter="url(#txtShadow)"`;
 export const TXT_SOFT = `${SVG_FONT} filter="url(#txtSoft)"`;
 /** 无阴影（emoji、高对比小字） */
 export const TXT_PLAIN = SVG_FONT;
-/** emoji 专用（勿用 MiSans，否则 sharp 渲染为黑块） */
+/** emoji 专用（勿用 DeerFont，否则 sharp 渲染为黑块） */
 export const TXT_EMOJI = 'font-family="Segoe UI Emoji,Apple Color Emoji,Noto Color Emoji,sans-serif"';
 
 const SVG_FILTER_DEFS = `
@@ -41,7 +41,7 @@ const SVG_FILTER_DEFS = `
     </filter>
 `;
 
-/** 带 MiSans + 文字阴影的 SVG 包装 */
+/** 带 DeerFont + 文字阴影的 SVG 包装 */
 export function svgTextStyled(content, width, height, extra = '') {
     return Buffer.from(
         `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -391,7 +391,7 @@ export function buildSectionTitle(cx, y, text, theme) {
     return textCentered(cx, y, escapeXml(text), TXT_SOFT, { size: 14, fill: theme.muted, weight: 'bold' });
 }
 
-/** 单行 emoji（勿用 MiSans） */
+/** 单行 emoji（勿用 DeerFont） */
 export function textEmoji(x, y, emoji, { size = 20, anchor = 'start' } = {}) {
     return `<text ${TXT_EMOJI} x="${x}" y="${y}" font-size="${size}" text-anchor="${anchor}">${escapeXml(String(emoji ?? ''))}</text>`;
 }
@@ -401,7 +401,7 @@ export function textCenteredEmoji(cx, y, emoji, { size = 24 } = {}) {
     return textEmoji(cx, y, emoji, { size, anchor: 'middle' });
 }
 
-/** 居中：emoji + 文字（tspan 混排，避免 MiSans 黑块） */
+/** 居中：emoji + 文字（tspan 混排，避免 DeerFont 黑块） */
 export function buildCenteredEmojiLine(cx, y, emoji, text, theme, maxLen = 44) {
     const line = truncText(text, maxLen);
     if (!emoji) {

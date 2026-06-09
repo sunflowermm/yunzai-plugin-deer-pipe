@@ -233,12 +233,12 @@ export async function generateImage(now, name, monthData, options = {}) {
         : '';
     compositeArray.push({
         input: svgTextStyled(`
-            <text filter="url(#txtShadow)" x="20" y="42" font-size="28" font-family="MiSans,sans-serif" fill="${titleColor}" font-weight="bold">
+            <text filter="url(#txtShadow)" x="20" y="42" font-size="28" font-family="DeerFont,sans-serif" fill="${titleColor}" font-weight="bold">
                 ${todayDead ? '💀' : '🦌'} ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')} 鹿历
             </text>
-            <text filter="url(#txtShadow)" x="20" y="78" font-size="24" font-family="MiSans,sans-serif" fill="${subColor}">${truncName(name)}</text>
-            <text filter="url(#txtShadow)" x="20" y="102" font-size="15" font-family="MiSans,sans-serif" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
-            <text filter="url(#txtShadow)" x="20" y="122" font-size="16" font-family="MiSans,sans-serif" fill="${metaColor}">
+            <text filter="url(#txtShadow)" x="20" y="78" font-size="24" font-family="DeerFont,sans-serif" fill="${subColor}">${truncName(name)}</text>
+            <text filter="url(#txtShadow)" x="20" y="102" font-size="15" font-family="DeerFont,sans-serif" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
+            <text filter="url(#txtShadow)" x="20" y="122" font-size="16" font-family="DeerFont,sans-serif" fill="${metaColor}">
                 本月净值 ${stats.total} · 活跃 ${stats.activeDays} 天 · 连击 ${stats.streak} 天
                 ${stats.deathDays > 0 ? ` · 💀${stats.deathDays}天` : ''}${deadBanner}
             </text>
@@ -252,7 +252,7 @@ export async function generateImage(now, name, monthData, options = {}) {
         compositeArray.push({
             input: svgText(`
                 <rect x="0" y="0" width="${BOX_W}" height="${BOX_H}" fill="#f0e6dc" rx="6"/>
-                <text x="${BOX_W / 2}" y="62" font-size="22" font-family="MiSans" fill="#8b6914" text-anchor="middle" font-weight="bold">${WEEK_LABELS[i]}</text>
+                <text x="${BOX_W / 2}" y="62" font-size="22" font-family="DeerFont" fill="#8b6914" text-anchor="middle" font-weight="bold">${WEEK_LABELS[i]}</text>
             `, BOX_W, BOX_H),
             top: weekY,
             left: i * BOX_W,
@@ -283,16 +283,16 @@ export async function generateImage(now, name, monthData, options = {}) {
                 input: svgText(`
                     <rect x="2" y="2" width="${BOX_W - 4}" height="${BOX_H - 4}" fill="rgb(${bg.r},${bg.g},${bg.b})" rx="8" stroke="${stroke}" stroke-width="${strokeW}"/>
                     ${dead ? `<line x1="8" y1="90" x2="${BOX_W - 8}" y2="20" stroke="#ff4444" stroke-width="2" opacity="0.5"/>` : ''}
-                    <text x="10" y="28" font-size="18" font-family="MiSans" fill="${dead ? '#888' : '#666'}">${day}</text>
+                    <text x="10" y="28" font-size="18" font-family="DeerFont" fill="${dead ? '#888' : '#666'}">${day}</text>
                     ${dead ? `
-                        <text x="${BOX_W / 2}" y="58" font-size="26" font-family="MiSans" fill="#ff6b6b" text-anchor="middle">💀</text>
-                        <text x="${BOX_W / 2}" y="82" font-size="14" font-family="MiSans" fill="#ff9999" text-anchor="middle">失${snap}</text>
-                        <text x="${BOX_W - 8}" y="18" font-size="12" font-family="MiSans" fill="#ff7777" text-anchor="end">${reasonLabel}</text>
+                        <text x="${BOX_W / 2}" y="58" font-size="26" font-family="DeerFont" fill="#ff6b6b" text-anchor="middle">💀</text>
+                        <text x="${BOX_W / 2}" y="82" font-size="14" font-family="DeerFont" fill="#ff9999" text-anchor="middle">失${snap}</text>
+                        <text x="${BOX_W - 8}" y="18" font-size="12" font-family="DeerFont" fill="#ff7777" text-anchor="end">${reasonLabel}</text>
                     ` : ''}
-                    ${!dead && count !== 0 ? `<text x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" font-family="MiSans" fill="${count < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${count > 99 ? '99+' : count < -99 ? '-99+' : count}</text>` : ''}
-                    ${!dead && count > DAILY_SAFE_LIMIT ? `<text x="8" y="48" font-size="14" font-family="MiSans" fill="#e67e22">危</text>` : ''}
-                    ${!dead && count < 0 ? `<text x="8" y="48" font-size="14" font-family="MiSans" fill="#3498db">戒</text>` : ''}
-                    ${!dead && count === 0 && isHighlight ? `<text x="${BOX_W / 2}" y="68" font-size="14" font-family="MiSans" fill="#bbb" text-anchor="middle">空</text>` : ''}
+                    ${!dead && count !== 0 ? `<text x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" font-family="DeerFont" fill="${count < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${count > 99 ? '99+' : count < -99 ? '-99+' : count}</text>` : ''}
+                    ${!dead && count > DAILY_SAFE_LIMIT ? `<text x="8" y="48" font-size="14" font-family="DeerFont" fill="#e67e22">危</text>` : ''}
+                    ${!dead && count < 0 ? `<text x="8" y="48" font-size="14" font-family="DeerFont" fill="#3498db">戒</text>` : ''}
+                    ${!dead && count === 0 && isHighlight ? `<text x="${BOX_W / 2}" y="68" font-size="14" font-family="DeerFont" fill="#bbb" text-anchor="middle">空</text>` : ''}
                 `, BOX_W, BOX_H),
                 top: y0,
                 left: x0,
@@ -349,9 +349,9 @@ export async function generateYearImage(now, name, userRecord) {
     }];
     compositeArray.push({
         input: svgText(`
-            <text x="${IMG_W / 2}" y="40" font-size="30" font-family="MiSans" fill="#ffd700" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
-            <text x="${IMG_W / 2}" y="72" font-size="22" font-family="MiSans" fill="#e8e8e8" text-anchor="middle">${truncName(name, 20)}</text>
-            <text x="${IMG_W / 2}" y="102" font-size="16" font-family="MiSans" fill="#aaa" text-anchor="middle">
+            <text x="${IMG_W / 2}" y="40" font-size="30" font-family="DeerFont" fill="#ffd700" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
+            <text x="${IMG_W / 2}" y="72" font-size="22" font-family="DeerFont" fill="#e8e8e8" text-anchor="middle">${truncName(name, 20)}</text>
+            <text x="${IMG_W / 2}" y="102" font-size="16" font-family="DeerFont" fill="#aaa" text-anchor="middle">
                 全年净值 ${stats.total} · ${stats.activeDays} 活跃日 · 💀${stats.deathDays || 0}天 · 最猛 ${stats.maxMonth}月(${stats.maxMonthCount})
             </text>
         `, IMG_W, TITLE_H),
@@ -394,8 +394,8 @@ export async function generateYearImage(now, name, userRecord) {
         compositeArray.push({
             input: svgText(`
                 <rect x="0" y="0" width="${MINI_W}" height="${MINI_H}" fill="rgb(${bg.r},${bg.g},${bg.b})" rx="10" stroke="${isCurrentMonth ? '#ffd700' : '#444'}" stroke-width="${isCurrentMonth ? 2 : 1}"/>
-                <text x="10" y="24" font-size="18" font-family="MiSans" fill="#333" font-weight="bold">${m}月</text>
-                <text x="${MINI_W - 10}" y="24" font-size="16" font-family="MiSans" fill="${total < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${total}次</text>
+                <text x="10" y="24" font-size="18" font-family="DeerFont" fill="#333" font-weight="bold">${m}月</text>
+                <text x="${MINI_W - 10}" y="24" font-size="16" font-family="DeerFont" fill="${total < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${total}次</text>
                 ${cells}
             `, MINI_W, MINI_H),
             top: y0,
