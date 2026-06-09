@@ -1,7 +1,7 @@
 import sharp from 'sharp';
-import { getFontBase64DataUri } from '../constants/core.js';
+import { DEER_FONT_FAMILY } from '../constants/core.js';
 import { QQ_AVATAR } from '../constants/game.js';
-import { compositeToPng, PNG_OUT, px, SVG_RASTER_DPI } from './render-pipeline.js';
+import { compositeToPng, px, rasterizeDeerSvg } from './render-pipeline.js';
 
 export function escapeXml(text) {
     return String(text)
@@ -16,11 +16,100 @@ export function truncText(text, max = 16) {
     return escapeXml(s.length > max ? `${s.slice(0, max)}…` : s);
 }
 
-function svgFontFace() {
-    return `@font-face{font-family:'DeerFont';src:url('${getFontBase64DataUri()}') format('truetype');font-weight:normal;font-style:normal;}`;
+function charWidth(ch, fontSize) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code <= 0x7f) return fontSize * 0.52;
+    if (code <= 0xff) return fontSize * 0.58;
+    return fontSize * 0.98;
 }
 
-export const SVG_FONT = 'font-family="DeerFont,sans-serif"';
+function lineWidth(text, fontSize) {
+    return [...String(text)].reduce((w, ch) => w + charWidth(ch, fontSize), 0);
+}
+
+function wrapLongSegment(segment, maxWidthPx, fontSize) {
+    const out = [];
+    let line = '';
+    let w = 0;
+    for (const ch of segment) {
+        const cw = charWidth(ch, fontSize);
+        if (line && w + cw > maxWidthPx) {
+            out.push(line);
+            line = ch;
+            w = cw;
+        } else {
+            line += ch;
+            w += cw;
+        }
+    }
+    if (line) out.push(line);
+    return out;
+}
+
+/** 按像素宽度换行（优先在 · 处断行） */
+export function wrapTextLines(text, maxWidthPx, fontSize, maxLines = 2) {
+    const s = String(text ?? '').trim();
+    if (!s || maxWidthPx <= 0 || maxLines < 1) return [];
+    const parts = s.split(/\s*·\s*/);
+    const lines = [];
+    let current = '';
+    let currentW = 0;
+    const sep = ' · ';
+    const sepW = lineWidth(sep, fontSize);
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const segments = lineWidth(part, fontSize) > maxWidthPx
+            ? wrapLongSegment(part, maxWidthPx, fontSize)
+            : [part];
+        for (const segment of segments) {
+            const segW = lineWidth(segment, fontSize);
+            const addSep = current.length > 0;
+            const needed = (addSep ? sepW : 0) + segW;
+            if (current && currentW + needed > maxWidthPx && lines.length < maxLines - 1) {
+                lines.push(current);
+                current = segment;
+                currentW = segW;
+            } else {
+                current = addSep ? `${current}${sep}${segment}` : segment;
+                currentW = lineWidth(current, fontSize);
+            }
+        }
+    }
+    if (current) lines.push(current);
+    if (lines.length > maxLines) {
+        const kept = lines.slice(0, maxLines);
+        const last = kept[maxLines - 1];
+        const maxChars = Math.max(4, Math.floor(maxWidthPx / fontSize));
+        if ([...last].length > maxChars) {
+            kept[maxLines - 1] = `${[...last].slice(0, maxChars).join('')}…`;
+        }
+        return kept;
+    }
+    return lines;
+}
+
+/** 左对齐多行 SVG 文本 */
+export function buildMultilineText(x, startY, lines, {
+    style = TXT_SOFT,
+    fontSize = 12,
+    lineHeight = 15,
+    fill = '#000',
+    weight = '',
+} = {}) {
+    if (!lines?.length) return '';
+    const weightAttr = weight ? ` font-weight="${weight}"` : '';
+    const tspans = lines.map((line, i) =>
+        `<tspan x="${x}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`,
+    ).join('');
+    return `<text ${style} x="${x}" y="${startY}" font-size="${fontSize}" fill="${fill}"${weightAttr}>${tspans}</text>`;
+}
+
+function svgFontFace() {
+    return `@font-face{font-family:'${DEER_FONT_FAMILY}';src:local('${DEER_FONT_FAMILY}');font-weight:normal;font-style:normal;}`;
+}
+
+export const SVG_FONT = `font-family="${DEER_FONT_FAMILY},sans-serif"`;
 /** 标题级阴影（略轻，减轻重影） */
 export const TXT = `${SVG_FONT} filter="url(#txtShadow)"`;
 /** 正文 / chip 轻阴影 */
@@ -530,21 +619,27 @@ export function buildSideArtCell({
     x, y, cellW, cellH, artSize, artPad = 10, theme,
     title, subtitle = '', meta = '', badgeText = '', badgeKind = 'neutral',
     titleSize = 17, subSize = 12, metaSize = 11,
+    subtitleMaxLines = 2, metaMaxLines = 2,
 }) {
     const artLeft = px(x + artPad);
     const artTop = px(y + Math.round((cellH - artSize) / 2));
     const textLeft = artLeft + artSize + 12;
-    const titleY = y + Math.round(cellH * (meta ? 0.34 : 0.42));
-    const subY = titleY + 18;
-    const metaY = subY + 16;
+    const textPadRight = badgeText ? 58 : 8;
+    const textMaxW = cellW - (textLeft - x) - textPadRight;
+    const subLineH = subSize + 3;
+    const metaLineH = metaSize + 3;
+    const subLines = subtitle ? wrapTextLines(subtitle, textMaxW, subSize, subtitleMaxLines) : [];
+    const metaLines = meta ? wrapTextLines(meta, textMaxW, metaSize, metaMaxLines) : [];
+    const titleY = y + 18;
+    let cursorY = titleY + titleSize + 5;
     const badgeCx = x + cellW - 56;
     const badgeY = y + cellH - 30;
     const svg = `
         <rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.2"/>
         <rect x="${artLeft}" y="${artTop}" width="${artSize}" height="${artSize}" rx="10" fill="${theme.highlight}" opacity="0.28"/>
         <text ${TXT} x="${textLeft}" y="${titleY}" font-size="${titleSize}" fill="${theme.title}" font-weight="bold">${escapeXml(title)}</text>
-        ${subtitle ? `<text ${TXT_SOFT} x="${textLeft}" y="${subY}" font-size="${subSize}" fill="${theme.muted}">${truncText(subtitle, 22)}</text>` : ''}
-        ${meta ? `<text ${TXT_SOFT} x="${textLeft}" y="${metaY}" font-size="${metaSize}" fill="${theme.sub}">${truncText(meta, 28)}</text>` : ''}
+        ${subLines.length ? buildMultilineText(textLeft, cursorY, subLines, { fontSize: subSize, lineHeight: subLineH, fill: theme.muted }) : ''}
+        ${metaLines.length ? buildMultilineText(textLeft, cursorY + subLines.length * subLineH + 2, metaLines, { fontSize: metaSize, lineHeight: metaLineH, fill: theme.sub }) : ''}
         ${badgeText ? buildRibbonBadge(badgeCx, badgeY, badgeText, badgeKind) : ''}
     `;
     return { svg, artLeft, artTop, artSize };
@@ -622,8 +717,6 @@ export async function renderStyledCard(width, height, innerSvg, themeKey = 'misc
         h,
         `<linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`,
     );
-    const svgLayer = await sharp(svg, { density: SVG_RASTER_DPI })
-        .png(PNG_OUT)
-        .toBuffer();
+    const svgLayer = rasterizeDeerSvg(svg);
     return compositeToPng(w, h, [{ input: svgLayer, top: 0, left: 0 }, ...overlays]);
 }

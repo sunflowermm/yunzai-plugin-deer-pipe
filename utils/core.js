@@ -152,12 +152,12 @@ export async function generateImage(now, name, monthData, options = {}) {
         : '';
     compositeArray.push({
         input: svgTextStyled(`
-            <text filter="url(#txtShadow)" x="20" y="42" font-size="28" font-family="DeerFont,sans-serif" fill="${titleColor}" font-weight="bold">
+            <text filter="url(#txtShadow)" x="20" y="42" font-size="28" font-family="FZBenMoYueYiTiS,sans-serif" fill="${titleColor}" font-weight="bold">
                 ${todayDead ? '💀' : '🦌'} ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')} 鹿历
             </text>
-            <text filter="url(#txtShadow)" x="20" y="78" font-size="24" font-family="DeerFont,sans-serif" fill="${subColor}">${truncName(name)}</text>
-            <text filter="url(#txtShadow)" x="20" y="102" font-size="15" font-family="DeerFont,sans-serif" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
-            <text filter="url(#txtShadow)" x="20" y="122" font-size="16" font-family="DeerFont,sans-serif" fill="${metaColor}">
+            <text filter="url(#txtShadow)" x="20" y="78" font-size="24" font-family="FZBenMoYueYiTiS,sans-serif" fill="${subColor}">${truncName(name)}</text>
+            <text filter="url(#txtShadow)" x="20" y="102" font-size="15" font-family="FZBenMoYueYiTiS,sans-serif" fill="${metaColor}" font-style="italic">${escapeXml(pickRandom(CALENDAR_TAGLINES))}</text>
+            <text filter="url(#txtShadow)" x="20" y="122" font-size="16" font-family="FZBenMoYueYiTiS,sans-serif" fill="${metaColor}">
                 本月净值 ${stats.total} · 活跃 ${stats.activeDays} 天 · 连击 ${stats.streak} 天
                 ${stats.deathDays > 0 ? ` · 💀${stats.deathDays}天` : ''}${deadBanner}
             </text>

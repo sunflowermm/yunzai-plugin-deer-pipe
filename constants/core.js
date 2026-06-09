@@ -8,6 +8,7 @@ export {
     DEERPIPE_LOGO,
     CHECK_MARK,
     DEER_FONT,
+    DEER_FONT_FAMILY,
     getFontBase64DataUri,
     HELP_SECTION_ART,
     verifyArtManifest,

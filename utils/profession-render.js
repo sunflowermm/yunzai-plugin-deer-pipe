@@ -30,6 +30,7 @@ import {
     buildCardDecorations,
     buildCenteredPanel,
     buildFooterBar,
+    buildMultilineText,
     buildQuotaBarStack,
     buildRibbonBadge,
     buildSectionTitle,
@@ -42,6 +43,7 @@ import {
     sectionIconSlot,
     textCentered,
     truncText,
+    wrapTextLines,
     TXT,
     TXT_SOFT,
 } from './svg-base.js';
@@ -57,7 +59,7 @@ const CATALOG_COLS = 2;
 const CATALOG_PAD_X = 20;
 const CATALOG_GAP = 14;
 const CATALOG_CELL_W = 324;
-const CATALOG_CELL_H = 118;
+const CATALOG_CELL_H = 128;
 const CATALOG_THUMB = 84;
 const CATALOG_BANNER_TOP = 32;
 const CATALOG_BANNER_H = 76;
@@ -223,6 +225,11 @@ export async function generateProfessionCard(professionId, opts = {}) {
     return renderStyledCard(CARD_W, H, inner, 'profession', overlays.filter(Boolean));
 }
 
+const SYNERGY_TEXT_MAX_W = CATALOG_CELL_W - 34;
+const SYNERGY_LINE_H = 14;
+const SYNERGY_BLOCK_LINES = 2;
+const SYNERGY_ROW_H = SYNERGY_LINE_H * SYNERGY_BLOCK_LINES + 8;
+
 async function buildSynergyGrid(theme, topY) {
     const ids = Object.keys(PROFESSIONS);
     const rows = Math.ceil(ids.length / CATALOG_COLS);
@@ -234,13 +241,19 @@ async function buildSynergyGrid(theme, topY) {
         const col = i % CATALOG_COLS;
         const row = Math.floor(i / CATALOG_COLS);
         const x = CATALOG_PAD_X + col * (colW + CATALOG_GAP);
-        const lineY = y + row * 20;
-        const emojiImg = await emojiSvgImage(x + 14, lineY - 8, p.emoji, 16);
-        const tip = truncText(p.synergyTip || p.tagline, 26);
-        return `${emojiImg}<text ${TXT_SOFT} x="${x + 28}" y="${lineY}" font-size="12" fill="${theme.line}">${escapeXml(tip)}</text>`;
+        const blockTop = y + row * SYNERGY_ROW_H;
+        const emojiCy = blockTop + SYNERGY_ROW_H / 2 + 2;
+        const emojiImg = await emojiSvgImage(x + 14, emojiCy, p.emoji, 16);
+        const tipLines = wrapTextLines(p.synergyTip || p.tagline, SYNERGY_TEXT_MAX_W, 12, SYNERGY_BLOCK_LINES);
+        const textBlock = buildMultilineText(x + 28, blockTop + 12, tipLines, {
+            fontSize: 12,
+            lineHeight: SYNERGY_LINE_H,
+            fill: theme.line,
+        });
+        return `${emojiImg}${textBlock}`;
     }));
     svg += lines.join('');
-    return { svg, height: 22 + rows * 20 + 12 };
+    return { svg, height: 22 + rows * SYNERGY_ROW_H + 12 };
 }
 
 async function buildSkillsGrid(theme, topY) {

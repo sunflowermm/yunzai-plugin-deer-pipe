@@ -3,7 +3,7 @@
  */
 import sharp from 'sharp';
 import { stickerOverlay } from './render-pipeline.js';
-import { textCenteredEmoji } from './svg-base.js';
+import { textCenteredEmoji, TXT } from './svg-base.js';
 
 const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72';
 const rasterCache = new Map();
@@ -73,7 +73,7 @@ export async function emojiStickerOverlay(emoji, top, left, size) {
 export async function buildCenteredEmojiTitleRaster(cx, y, emoji, title, {
     emojiSize = 18,
     titleSize = 14,
-    style = '',
+    style = TXT,
     fill = '',
     weight = 'bold',
 } = {}) {

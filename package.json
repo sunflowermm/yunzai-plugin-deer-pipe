@@ -3,6 +3,7 @@
   "description": "yunzai-plugin-deer-pipe，yuanzai机器人的🦌管签到",
   "type": "module",
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "sharp": "^0.33.5"
   }
 }

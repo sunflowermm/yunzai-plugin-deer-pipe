@@ -1,16 +1,19 @@
 import path from 'path';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
 import { PROFESSIONS } from './profession.js';
 import { QUOTA_GROUPS } from './profession-quotas.js';
 
-const PLUGIN_ROOT = path.resolve('./plugins/yunzai-plugin-deer-pipe');
+const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export const PLUGIN_PATH = PLUGIN_ROOT;
 export const ASSET_ROOT = `${PLUGIN_ROOT}/assets`;
 export const DEERPIPE_LOGO = `${ASSET_ROOT}/deerpipe@100x82.png`;
 export const CHECK_MARK = `${ASSET_ROOT}/check@96x100.png`;
 export const DEER_FONT = `${ASSET_ROOT}/Genshin.ttf`;
+/** Genshin.ttf 内嵌 PostScript 名，resvg 须用此 family 匹配 */
+export const DEER_FONT_FAMILY = 'FZBenMoYueYiTiS';
 
 let _fontB64Cache = null;
 
