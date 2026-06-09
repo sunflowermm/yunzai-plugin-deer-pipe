@@ -1,6 +1,5 @@
 import { ERROR_MESSAGES, UI_MESSAGES } from '../constants/game.js';
 import { REG, cleanCommandMsg, formatMonthLabel, parseViewMonthToken } from '../constants/commands.js';
-import { PROFESSION_LIST_TEXT, PROFESSION_SYNERGY_TEXT } from '../constants/profession.js';
 import {
     getHelperQuotaSnapshot,
     getMonthData,
@@ -157,8 +156,12 @@ export class DeerPipe extends plugin {
     }
 
     async professionInfo() {
-        const text = await this.buildQuotaReplyText('all', true);
-        await replyProfessionCatalog(this.e, { text });
+        const { user_id } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
+        const snapshot = getHelperQuotaSnapshot(monthData, day);
+        await replyProfessionCatalog(this.e, { snapshot });
     }
 
     async helperQuotaInfo() {
@@ -166,32 +169,26 @@ export class DeerPipe extends plugin {
         const date = new Date();
         const day = date.getDate();
         const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
-        const text = await this.buildQuotaReplyText('all', false);
-        await replyUserProfessionPanel(this.e, { monthData, day, text });
+        await replyUserProfessionPanel(this.e, { monthData, day });
     }
 
     async helpLuQuotaInfo() {
-        const text = await this.buildQuotaReplyText('help', false);
+        const text = await this.buildQuotaReplyText('help');
         await this.reply(text, true);
     }
 
     async helpWithdrawQuotaInfo() {
-        const text = await this.buildQuotaReplyText('withdraw', false);
+        const text = await this.buildQuotaReplyText('withdraw');
         await this.reply(text, true);
     }
 
-    async buildQuotaReplyText(mode, withCatalog) {
+    async buildQuotaReplyText(mode) {
         const { user_id } = this.e.sender;
         const date = new Date();
         const day = date.getDate();
         const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
         const snapshot = getHelperQuotaSnapshot(monthData, day);
-        const lines = [formatHelperQuotaReply(snapshot, mode)];
-        if (withCatalog) {
-            lines.push('——', PROFESSION_LIST_TEXT, '——', '联动', PROFESSION_SYNERGY_TEXT);
-            lines.push('——', '专属技（1次/日）', '鹿技 · 鹿巡 · 愈鹿@ · 清规@ · 卷王冲');
-        }
-        return lines.join('\n');
+        return formatHelperQuotaReply(snapshot, mode);
     }
 
     async transferProfession() {

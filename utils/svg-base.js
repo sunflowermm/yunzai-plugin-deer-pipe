@@ -1,7 +1,8 @@
 import sharp from 'sharp';
 import { pathToFileURL } from 'node:url';
-import { MISANS_FONT } from '../constants/core.js';
+import { DEER_FONT } from '../constants/core.js';
 import { QQ_AVATAR } from '../constants/game.js';
+import { compositeToPng, px, SVG_RASTER_DPI } from './render-pipeline.js';
 
 export function escapeXml(text) {
     return String(text)
@@ -17,11 +18,11 @@ export function truncText(text, max = 16) {
 }
 
 function svgFontFace() {
-    const uri = pathToFileURL(MISANS_FONT).href;
-    return `@font-face{font-family:'MiSans';src:url('${uri}') format('truetype');}`;
+    const uri = pathToFileURL(DEER_FONT).href;
+    return `@font-face{font-family:'DeerFont';src:url('${uri}') format('truetype');}`;
 }
 
-export const SVG_FONT = 'font-family="MiSans,sans-serif"';
+export const SVG_FONT = 'font-family="DeerFont,sans-serif"';
 /** 标题级阴影（略轻，减轻重影） */
 export const TXT = `${SVG_FONT} filter="url(#txtShadow)"`;
 /** 正文 / chip 轻阴影 */
@@ -308,6 +309,18 @@ const QUOTA_LABEL_W = 36;
 const QUOTA_COUNT_W = 36;
 const QUOTA_INNER_GAP = 8;
 
+/** 配额条整行宽度（与 buildQuotaBarRow 一致） */
+export function quotaRowWidth(barW = QUOTA_BAR_W) {
+    return QUOTA_LABEL_W + QUOTA_INNER_GAP + barW + QUOTA_INNER_GAP + QUOTA_COUNT_W;
+}
+
+/** 分区贴图槽：贴在居中配额条左侧，与节标题同一行 */
+export function sectionIconSlot(cx, y, iconSize) {
+    const left = px(cx - quotaRowWidth() / 2 - iconSize - 10);
+    const top = px(y - iconSize + 2);
+    return { left, top };
+}
+
 /** 水平居中面板 */
 export function buildCenteredPanel(cx, top, width, height, theme) {
     return `<rect x="${cx - width / 2}" y="${top}" width="${width}" height="${height}" rx="10" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1"/>`;
@@ -469,20 +482,23 @@ export function buildRibbonBadge(cx, y, text, kind = 'win') {
  */
 export function buildSideArtCell({
     x, y, cellW, cellH, artSize, artPad = 10, theme,
-    title, subtitle = '', badgeText = '', badgeKind = 'neutral',
+    title, subtitle = '', meta = '', badgeText = '', badgeKind = 'neutral',
+    titleSize = 17, subSize = 12, metaSize = 11,
 }) {
-    const artLeft = x + artPad;
-    const artTop = y + Math.round((cellH - artSize) / 2);
+    const artLeft = px(x + artPad);
+    const artTop = px(y + Math.round((cellH - artSize) / 2));
     const textLeft = artLeft + artSize + 12;
-    const titleY = y + Math.round(cellH * 0.42);
-    const subY = titleY + 20;
+    const titleY = y + Math.round(cellH * (meta ? 0.34 : 0.42));
+    const subY = titleY + 18;
+    const metaY = subY + 16;
     const badgeCx = x + cellW - 56;
     const badgeY = y + cellH - 30;
     const svg = `
         <rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.2"/>
         <rect x="${artLeft}" y="${artTop}" width="${artSize}" height="${artSize}" rx="10" fill="${theme.highlight}" opacity="0.28"/>
-        <text ${TXT} x="${textLeft}" y="${titleY}" font-size="17" fill="${theme.title}" font-weight="bold">${escapeXml(title)}</text>
-        ${subtitle ? `<text ${TXT_SOFT} x="${textLeft}" y="${subY}" font-size="12" fill="${theme.muted}">${truncText(subtitle, 20)}</text>` : ''}
+        <text ${TXT} x="${textLeft}" y="${titleY}" font-size="${titleSize}" fill="${theme.title}" font-weight="bold">${escapeXml(title)}</text>
+        ${subtitle ? `<text ${TXT_SOFT} x="${textLeft}" y="${subY}" font-size="${subSize}" fill="${theme.muted}">${truncText(subtitle, 22)}</text>` : ''}
+        ${meta ? `<text ${TXT_SOFT} x="${textLeft}" y="${metaY}" font-size="${metaSize}" fill="${theme.sub}">${truncText(meta, 28)}</text>` : ''}
         ${badgeText ? buildRibbonBadge(badgeCx, badgeY, badgeText, badgeKind) : ''}
     `;
     return { svg, artLeft, artTop, artSize };
@@ -552,17 +568,17 @@ export async function fetchCircleAvatar(userId, size = 68, ringColor = null) {
 
 export async function renderStyledCard(width, height, innerSvg, themeKey = 'mischief', overlays = []) {
     const theme = CARD_THEMES[themeKey] || CARD_THEMES.mischief;
+    const w = px(width);
+    const h = px(height);
     const svg = svgTextStyled(
         innerSvg,
-        width,
-        height,
+        w,
+        h,
         `<linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`,
     );
-    const layers = [{ input: svg, top: 0, left: 0 }, ...overlays];
-    return sharp({
-        create: { width, height, channels: 4, background: { r: 255, g: 245, b: 235, alpha: 1 } },
-    })
-        .composite(layers)
+    const svgLayer = await sharp(svg, { density: SVG_RASTER_DPI })
+        .resize(w, h, { fit: 'fill' })
         .png()
         .toBuffer();
+    return compositeToPng(w, h, [{ input: svgLayer, top: 0, left: 0 }, ...overlays]);
 }

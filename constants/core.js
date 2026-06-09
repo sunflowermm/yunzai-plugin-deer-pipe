@@ -7,6 +7,7 @@ export {
     PROFESSION_CATALOG_ART,
     DEERPIPE_LOGO,
     CHECK_MARK,
+    DEER_FONT,
     MISANS_FONT,
     HELP_SECTION_ART,
     verifyArtManifest,

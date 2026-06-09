@@ -79,14 +79,13 @@ export async function replyWeatherCard(e, { caption, imageBuffer }) {
     await e.reply(parts, true);
 }
 
-/** 职业一览图 + 文案 */
-export async function replyProfessionCatalog(e, { text }) {
-    const raw = await generateProfessionCatalogImage();
-    const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
-    await e.reply(parts, true);
+/** 职业一览图（配额/联动/专属技已渲染进图） */
+export async function replyProfessionCatalog(e, { snapshot } = {}) {
+    const raw = await generateProfessionCatalogImage({ snapshot });
+    await e.reply([segment.image(raw)], true);
 }
 
-/** 用户当日职业配额面板（含已用） */
+/** 用户当日职业配额面板（含已用，纯图） */
 export async function replyUserProfessionPanel(e, { monthData, day, text }) {
     const raw = await generateUserProfessionPanel(monthData, day);
     const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];

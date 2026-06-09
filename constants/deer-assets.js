@@ -9,7 +9,12 @@ export const PLUGIN_PATH = PLUGIN_ROOT;
 export const ASSET_ROOT = `${PLUGIN_ROOT}/assets`;
 export const DEERPIPE_LOGO = `${ASSET_ROOT}/deerpipe@100x82.png`;
 export const CHECK_MARK = `${ASSET_ROOT}/check@96x100.png`;
-export const MISANS_FONT = `${ASSET_ROOT}/MiSans-Regular.ttf`;
+/** 优先向日葵 XRK-plugin 帮助图字体，缺失时回退插件内 MiSans */
+const XRK_GENSHIN_FONT = path.resolve('./plugins/XRK-plugin/resources/help/fonts/Genshin.ttf');
+const LOCAL_MISANS_FONT = `${ASSET_ROOT}/MiSans-Regular.ttf`;
+export const DEER_FONT = FileUtils.existsSync(XRK_GENSHIN_FONT) ? XRK_GENSHIN_FONT : LOCAL_MISANS_FONT;
+/** @deprecated 使用 DEER_FONT */
+export const MISANS_FONT = DEER_FONT;
 export const PROFESSION_CATALOG_ART = `${ASSET_ROOT}/professions/catalog.png`;
 
 export function professionArtPath(professionId) {

@@ -1,4 +1,3 @@
-import sharp from 'sharp';
 import { HELP_SECTION_ART } from '../constants/deer-assets.js';
 import { escapeXml, truncText, textCentered, textEmoji, TXT, TXT_SOFT, svgTextStyled } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
@@ -15,6 +14,7 @@ import {
     loadSectionArt,
     stickerOverlay,
 } from './sticker-compose.js';
+import { compositeToPng } from './render-pipeline.js';
 
 const IMG_W = 720;
 const PAD = 20;
@@ -126,17 +126,7 @@ async function composePage(pageDef, pageIndex, totalPages) {
         y += 6 + sec.items.length * (LINE_H + ITEM_EXTRA) + SECTION_GAP;
     }
 
-    return sharp({
-        create: {
-            width: IMG_W,
-            height: imgH,
-            channels: 4,
-            background: { r: 255, g: 245, b: 235, alpha: 1 },
-        },
-    })
-        .composite(layers)
-        .png()
-        .toBuffer();
+    return compositeToPng(IMG_W, imgH, layers, { r: 255, g: 245, b: 235, alpha: 1 });
 }
 
 /** 生成双页鹿帮助图 */

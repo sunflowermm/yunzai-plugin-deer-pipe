@@ -1,7 +1,7 @@
-import sharp from 'sharp';
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
 import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs, textCentered, textCenteredEmoji, buildFooterBar, buildCenteredPanel, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, buildSectionTitle, buildCenteredEmojiLine, TXT, TXT_SOFT } from './svg-base.js';
 import { loadCalendarDeerMark, loadCheckMark, loadProfessionArt, loadSectionArt, loadSkillArt, stickerOverlay } from './sticker-compose.js';
+import { compositeToPng } from './render-pipeline.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
 import {
     calcMonthStats,
@@ -314,12 +314,7 @@ export async function generateImage(now, name, monthData, options = {}) {
         }
     }
 
-    return sharp({
-        create: { width: IMG_W, height: IMG_H, channels: 4, background: { r: 255, g: 248, b: 240, alpha: 1 } },
-    })
-        .composite(compositeArray)
-        .png()
-        .toBuffer();
+    return compositeToPng(IMG_W, IMG_H, compositeArray, { r: 255, g: 248, b: 240, alpha: 1 });
 }
 
 /**
@@ -408,12 +403,7 @@ export async function generateYearImage(now, name, userRecord) {
         });
     }
 
-    return sharp({
-        create: { width: IMG_W, height: IMG_H, channels: 4, background: { r: 26, g: 26, b: 46, alpha: 1 } },
-    })
-        .composite(compositeArray)
-        .png()
-        .toBuffer();
+    return compositeToPng(IMG_W, IMG_H, compositeArray, { r: 26, g: 26, b: 46, alpha: 1 });
 }
 
 /** 今日鹿况渲染图 */
@@ -535,7 +525,7 @@ export async function generateStatusImage(now, name, status) {
 
     const [profThumb, helpIcon, harmIcon, pvpIcon, skillIcon] = await Promise.all([
         (!status.professionRequired && status.professionId)
-            ? loadProfessionArt(status.professionId, 76, { fitScale: 0.9, borderWidth: 2, radius: 12 })
+            ? loadProfessionArt(status.professionId, 76, { borderWidth: 2, radius: 12 })
             : null,
         loadSectionArt('help', 30),
         loadSectionArt('harm', 30),
@@ -580,10 +570,5 @@ export async function generateStatusImage(now, name, status) {
     if (pvpTitleOverlay) layers.push(pvpTitleOverlay);
     const skillOverlay = skillIcon ? stickerOverlay(skillIcon, gridTop + gridRows * GRID_GAP_Y - 8, W - 72) : null;
     if (skillOverlay) layers.push(skillOverlay);
-    return sharp({
-        create: { width: W, height: H, channels: 4, background: { r: 255, g: 245, b: 235, alpha: 1 } },
-    })
-        .composite(layers)
-        .png()
-        .toBuffer();
+    return compositeToPng(W, H, layers);
 }
