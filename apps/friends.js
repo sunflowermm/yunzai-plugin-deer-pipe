@@ -50,7 +50,7 @@ export class Friends extends plugin {
             listTitle,
             friendCount: friendsData.length,
         });
-        return screenshot('friends', data);
+        return screenshot('yunzai-plugin-deer-pipe/friends/friends', data);
     }
 
     async addDeerFriend(e) {

@@ -107,7 +107,7 @@ export class LeaderboardApp extends plugin {
             rankFooter: 'yunzai-plugin-deer-pipe · 上榜合计为净值之和',
             sumUnit: '次',
         });
-        const img = await screenshot('leaderboard', data);
+        const img = await screenshot('yunzai-plugin-deer-pipe/leaderboard/leaderboard', data);
         e.reply(img);
     }
 
@@ -163,7 +163,7 @@ export class LeaderboardApp extends plugin {
             rankFooter: getSpecialRankFooter(board),
             sumUnit: unit,
         });
-        const img = await screenshot('leaderboard', data);
+        const img = await screenshot('yunzai-plugin-deer-pipe/leaderboard/leaderboard', data);
         e.reply(img);
     }
 

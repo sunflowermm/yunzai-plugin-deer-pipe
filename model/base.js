@@ -1,7 +1,6 @@
 import path from 'path';
-import { pathToFileURL } from 'node:url';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
-import { DEER_FONT } from '../constants/core.js';
+import { getFontBase64DataUri } from '../constants/core.js';
 
 export default class Base {
     static pluginName = (() => {
@@ -31,7 +30,7 @@ export default class Base {
             tplFile: `./plugins/${Base.pluginName}/resources/html/${this.model}/${this.model}.html`,
             /** 绝对路径 */
             pluResPath: `${this._path}/plugins/${Base.pluginName}/resources/`,
-            assetFontUrl: pathToFileURL(DEER_FONT).href,
+            assetFontUrl: getFontBase64DataUri(),
         }
     }
 }

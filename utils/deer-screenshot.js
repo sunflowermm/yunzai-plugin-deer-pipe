@@ -1,17 +1,18 @@
 /**
- * 鹿管截图：统一走 XRK-Yunzai RendererLoader（与排行榜/好友等 HTML 模板一致）
+ * 鹿管截图：统一走 XRK-Yunzai RendererLoader（与 runtime.render / TRSS 一致）
+ * tplFile 必须保持相对路径，否则会跳过 art-template 编译。
  */
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import RendererLoader from '../../../lib/renderer/loader.js';
-import { DEER_FONT } from '../constants/core.js';
+import { DEER_FONT, getFontBase64DataUri } from '../constants/core.js';
 
 /** 用户触发类截图：低精度、快出图 */
 export const DEER_SHOT_FAST = Object.freeze({
     deviceScaleFactor: 1,
     waitUntil: 'domcontentloaded',
     imageWaitTimeout: 300,
-    fontWaitTimeout: 400,
+    fontWaitTimeout: 800,
     delayBeforeScreenshot: 0,
     waitImages: true,
     waitFonts: true,
@@ -43,32 +44,68 @@ export function getRenderer() {
     return RendererLoader.getRenderer?.() ?? global.RendererLoader?.getRenderer?.();
 }
 
-/** 本地 Genshin 字体 file://，供 HTML 模板 @font-face */
+/** 本地 Genshin 字体 file://（resourceRewrite 兜底） */
 export function getDeerFontFileUrl() {
     return pathToFileURL(path.resolve(DEER_FONT)).href;
 }
 
+/** Puppeteer 字体 resourceRewrite（对齐 XRK-plugin 天气截图） */
+export function buildDeerFontResourceRewrite() {
+    const fontPath = path.resolve(DEER_FONT);
+    return [
+        { match: 'Genshin.ttf', toFile: fontPath, contentType: 'font/ttf' },
+        { match: 'assets/Genshin.ttf', toFile: fontPath, contentType: 'font/ttf' },
+    ];
+}
+
+function normalizeTplFile(tplFile) {
+    if (!tplFile || typeof tplFile !== 'string') return tplFile;
+    const normalized = tplFile.replace(/\\/g, '/');
+    if (normalized.startsWith('./')) return normalized;
+    const cwd = process.cwd().replace(/\\/g, '/');
+    if (normalized.startsWith(cwd)) {
+        return `.${normalized.slice(cwd.length)}`;
+    }
+    return `./${normalized.replace(/^\/+/, '')}`;
+}
+
+function ensureHtmlFontFields(shot) {
+    if (!shot.assetFontUrl || String(shot.assetFontUrl).startsWith('file:')) {
+        shot.assetFontUrl = getFontBase64DataUri();
+    }
+    const rewrites = buildDeerFontResourceRewrite();
+    shot.resourceRewrite = [
+        ...(Array.isArray(shot.resourceRewrite) ? shot.resourceRewrite : []),
+        ...rewrites,
+    ];
+    return shot;
+}
+
 /**
  * HTML 模板截图（art-template 数据同 puppeteer.screenshot）
+ * @param {string} name 模板缓存名（如 yunzai-plugin-deer-pipe/leaderboard/leaderboard）
  * @returns {Promise<import('segment').image|false|null>}
  */
-export async function screenshot(saveId, data = {}, options = {}) {
+export async function screenshot(name, data = {}, options = {}) {
     const renderer = getRenderer();
-    if (!renderer?.render) return false;
-    const shot = {
+    const shotFn = renderer?.screenshot ?? renderer?.render;
+    if (!shotFn) return false;
+
+    const shot = ensureHtmlFontFields({
         ...DEER_SHOT_FAST,
         ...data,
         ...options,
-    };
-    if (shot.tplFile && !path.isAbsolute(shot.tplFile)) {
-        shot.tplFile = path.resolve(process.cwd(), shot.tplFile);
+    });
+    if (shot.tplFile) {
+        shot.tplFile = normalizeTplFile(shot.tplFile);
     }
+
     try {
-        const raw = await renderer.render(saveId, shot);
+        const raw = await shotFn.call(renderer, name, shot);
         const buf = toImageBuffer(raw);
         return buf ? segment.image(buf) : false;
     } catch (err) {
-        logger?.error?.(`[deer-pipe] 截图失败 ${saveId}: ${err.message}`);
+        logger?.error?.(`[deer-pipe] 截图失败 ${name}: ${err.message}`);
         return false;
     }
 }

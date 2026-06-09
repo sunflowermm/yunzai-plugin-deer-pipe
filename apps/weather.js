@@ -24,7 +24,9 @@ import { REG, cleanCommandMsg } from '../constants/commands.js';
 
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
-import { generateWeatherCatalogImage, generateWeatherDetailImage } from '../utils/card-render.js';
+import { generateWeatherDetailImage } from '../utils/card-render.js';
+import { screenshot, toImageBuffer } from '../utils/deer-screenshot.js';
+import WeatherCatalog from '../model/weather-catalog.js';
 import { replyWeatherCard, replyInteractionResult } from '../utils/panel.js';
 
 export class DeerWeather extends plugin {
@@ -84,11 +86,12 @@ export class DeerWeather extends plugin {
     async weatherCatalog() {
         const date = new Date();
         const { state } = await getWeatherContext(date);
-        const img = await generateWeatherCatalogImage(state?.weatherId);
+        const data = new WeatherCatalog(this.e).getData(state?.weatherId);
+        const shot = await screenshot('yunzai-plugin-deer-pipe/weather-catalog/weather-catalog', data);
         const brief = formatWeatherBrief(state, date);
         await replyWeatherCard(this.e, {
             caption: `📖 鹿林八象图鉴\n当前：${brief}`,
-            imageBuffer: img,
+            imageBuffer: toImageBuffer(shot),
         });
     }
 
