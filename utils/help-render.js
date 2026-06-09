@@ -1,5 +1,7 @@
 import { HELP_SECTION_ART } from '../constants/deer-assets.js';
-import { escapeXml, truncText, textCentered, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled, hashSeed } from './svg-base.js';
+import {
+    escapeXml, truncText, textCentered, estimateTextWidth, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled, hashSeed,
+} from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
     HELP_FOOTER,
@@ -121,14 +123,8 @@ function estimateTitleHalf(text, fontSize) {
     const s = String(text ?? '');
     const plain = s.replace(/\p{Extended_Pictographic}/gu, '');
     const emojiCount = (s.match(/\p{Extended_Pictographic}/gu) || []).length;
-    const textW = [...plain].reduce((w, ch) => {
-        const code = ch.codePointAt(0) ?? 0;
-        if (code <= 0x7f) return w + fontSize * 0.52;
-        if (code <= 0xff) return w + fontSize * 0.58;
-        return w + fontSize * 0.98;
-    }, 0);
     const emojiW = emojiCount * Math.round(fontSize * 1.12 + 3);
-    return (textW + emojiW) / 2;
+    return (estimateTextWidth(plain, fontSize) + emojiW) / 2;
 }
 
 async function composePage(pageDef, pageIndex, totalPages) {

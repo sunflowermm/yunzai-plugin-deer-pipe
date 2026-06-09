@@ -121,26 +121,30 @@ cd plugins/yunzai-plugin-deer-pipe && npm install
 
 ```mermaid
 flowchart TD
-    A[进群第一天] --> B[鹿职业 / 转职卷王]
-    B --> C{已转职?}
-    C -->|否| D[仅看榜/鹿碑/帮助可用]
-    C -->|是| E[鹿 ×3 安全自🦌]
-    E --> F[鹿况 查看天象/配额/综合分]
-    F --> G[添加鹿友@ 结缘]
-    G --> H[帮鹿 / 偷鹿 / 擂台 等玩法]
-    H --> I{鹿死?}
-    I -->|是| J[鹿碑 + 冥界玩法 / 等🦌友救活]
-    I -->|否| K[继续消耗配额]
-    K --> L[次日 0:00 职业重置 + 鹿王册封]
+    A["进群第一天"] --> B["鹿职业 / 转职卷王"]
+    B --> C{"已转职?"}
+    C -->|否| D["仅看榜 / 鹿碑 / 帮助"]
+    C -->|是| E["鹿 ×3 安全自🦌"]
+    E --> F["鹿况 · 天象 / 配额 / 综合分"]
+    F --> G["添加鹿友@ 结缘"]
+    G --> H["帮鹿 / 偷鹿 / 擂台 …"]
+    H --> I{"鹿死?"}
+    I -->|是| J["鹿碑 + 冥界 / 等🦌友救活"]
+    I -->|否| K["继续消耗配额"]
+    K --> L["次日 0:00 职业重置 + 鹿王册封"]
 ```
 
-**最短路径（30 秒）**：
+> 节点文案含 `@` 或 emoji 时需用双引号包裹，否则 GitHub Mermaid 会解析失败。
 
-1. `鹿职业` → 看八职业一览图  
-2. `转职卷王`（或医师 / 向日葵等）→ **当日锁定**  
-3. `鹿` → 安全区自 🦌（默认前 3 次零鹿死，卷王 +3 安全）  
-4. `鹿况` → 天象、咒福、配额条、综合分  
-5. `鹿帮助` → 收藏双页说明书  
+**最短路径（约 30 秒）**
+
+| 步骤 | 指令 | 得到什么 |
+|:----:|------|----------|
+| 1 | `鹿职业` | 八职业一览图（联动专精 + 专属技） |
+| 2 | `转职卷王` 等 | **当日锁定**职业与配额 |
+| 3 | `鹿` | 安全区自 🦌（默认前 3 次零鹿死；卷王 +3） |
+| 4 | `鹿况` | 天象、咒福、互助条、玩法分区 |
+| 5 | `鹿帮助` | 双页说明书（与群内出图同源） |
 
 ---
 
@@ -152,12 +156,12 @@ flowchart TD
 
 | 区域 | 内容 |
 |------|------|
-| 标题区 | 昵称、心情 emoji（🦌/🔥/☠️/💀）、职业与锁定状态 |
-| 天象行 | 当前半天场次 + 八象 tip 摘要 |
+| 标题区 | 昵称、心情 emoji（Twemoji）、职业与锁定状态 |
+| 天象条 | 左侧天气 emoji + 换行 tip，面板自适应高度 |
 | 计数区 | 安全区 `2/6` 或戒鹿区 / 高危区 / 鹿死丢失 |
 | 综合分 | 与 **综合榜 / 0 点鹿王** 同算法 |
-| 互助配额 | 帮鹿 / 帮戒 已用/上限 |
-| 玩法网格 | 偷咒福擂台等 chip，颜色区分类型 |
+| 互助配额 | `help` 分区图标 + 帮鹿 / 帮戒进度条 |
+| 玩法分区 | **互害恶趣** / **擂台皇城** 两节，图标与标题左对齐 |
 | 底栏 | 随机 flavor + 日期 |
 
 支持 `@某人 鹿况` 围观（不泄露隐私键值，仅展示面板数据）。
@@ -168,10 +172,11 @@ flowchart TD
 
 | 区域 | 内容 |
 |------|------|
-| 顶栏 | 当前职业 · 今日互助剩余（若已转职） |
-| 联动专精 | 八职业 emoji + 两行专精 tip（自动换行） |
-| 职业格 | 立绘 / emoji、tagline、配额摘要、转职按钮 |
-| 专属技 | 八技图标、指令、所属职业 |
+| 顶栏 | 横幅 / 当前职业 · 今日互助剩余（若已转职） |
+| 联动专精 | 八职业 emoji + 专精 tip（自动换行） |
+| 职业格 | 立绘或 emoji、**标题 / 描述 / 配额** 分层间距，格高自适应 |
+| 专属技 | 八技图标、指令（`🦌` 混排 Twemoji）、所属职业 |
+| 铺底 | 空白区半透明 `deerpipe@100x82` 水印 |
 | 底栏 | 「没转职=没配额：先转职，再开鹿」 |
 
 ### 单职业卡 · 转职后 / `鹿职业`（已转职时）
@@ -182,13 +187,17 @@ flowchart TD
 
 <img src="./docs/images/weather-rainbow.png" alt="天象详情卡" width="680">
 
-展示当前象的 **15 维修正**（鹿死、安全、偷、误伤、碰瓷、鹿签等）。`天象一览` 为八象图鉴并高亮当前场次。
+展示当前象的 **15 维修正**（鹿死、安全、偷、误伤、碰瓷、鹿签等）。八象各自配色与特效（雷暴闪电、鹿虹弧、雨雪粒子等）。`天象一览` 为八象图鉴并高亮当前场次。
 
 ### 说明书 · `鹿帮助`
 
 <img src="./docs/images/help-1.png" alt="帮助活鹿篇" width="680">
 
 <img src="./docs/images/help-2.png" alt="帮助冥界篇" width="680">
+
+- 指令行内 **`🦌` / ☀️ 等** 走 Twemoji 栅格，不再出现黑块或空白  
+- 分区标题旁为 `stickers/sections/` 贴图（互助 / 恶趣 / 擂台 / 职业）  
+- 页边与页脚铺半透明鹿标，减少大块留白  
 
 ---
 
@@ -480,29 +489,36 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph SVG["SVG 文案层"]
-        A[svg-base.js] --> B[DeerFont / Genshin.ttf]
+        A["svg-base.js"] --> B["Genshin.ttf"]
     end
     subgraph Raster["栅格化"]
-        B --> C[@resvg/resvg-js]
-        D[Twemoji CDN] --> E[emoji-compose.js]
+        B --> C["resvg-js"]
+        D["Twemoji CDN"] --> E["emoji-compose.js"]
     end
     subgraph Compose["合成"]
-        C --> F[render-pipeline.js]
+        C --> F["render-pipeline.js"]
         E --> F
-        G[assets 贴图] --> F
-        F --> H[sharp composite → PNG]
+        G["assets 贴图"] --> F
+        F --> H["sharp → PNG"]
     end
     subgraph HTML["HTML 页"]
-        I[resources/html] --> J[RendererLoader / Puppeteer]
+        I["resources/html"] --> J["Puppeteer"]
     end
 ```
 
-| 出图类型 | 入口 | 技术 |
+| 模块 | 职责 |
+|------|------|
+| `svg-base.js` | 主题、配额条、`buildSideArtCell` 自适应格、`buildSectionTitleRow` 左对齐节标题 |
+| `emoji-compose.js` | Twemoji 栅格、`buildInlineEmojiText` 混排、`buildCenteredEmojiTitleRaster` |
+| `sticker-compose.js` | 立绘 / 分区 / 鹿标加载，`scatterDeerMarkOverlays` 铺底水印 |
+| `render-pipeline.js` | Resvg 字体注入 + Sharp 多层合成 |
+
+| 出图类型 | 入口 | 要点 |
 |----------|------|------|
-| 鹿况 / 月历 | `utils/core.js` | Resvg + Sharp |
-| 职业一览 / 职业卡 | `utils/profession-render.js` | Resvg + Twemoji + 立绘 |
-| 鹿帮助 | `utils/help-render.js` | Resvg + 分区贴图 |
-| 玩法卡 / 天象卡 | `utils/card-render.js` | Resvg |
+| 鹿况 / 月历 | `utils/core.js` | 天象 emoji、玩法按 harm/pvp 分区 |
+| 职业一览 / 职业卡 | `utils/profession-render.js` | 格高自适应、专属技换行、鹿标铺底 |
+| 鹿帮助 | `utils/help-render.js` | 指令行 inline emoji、分区贴图 |
+| 玩法卡 / 天象卡 | `utils/card-render.js` | 八象独立配色 + 特效、tip 留白 |
 | 排行榜 / 🦌 友 | `resources/html/` | Puppeteer |
 
 **文档截图**：[`docs/images/`](docs/images/) 由渲染脚本批量导出，可随版本重新生成：
@@ -528,12 +544,14 @@ yunzai-plugin-deer-pipe/
 │   ├── game.js           # 全局概率与配额
 │   └── balanced-score.js # 综合分权重
 ├── utils/
-│   ├── profession-render.js
-│   ├── emoji-compose.js      # Twemoji
-│   ├── render-pipeline.js    # Resvg + composite
+│   ├── svg-base.js           # 布局 / 主题 / 自适应单元格
+│   ├── emoji-compose.js      # Twemoji + 混排文案
+│   ├── sticker-compose.js    # 贴图 + 鹿标铺底
+│   ├── render-pipeline.js    # Resvg + Sharp 合成
 │   ├── core.js               # 鹿况 / 月历
+│   ├── profession-render.js  # 职业一览 / 职业卡
 │   ├── card-render.js        # 玩法卡 / 天象卡
-│   └── help-render.js
+│   └── help-render.js        # 鹿帮助双页
 ├── assets/
 │   ├── Genshin.ttf
 │   ├── professions/          # 职业立绘 + catalog 横幅

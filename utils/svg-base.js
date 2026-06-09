@@ -453,13 +453,6 @@ export function quotaRowWidth(barW = QUOTA_BAR_W) {
     return QUOTA_LABEL_W + QUOTA_INNER_GAP + barW + QUOTA_INNER_GAP + QUOTA_COUNT_W;
 }
 
-/** 分区贴图槽：贴在居中配额条左侧，与节标题同一行 */
-export function sectionIconSlot(cx, y, iconSize) {
-    const left = px(cx - quotaRowWidth() / 2 - iconSize - 10);
-    const top = px(y - iconSize + 2);
-    return { left, top };
-}
-
 /** 左对齐分区行：图标槽 + 标题/正文起始 x（职业卡、鹿况等） */
 export function sectionLeftIconSlot(titleBaselineY, iconSize, padLeft = 24, fontSize = 14) {
     const iconCy = titleBaselineY - Math.round(fontSize * 0.38);
@@ -562,19 +555,7 @@ export function textCenteredEmoji(cx, y, emoji, { size = 24 } = {}) {
     return textEmoji(cx, y, emoji, { size, anchor: 'middle' });
 }
 
-/** 居中：emoji + 文字（tspan 混排，避免 DeerFont 黑块） */
-export function buildCenteredEmojiLine(cx, y, emoji, text, theme, maxLen = 44) {
-    const line = truncText(text, maxLen);
-    if (!emoji) {
-        return textCentered(cx, y, line, TXT_SOFT, { size: 13, fill: theme.line });
-    }
-    return `<text x="${cx}" y="${y}" font-size="13" fill="${theme.line}" text-anchor="middle" ${TXT_SOFT}>
-        <tspan ${TXT_EMOJI} font-size="14">${escapeXml(String(emoji))}</tspan>
-        <tspan> ${line}</tspan>
-    </text>`;
-}
-
-/** 居中：emoji + 标题 */
+/** 居中：emoji + 标题（鹿王册封等轻量场景；复杂标题请用 emoji-compose） */
 export function buildCenteredEmojiTitle(cx, y, emoji, title, { emojiSize = 18, titleSize = 14, style = TXT, fill, weight = 'bold' } = {}) {
     const fillAttr = fill ? ` fill="${fill}"` : '';
     const weightAttr = weight ? ` font-weight="${weight}"` : '';

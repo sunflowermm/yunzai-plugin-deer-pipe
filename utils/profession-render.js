@@ -63,13 +63,11 @@ const CATALOG_COLS = 2;
 const CATALOG_PAD_X = 20;
 const CATALOG_GAP = 14;
 const CATALOG_CELL_W = 324;
-const CATALOG_CELL_H = 128;
 const CATALOG_THUMB = 84;
 const CATALOG_BANNER_TOP = 32;
 const CATALOG_BANNER_H = 76;
 
 const SKILL_CELL_W = 324;
-const SKILL_CELL_H = 52;
 const SKILL_THUMB = 40;
 
 async function cellArtEmojiImg(artLeft, artTop, artSize, emoji) {
