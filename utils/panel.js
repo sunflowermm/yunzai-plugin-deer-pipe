@@ -4,6 +4,7 @@ import { generateImage, generateStatusImage } from './core.js';
 import { generateInteractionCard } from './card-render.js';
 import {
     generateProfessionCard,
+    generateProfessionCatalogImage,
     generateUserProfessionPanel,
 } from './profession-render.js';
 
