@@ -17,6 +17,7 @@ import {
     sumYearBalancedScore,
     sumYearNet,
 } from './data.js';
+import { aggregateHelperScores } from './help-log.js';
 
 function compareRank(a, b, order) {
     const diff = order === 'asc' ? a.sum - b.sum : b.sum - a.sum;
