@@ -1,7 +1,8 @@
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
-import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs, textCentered, textCenteredEmoji, buildFooterBar, buildCenteredPanel, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, buildSectionTitle, buildCenteredEmojiLine, statusPanelTheme, sectionIconSlot, TXT, TXT_SOFT, TXT_PLAIN, TXT_EMOJI } from './svg-base.js';
-import { loadCalendarDeerMark, loadProfessionArt, loadSectionArt, loadSkillArt, stickerOverlay } from './sticker-compose.js';
-import { compositeToPng } from './render-pipeline.js';
+import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs, textCentered, textCenteredEmoji, buildFooterBar, buildCenteredPanel, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, buildSectionTitleRow, buildMultilineText, wrapTextLines, statusPanelTheme, TXT, TXT_SOFT, TXT_PLAIN, TXT_EMOJI } from './svg-base.js';
+import { loadCalendarDeerMark, loadProfessionArt, loadSectionArt, stickerOverlay } from './sticker-compose.js';
+import { compositeToPng, rasterizeDeerSvg } from './render-pipeline.js';
+import { emojiSvgImage } from './emoji-compose.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
 import {
     calcMonthStats,
@@ -47,7 +48,7 @@ import {
     pickRandom,
 } from '../constants/game.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
-import { resolveQuotaDenom } from '../constants/profession-quotas.js';
+import { QUOTA, QUOTA_GROUPS, QUOTA_LABELS, quotaChipColor, resolveQuotaDenom } from '../constants/profession-quotas.js';
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 const BOX_W = 100;
@@ -111,6 +112,76 @@ function pickStatusFlavor(status) {
     else if (status.inRiskZone) key = 'status_risk';
     else if (status.inWithdrawalZone) key = 'status_withdrawal';
     return pickRandom(CARD_FLAVOR[key] || CARD_FLAVOR.default);
+}
+
+const STATUS_PLAY_FIELDS = {
+    [QUOTA.steal]: { used: 'stealUsed', max: 'stealMax' },
+    [QUOTA.curse]: { used: 'curseUsed', max: 'curseMax' },
+    [QUOTA.bless]: { used: 'blessUsed', max: 'blessMax' },
+    [QUOTA.cleanseCurse]: { used: 'cleanseUsed', max: 'cleanseMax' },
+    [QUOTA.cleanseBless]: { used: 'cleanseBlessUsed', max: 'cleanseBlessMax' },
+    [QUOTA.urge]: { used: 'urgeUsed', max: 'urgeMax' },
+    [QUOTA.arena]: { used: 'arenaUsed', max: 'arenaMax' },
+    [QUOTA.imperial]: { used: 'imperialUsed', max: 'imperialMax' },
+    [QUOTA.groupSplash]: { used: 'groupSplashUsed', max: 'groupSplashMax' },
+    [QUOTA.fakeWithdraw]: { used: 'fakeWithdrawUsed', max: 'fakeWithdrawMax' },
+    [QUOTA.borrow]: { used: 'borrowUsed', max: 'borrowMax' },
+    [QUOTA.bumper]: { used: 'bumperUsed', max: 'bumperMax' },
+    [QUOTA.lottery]: { used: 'lotteryUsed', max: 'lotteryMax' },
+    [QUOTA.sacrifice]: { used: 'sacrificeUsed', max: 'sacrificeMax' },
+    [QUOTA.greed]: { used: 'greedUsed', max: 'greedMax' },
+    [QUOTA.together]: { used: 'togetherUsed', max: 'togetherMax' },
+    [QUOTA.howl]: { used: 'howlUsed', max: 'howlMax' },
+    [QUOTA.spectralCurse]: { used: 'spectralCurseUsed', max: 'spectralCurseMax' },
+    [QUOTA.vengeance]: { used: 'vengeanceUsed', max: 'vengeanceMax' },
+    [QUOTA.dream]: { used: 'dreamUsed', max: 'dreamMax' },
+    [QUOTA.reviveLottery]: { used: 'reviveLotteryUsed', max: 'reviveLotteryMax' },
+};
+
+function buildStatusPlaySections(status, qv) {
+    if (status.dead) {
+        return [{
+            sectionKey: 'harm',
+            title: '亡魂玩法',
+            items: [
+                { label: '冥咒', value: qv(status.spectralCurseUsed, status.spectralCurseMax), color: '#e8b4ff' },
+                { label: '索命', value: qv(status.vengeanceUsed, status.vengeanceMax), color: '#ff8888' },
+                { label: '托梦', value: qv(status.dreamUsed, status.dreamMax), color: '#88c8ff' },
+                { label: '还阳签', value: qv(status.reviveLotteryUsed, status.reviveLotteryMax), color: '#88ffaa' },
+                { label: '鹿鸣', value: qv(status.howlUsed, status.howlMax), color: '#88ffcc' },
+                { label: '鹿碑', value: '可用', color: '#cccccc' },
+            ],
+        }];
+    }
+    const sections = QUOTA_GROUPS
+        .filter((g) => g.sectionKey !== 'help')
+        .map((g) => ({
+            title: g.title,
+            sectionKey: g.sectionKey,
+            items: g.ids.map((id) => {
+                const fields = STATUS_PLAY_FIELDS[id];
+                if (!fields) return null;
+                const max = status[fields.max];
+                if (max == null) return null;
+                return {
+                    label: QUOTA_LABELS[id] || id,
+                    value: qv(status[fields.used], max),
+                    color: quotaChipColor(id),
+                };
+            }).filter(Boolean),
+        }))
+        .filter((s) => s.items.length > 0);
+    const last = sections[sections.length - 1];
+    if (last) {
+        last.items.push({
+            label: '专属技',
+            value: status.professionRequired
+                ? '未转职'
+                : (status.jobSkillUsed ? '已用' : (status.patrolBuffPending ? '巡游蓄势' : '可用')),
+            color: '#ffdd88',
+        });
+    }
+    return sections;
 }
 
 /**
@@ -351,9 +422,19 @@ export async function generateStatusImage(now, name, status) {
     const periodLabel = status.weather?.periodKey
         ? parseWeatherPeriodSlot(status.weather.periodKey)
         : '';
-    const weatherText = wx
+    const weatherBody = wx
         ? `${periodLabel}${wx.name}${status.weather?.source === 'admin' ? '·赐福' : ''} · ${wx.tip}`
         : '天象：加载中…';
+
+    const WEATHER_TOP = 108;
+    const PANEL_W = W - 32;
+    const WEATHER_PAD_X = 28;
+    const WEATHER_EMOJI_SIZE = 30;
+    const WEATHER_TEXT_X = WEATHER_PAD_X + WEATHER_EMOJI_SIZE + 12;
+    const weatherTextMaxW = PANEL_W - WEATHER_TEXT_X - WEATHER_PAD_X;
+    const weatherLines = wrapTextLines(weatherBody, weatherTextMaxW, 13, 3);
+    const WEATHER_H = Math.max(52, 28 + weatherLines.length * 17);
+    const STAT_TOP = WEATHER_TOP + WEATHER_H + 24;
     let auraLine = '';
     if (status.cursed && status.blessed) {
         auraLine = `咒 ×${status.curseStacks} · 福 ×${status.blessStacks} · 对冲中`;
@@ -373,53 +454,31 @@ export async function generateStatusImage(now, name, status) {
         if (!max) return '—';
         return `${used ?? 0}/${max}`;
     };
-    const gridItems = dead ? [
-        { label: '冥咒', value: qv(status.spectralCurseUsed, status.spectralCurseMax), color: '#e8b4ff' },
-        { label: '索命', value: qv(status.vengeanceUsed, status.vengeanceMax), color: '#ff8888' },
-        { label: '托梦', value: qv(status.dreamUsed, status.dreamMax), color: '#88c8ff' },
-        { label: '还阳签', value: qv(status.reviveLotteryUsed, status.reviveLotteryMax), color: '#88ffaa' },
-        { label: '鹿鸣', value: qv(status.howlUsed, status.howlMax), color: '#88ffcc' },
-        { label: '鹿碑', value: '可用', color: '#cccccc' },
-    ] : [
-        { label: '偷鹿', value: qv(status.stealUsed, status.stealMax), color: '#ffb347' },
-        { label: '鹿咒', value: qv(status.curseUsed, status.curseMax), color: '#d4a5ff' },
-        { label: '鹿福', value: qv(status.blessUsed, status.blessMax), color: '#7dffb0' },
-        { label: '解咒', value: qv(status.cleanseUsed, status.cleanseMax), color: '#88ffaa' },
-        { label: '解福', value: qv(status.cleanseBlessUsed, status.cleanseBlessMax), color: '#aaffcc' },
-        { label: '催鹿', value: qv(status.urgeUsed, status.urgeMax), color: '#88c8ff' },
-        { label: '擂台', value: qv(status.arenaUsed, status.arenaMax), color: '#ff8888' },
-        { label: '皇城', value: qv(status.imperialUsed, status.imperialMax), color: '#ffd700' },
-        { label: '群溅', value: qv(status.groupSplashUsed, status.groupSplashMax), color: '#66ddcc' },
-        { label: '诈戒', value: qv(status.fakeWithdrawUsed, status.fakeWithdrawMax), color: '#cc99ff' },
-        { label: '借鹿', value: qv(status.borrowUsed, status.borrowMax), color: '#ffcc88' },
-        { label: '碰瓷', value: qv(status.bumperUsed, status.bumperMax), color: '#ffaa88' },
-        { label: '鹿签', value: qv(status.lotteryUsed, status.lotteryMax), color: '#ffee88' },
-        { label: '献祭', value: qv(status.sacrificeUsed, status.sacrificeMax), color: '#ff9966' },
-        { label: '倒贴', value: qv(status.greedUsed, status.greedMax), color: '#ff7788' },
-        { label: '同归', value: qv(status.togetherUsed, status.togetherMax), color: '#88ddff' },
-        { label: '鹿鸣', value: qv(status.howlUsed, status.howlMax), color: '#88ffaa' },
-        {
-            label: '专属技',
-            value: status.professionRequired
-                ? '未转职'
-                : (status.jobSkillUsed ? '已用' : (status.patrolBuffPending ? '巡游蓄势' : '可用')),
-            color: '#ffdd88',
-        },
-    ];
+    const playSections = buildStatusPlaySections(status, qv);
 
-    const WEATHER_TOP = 108;
-    const WEATHER_H = 40;
-    const PANEL_W = W - 32;
-    const STAT_TOP = WEATHER_TOP + WEATHER_H + 24;
     const balancedExtra = (status.balancedScore != null && !status.professionRequired) ? 24 : 0;
+    const STATUS_SECTION_PAD = 24;
+    const STATUS_SECTION_ICON = 30;
     const QUOTA_TITLE_Y = STAT_TOP + 162 + balancedExtra;
     const QUOTA_TOP = QUOTA_TITLE_Y + 20;
-    const GRID_TITLE_Y = QUOTA_TOP + 56;
     const GRID_COLS = 4;
     const GRID_GAP_Y = 36;
-    const gridRows = labelValueGridRowCount(gridItems.length, GRID_COLS);
-    const gridTop = GRID_TITLE_Y + 20;
-    const flavorY = gridTop + gridRows * GRID_GAP_Y + 24;
+
+    let playY = QUOTA_TOP + 56;
+    let playSvg = '';
+    const playHeaders = [];
+    for (const sec of playSections) {
+        const header = buildSectionTitleRow(playY, sec.title, theme, {
+            padLeft: STATUS_SECTION_PAD, iconSize: STATUS_SECTION_ICON, fontSize: 14, fill: theme.muted,
+        });
+        playHeaders.push({ header, sectionKey: sec.sectionKey });
+        playSvg += header.svg;
+        const gridTop = playY + 22;
+        playSvg += buildLabelValueGrid(sec.items, theme, gridTop, W, { cols: GRID_COLS, gapY: GRID_GAP_Y });
+        const rows = labelValueGridRowCount(sec.items.length, GRID_COLS);
+        playY = gridTop + rows * GRID_GAP_Y + 18;
+    }
+    const flavorY = playY + 24;
     const H = flavorY + 40;
 
     const helpMax = resolveQuotaDenom({
@@ -438,23 +497,25 @@ export async function generateStatusImage(now, name, status) {
         { label: '帮鹿', used: helpUsed, total: helpMax, color: '#e67e22' },
         { label: '帮戒', used: wdUsed, total: wdMax, color: '#3498db' },
     ], theme);
-    const gridSvg = buildLabelValueGrid(gridItems, theme, gridTop, W, { cols: GRID_COLS, gapY: GRID_GAP_Y });
 
     const auraFill = status.cursed ? '#f0d0ff' : (status.blessed ? '#d0ffd8' : theme.line);
     const flavorLine = pickStatusFlavor(status);
     const decoSeed = hashSeed(name, now.toDateString(), status.count, dead);
     const dateMeta = `${now.getMonth() + 1}/${now.getDate()} · deer-pipe`;
 
-    const [profThumb, helpIcon, harmIcon, pvpIcon, skillIcon] = await Promise.all([
+    const helpHeader = buildSectionTitleRow(QUOTA_TITLE_Y, '互助配额', theme, {
+        padLeft: STATUS_SECTION_PAD, iconSize: STATUS_SECTION_ICON, fontSize: 14, fill: theme.muted,
+    });
+
+    const weatherEmojiCx = WEATHER_PAD_X + WEATHER_EMOJI_SIZE / 2;
+    const weatherEmojiCy = WEATHER_TOP + WEATHER_H / 2;
+    const [profThumb, helpIcon, weatherEmojiSvg, ...playIcons] = await Promise.all([
         (!status.professionRequired && status.professionId)
             ? loadProfessionArt(status.professionId, 76, { borderWidth: 2, radius: 12 })
             : null,
-        loadSectionArt('help', 30),
-        loadSectionArt('harm', 30),
-        loadSectionArt('pvp', 30),
-        (!status.professionRequired && status.professionId)
-            ? loadSkillArt(status.professionId, 32)
-            : null,
+        loadSectionArt('help', STATUS_SECTION_ICON),
+        wx ? emojiSvgImage(weatherEmojiCx, weatherEmojiCy, wx.emoji, WEATHER_EMOJI_SIZE) : Promise.resolve(''),
+        ...playHeaders.map(({ sectionKey }) => loadSectionArt(sectionKey, STATUS_SECTION_ICON)),
     ]);
 
     const svg = `
@@ -464,35 +525,30 @@ export async function generateStatusImage(now, name, status) {
         ${textCentered(CX, 72, truncName(name, 18), TXT, { size: 20, fill: theme.sub })}
         ${textCentered(CX, 94, escapeXml(tagline), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
         ${buildCenteredPanel(CX, WEATHER_TOP, PANEL_W, WEATHER_H, theme)}
-        ${buildCenteredEmojiLine(CX, WEATHER_TOP + 26, wx?.emoji, weatherText, theme, 44)}
+        ${weatherEmojiSvg}
+        ${buildMultilineText(WEATHER_TEXT_X, WEATHER_TOP + 22, weatherLines, { fontSize: 13, lineHeight: 17, fill: theme.line })}
         ${textCenteredEmoji(CX, STAT_TOP + 28, moodEmoji, { size: 36 })}
         ${textCentered(CX, STAT_TOP + 68, escapeXml(countText), TXT, { size: 30, fill: theme.title, weight: 'bold' })}
         ${textCentered(CX, STAT_TOP + 94, `尝试 ${status.attempts} 次`, TXT_SOFT, { size: 15, fill: theme.sub })}
         ${status.balancedScore != null && !status.professionRequired ? textCentered(CX, STAT_TOP + 114, `综合 ${status.balancedScore} 分 · ${escapeXml(truncText(status.balancedBreakdown || '', 40))}`, TXT_SOFT, { size: 13, fill: '#c9782a' }) : ''}
         ${textCentered(CX, STAT_TOP + (status.balancedScore != null && !status.professionRequired ? 134 : 114), truncText(riskLine, 52), TXT_SOFT, { size: 14, fill: theme.line })}
         ${textCentered(CX, STAT_TOP + (status.balancedScore != null && !status.professionRequired ? 158 : 138), escapeXml(auraLine), TXT_SOFT, { size: 14, fill: auraFill })}
-        ${buildSectionTitle(CX, QUOTA_TITLE_Y, '互助配额', theme)}
+        ${helpHeader.svg}
         ${quotaSvg}
-        ${buildSectionTitle(CX, GRID_TITLE_Y, '玩法配额', theme)}
-        ${gridSvg}
+        ${playSvg}
         ${buildFooterBar(W, flavorY, `${flavorLine} · ${dateMeta}`, theme, 56)}
     `;
     const layers = [{
-        input: svgTextStyled(svg, W, H, `<linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`),
+        input: rasterizeDeerSvg(svgTextStyled(svg, W, H, `<linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`)),
         top: 0,
         left: 0,
     }];
     const thumbOverlay = profThumb ? stickerOverlay(profThumb, 28, W - 100) : null;
     if (thumbOverlay) layers.push(thumbOverlay);
-    const helpIconSlot = sectionIconSlot(CX, QUOTA_TITLE_Y, 30);
-    const playIconSlot = sectionIconSlot(CX, GRID_TITLE_Y, 30);
-    const helpTitleOverlay = helpIcon ? stickerOverlay(helpIcon, helpIconSlot.top, helpIconSlot.left) : null;
-    if (helpTitleOverlay) layers.push(helpTitleOverlay);
-    const playTitleOverlay = harmIcon ? stickerOverlay(harmIcon, playIconSlot.top, playIconSlot.left) : null;
-    if (playTitleOverlay) layers.push(playTitleOverlay);
-    const pvpTitleOverlay = pvpIcon ? stickerOverlay(pvpIcon, GRID_TITLE_Y - 22, W - 56) : null;
-    if (pvpTitleOverlay) layers.push(pvpTitleOverlay);
-    const skillOverlay = skillIcon ? stickerOverlay(skillIcon, gridTop + gridRows * GRID_GAP_Y - 8, W - 72) : null;
-    if (skillOverlay) layers.push(skillOverlay);
+    if (helpIcon) layers.push(stickerOverlay(helpIcon, helpHeader.slot.top, helpHeader.slot.left));
+    playHeaders.forEach(({ header }, i) => {
+        const icon = playIcons[i];
+        if (icon) layers.push(stickerOverlay(icon, header.slot.top, header.slot.left));
+    });
     return compositeToPng(W, H, layers);
 }

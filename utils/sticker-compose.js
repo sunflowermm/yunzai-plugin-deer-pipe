@@ -138,6 +138,64 @@ export async function loadCalendarDeerMark(size = 48) {
     return loadLogo(DEERPIPE_LOGO, size);
 }
 
+/** 半透明鹿标（铺底装饰） */
+export async function loadFadedDeerMark(height, opacity = 0.22) {
+    const raw = await loadLogo(DEERPIPE_LOGO, height);
+    if (!raw) return null;
+    try {
+        const meta = await sharp(raw).metadata();
+        const w = meta.width || height;
+        const h = meta.height || height;
+        const alpha = Math.max(0, Math.min(255, Math.round(opacity * 255)));
+        const alphaBuf = Buffer.alloc(w * h, alpha);
+        return sharp(raw)
+            .ensureAlpha()
+            .joinChannel(alphaBuf, { raw: { width: w, height: h, channels: 1 } })
+            .png()
+            .toBuffer();
+    } catch {
+        return raw;
+    }
+}
+
+/**
+ * 在矩形区域内散布鹿标贴图（填充空白）
+ * @returns {Promise<Array<{input: Buffer, top: number, left: number}>>}
+ */
+export async function scatterDeerMarkOverlays(regionW, regionH, regionTop, regionLeft, {
+    count = 8,
+    seed = 1,
+    markHeight = 52,
+    opacity = 0.2,
+} = {}) {
+    const mark = await loadFadedDeerMark(markHeight, opacity);
+    if (!mark || regionW < markHeight || regionH < markHeight) return [];
+    const meta = await sharp(mark).metadata();
+    const mw = meta.width || markHeight;
+    const mh = meta.height || markHeight;
+    let s = seed >>> 0;
+    const rng = () => {
+        s = Math.imul(s ^ (s >>> 15), 1 | s);
+        return ((s ^ (s >>> 14)) >>> 0) / 4294967296;
+    };
+    const overlays = [];
+    const cols = Math.max(2, Math.floor(regionW / (mw + 24)));
+    const rows = Math.max(1, Math.ceil(count / cols));
+    for (let i = 0; i < count; i += 1) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const cellW = regionW / cols;
+        const cellH = regionH / rows;
+        const jitterX = (rng() - 0.5) * Math.min(20, cellW * 0.2);
+        const jitterY = (rng() - 0.5) * Math.min(16, cellH * 0.2);
+        const left = px(regionLeft + col * cellW + (cellW - mw) / 2 + jitterX);
+        const top = px(regionTop + row * cellH + (cellH - mh) / 2 + jitterY);
+        const o = stickerOverlay(mark, top, left);
+        if (o) overlays.push(o);
+    }
+    return overlays;
+}
+
 export function buildPortraitGlowSvg(cx, cy, size, color = 'rgba(255,179,71,0.35)') {
     const r = px(size * 0.55);
     return `<ellipse cx="${px(cx)}" cy="${px(cy)}" rx="${r}" ry="${px(r * 0.88)}" fill="${color}"/>`;

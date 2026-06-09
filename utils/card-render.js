@@ -2,10 +2,10 @@ import {
     WEATHER_CATALOG,
     formatWeatherPeriodLabel,
     parseWeatherPeriodSlot,
+    resolveWeatherCardTheme,
 } from '../constants/weather.js';
-import { WEATHER_CMD_HINT } from '../constants/commands.js';
 import { buildWeatherEffectStatRows } from './weather.js';
-import { buildCenteredEmojiTitleRaster } from './emoji-compose.js';
+import { buildCenteredEmojiTitleRaster, emojiSvgImage } from './emoji-compose.js';
 import {
     ARENA_STAKE,
     BLESS_MAX_ROUNDS,
@@ -85,10 +85,41 @@ function quotaDenom(result, usedKey, leftKey, maxKey, fallback) {
     });
 }
 
+function weatherCardFx(w, h, weatherId, theme, seed) {
+    let fx = '';
+    if (weatherId === 'storm') {
+        fx += `<path d="M${Math.round(w * 0.18)} 8 L${Math.round(w * 0.22)} ${Math.round(h * 0.14)} L${Math.round(w * 0.19)} ${Math.round(h * 0.11)} L${Math.round(w * 0.25)} ${Math.round(h * 0.22)}" stroke="${theme.accent}" stroke-width="2.2" fill="none" opacity="0.45"/>`;
+        fx += `<path d="M${Math.round(w * 0.72)} 12 L${Math.round(w * 0.76)} ${Math.round(h * 0.2)} L${Math.round(w * 0.73)} ${Math.round(h * 0.16)} L${Math.round(w * 0.78)} ${Math.round(h * 0.28)}" stroke="#fff" stroke-width="1.8" fill="none" opacity="0.3"/>`;
+    }
+    if (weatherId === 'rainbow') {
+        fx += `<path d="M${Math.round(w * 0.12)} ${Math.round(h * 0.32)} Q${Math.round(w * 0.5)} ${Math.round(h * 0.06)} ${Math.round(w * 0.88)} ${Math.round(h * 0.32)}" fill="none" stroke="#fc8181" stroke-width="4" opacity="0.22"/>`;
+        fx += `<path d="M${Math.round(w * 0.15)} ${Math.round(h * 0.36)} Q${Math.round(w * 0.5)} ${Math.round(h * 0.1)} ${Math.round(w * 0.85)} ${Math.round(h * 0.36)}" fill="none" stroke="#68d391" stroke-width="4" opacity="0.18"/>`;
+        fx += `<path d="M${Math.round(w * 0.18)} ${Math.round(h * 0.4)} Q${Math.round(w * 0.5)} ${Math.round(h * 0.14)} ${Math.round(w * 0.82)} ${Math.round(h * 0.4)}" fill="none" stroke="#63b3ed" stroke-width="4" opacity="0.16"/>`;
+    }
+    if (weatherId === 'snow' || weatherId === 'drizzle') {
+        const rng = (() => { let s = seed >>> 0; return () => { s = Math.imul(s ^ (s >>> 15), 1 | s); return ((s ^ (s >>> 14)) >>> 0) / 4294967296; }; })();
+        for (let i = 0; i < 18; i += 1) {
+            const x = Math.floor(rng() * (w - 48)) + 24;
+            const y = Math.floor(rng() * (h - 48)) + 24;
+            const r = weatherId === 'snow' ? (1.5 + rng() * 2) : 1;
+            fx += `<circle cx="${x}" cy="${y}" r="${r.toFixed(1)}" fill="${theme.accent}" opacity="${(0.12 + rng() * 0.25).toFixed(2)}"/>`;
+        }
+    }
+    if (weatherId === 'gloom' || weatherId === 'storm') {
+        fx += `<rect x="0" y="0" width="${w}" height="${h}" rx="16" fill="#000" opacity="0.12"/>`;
+    }
+    if (weatherId === 'sunny') {
+        fx += `<circle cx="${Math.round(w * 0.88)}" cy="36" r="22" fill="${theme.accent}" opacity="0.12"/>`;
+        fx += `<circle cx="${Math.round(w * 0.88)}" cy="36" r="14" fill="${theme.accent}" opacity="0.18"/>`;
+    }
+    return fx;
+}
+
 /** 当前半天场次天象详情卡 */
 export async function generateWeatherDetailImage(state, effects, date = new Date()) {
-    const theme = CARD_THEMES.weather;
-    const def = WEATHER_CATALOG[state?.weatherId] || WEATHER_CATALOG.sunny;
+    const weatherId = state?.weatherId || 'sunny';
+    const theme = resolveWeatherCardTheme(weatherId);
+    const def = WEATHER_CATALOG[weatherId] || WEATHER_CATALOG.sunny;
     const period = state?.periodKey
         ? parseWeatherPeriodSlot(state.periodKey)
         : formatWeatherPeriodLabel(date);
@@ -97,24 +128,29 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
         : '鹿林天象随机';
 
     const statRows = buildWeatherEffectStatRows(effects, theme);
-    const TIP_PAD = 44;
-    const tipLines = wrapTextLines(def.tip, CARD_W - TIP_PAD * 2, 13, 2);
-    const tipTop = 96;
-    const tipBottom = tipTop + tipLines.length * 18;
-    const statsTitleY = tipBottom + 32;
-    const statsTop = statsTitleY + 26;
+    const tipPanelW = CARD_W - 48;
+    const tipLines = wrapTextLines(def.tip, tipPanelW - 44, 13, 3);
+    const headerPanelH = 78;
+    const tipPanelTop = headerPanelH + 16;
+    const tipPanelH = 36 + tipLines.length * 18;
+    const statsTitleY = tipPanelTop + tipPanelH + 36;
+    const statsTop = statsTitleY + 28;
     const statGapY = 44;
     const rowCount = statGridRowCount(statRows, STAT_COLS);
     const statsBottom = statsTop + statGridHeight(rowCount, statGapY, STAT_CHIP_H);
     const H = statsBottom + 64;
     const flavor = pickRandom(CARD_FLAVOR.weather || CARD_FLAVOR.default);
     const metaLine = `安全区 ${effects.safeBonus >= 0 ? '+' : ''}${effects.safeBonus || 0} · 鹿死 ${pct(effects.deathDelta)}`;
+    const decoSeed = hashSeed('weather-detail', weatherId);
 
-    const titleBlock = await buildCenteredEmojiTitleRaster(CX, 44, def.emoji, `${period} · ${def.name}`, {
-        emojiSize: 32, titleSize: 22, style: TXT, fill: theme.title, weight: 'bold',
-    });
+    const [titleBlock, heroEmoji] = await Promise.all([
+        buildCenteredEmojiTitleRaster(CX, 44, def.emoji, `${period} · ${def.name}`, {
+            emojiSize: 34, titleSize: 22, style: TXT, fill: theme.title, weight: 'bold',
+        }),
+        emojiSvgImage(CARD_W - 72, 42, def.emoji, 52),
+    ]);
 
-    const tipText = buildMultilineText(TIP_PAD, tipTop, tipLines, {
+    const tipText = buildMultilineText(CX - tipPanelW / 2 + 22, tipPanelTop + 30, tipLines, {
         fontSize: 13,
         lineHeight: 18,
         fill: theme.line,
@@ -122,16 +158,19 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
 
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
-        ${buildCardDecorations(CARD_W, H, theme, hashSeed('weather-detail', state?.weatherId))}
-        ${buildCenteredPanel(CX, 16, CARD_W - 32, 78, theme)}
+        ${buildCardDecorations(CARD_W, H, theme, decoSeed)}
+        ${weatherCardFx(CARD_W, H, weatherId, theme, decoSeed)}
+        ${buildCenteredPanel(CX, 16, CARD_W - 32, headerPanelH, theme)}
         ${titleBlock.svg}
         ${textCentered(CX, 68, escapeXml(`来源：${src}`), TXT_SOFT, { size: 13, fill: theme.sub })}
+        ${buildCenteredPanel(CX, tipPanelTop, tipPanelW, tipPanelH, theme)}
+        ${heroEmoji}
         ${tipText}
         ${textCentered(CX, statsTitleY, '玩法', TXT, { size: 15, fill: theme.line, weight: 'bold' })}
         ${buildStatGrid(statRows, theme, statsTop, CARD_W, { cols: STAT_COLS, gapY: statGapY })}
         ${buildFooterBar(CARD_W, H - 20, `${flavor} · ${metaLine}`, theme, 56)}
     `;
-    return renderStyledCard(CARD_W, H, inner, 'weather', titleBlock.overlays);
+    return renderStyledCard(CARD_W, H, inner, 'weather', [], theme);
 }
 
 const PLAYFUL_META = {

@@ -1,5 +1,5 @@
 import { HELP_SECTION_ART } from '../constants/deer-assets.js';
-import { escapeXml, truncText, textCentered, textEmoji, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled } from './svg-base.js';
+import { escapeXml, truncText, textCentered, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled, hashSeed } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
     HELP_FOOTER,
@@ -8,10 +8,12 @@ import {
     HELP_TAGLINE,
 } from '../constants/help-catalog.js';
 import { pickRandom } from '../constants/game.js';
+import { buildInlineEmojiText } from './emoji-compose.js';
 import {
     loadBrandLogo,
     loadCatalogArt,
     loadSectionArt,
+    scatterDeerMarkOverlays,
     stickerOverlay,
 } from './sticker-compose.js';
 import { compositeToPng } from './render-pipeline.js';
@@ -61,32 +63,39 @@ async function loadSectionIcon(sectionKey) {
     return loadSectionArt(artKey, SECTION_ICON);
 }
 
-function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
+async function buildPageContent(pageDef, imgH, pageIndex, totalPages) {
     const sections = pageDef.sectionKeys.map((key) => ({ key, ...HELP_SECTIONS[key] })).filter((s) => s.title);
     let y = HEADER_H + PAD;
     const blocks = [];
     blocks.push(`
         ${textCentered(IMG_W / 2, 34, escapeXml(HELP_TAGLINE), TXT, { size: 28, fill: '#ff6b35', weight: 'bold' })}
-        ${textCentered(IMG_W / 2, 62, escapeXml(pageDef.title), TXT, { size: 20, fill: '#5c3d2e', weight: 'bold' })}
-        ${textCentered(IMG_W / 2, 88, escapeXml(pageDef.subtitle), TXT_SOFT, { size: 15, fill: '#8b5a3c' })}
+        ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.title, 20), 62, pageDef.title, { style: TXT, fontSize: 20, fill: '#5c3d2e', weight: 'bold' })}
+        ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.subtitle, 15), 88, pageDef.subtitle, { style: TXT_SOFT, fontSize: 15, fill: '#8b5a3c' })}
         ${textCentered(IMG_W / 2, 118, truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52), TXT_SOFT, { size: 13, fill: '#a07050' })}
     `);
     for (const sec of sections) {
         y += LINE_H;
         const titleX = HELP_SECTION_ART[sec.key] ? PAD + SECTION_ICON + 8 : PAD + 28;
-        blocks.push(`
-            ${HELP_SECTION_ART[sec.key] ? '' : textEmoji(PAD, y, sec.emoji, { size: 20 })}
-            <text ${TXT} x="${titleX}" y="${y}" font-size="20" fill="#5c3d2e" font-weight="bold">${escapeXml(sec.title)}</text>
-        `);
+        if (!HELP_SECTION_ART[sec.key]) {
+            blocks.push(await buildInlineEmojiText(PAD, y, `${sec.emoji} ${sec.title}`, {
+                style: TXT, fontSize: 20, fill: '#5c3d2e', weight: 'bold',
+            }));
+        } else {
+            blocks.push(`<text ${TXT} x="${titleX}" y="${y}" font-size="20" fill="#5c3d2e" font-weight="bold">${escapeXml(sec.title)}</text>`);
+        }
         y += 6;
         for (const item of sec.items) {
             y += ITEM_PAD;
             const tag = item.tag ? ` [${item.tag}]` : '';
-            blocks.push(`
-                <text ${TXT_PLAIN} x="${CMD_X}" y="${y + 16}" font-size="15" fill="#3d2914" font-weight="bold">${truncCmd(item.cmd)}${escapeXml(tag)}</text>
-                <text ${TXT_PLAIN} x="${CMD_X}" y="${y + 34}" font-size="14" fill="#6b4a32">${truncDesc(item.desc)}</text>
-                <text ${TXT_PLAIN} x="${CMD_X}" y="${y + 50}" font-size="12" fill="#a07050">└ ${truncText(item.quota, 54)}</text>
-            `);
+            blocks.push(await buildInlineEmojiText(CMD_X, y + 16, `${truncCmd(item.cmd)}${tag}`, {
+                style: TXT_PLAIN, fontSize: 15, fill: '#3d2914', weight: 'bold',
+            }));
+            blocks.push(await buildInlineEmojiText(CMD_X, y + 34, truncDesc(item.desc), {
+                style: TXT_PLAIN, fontSize: 14, fill: '#6b4a32',
+            }));
+            blocks.push(await buildInlineEmojiText(CMD_X, y + 50, `└ ${truncText(item.quota, 54)}`, {
+                style: TXT_PLAIN, fontSize: 12, fill: '#a07050',
+            }));
             y += ITEM_H;
         }
         y += SECTION_GAP;
@@ -108,8 +117,23 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
     `);
 }
 
+function estimateTitleHalf(text, fontSize) {
+    const s = String(text ?? '');
+    const plain = s.replace(/\p{Extended_Pictographic}/gu, '');
+    const emojiCount = (s.match(/\p{Extended_Pictographic}/gu) || []).length;
+    const textW = [...plain].reduce((w, ch) => {
+        const code = ch.codePointAt(0) ?? 0;
+        if (code <= 0x7f) return w + fontSize * 0.52;
+        if (code <= 0xff) return w + fontSize * 0.58;
+        return w + fontSize * 0.98;
+    }, 0);
+    const emojiW = emojiCount * Math.round(fontSize * 1.12 + 3);
+    return (textW + emojiW) / 2;
+}
+
 async function composePage(pageDef, pageIndex, totalPages) {
     const imgH = estimatePageHeight(pageDef);
+    const contentEndY = imgH - 72;
     const [deerBig, deerSmall, brandLogo, ...sectionIcons] = await Promise.all([
         loadBrandLogo(pageIndex === 0 ? 40 : 32),
         loadBrandLogo(26),
@@ -117,8 +141,31 @@ async function composePage(pageDef, pageIndex, totalPages) {
         ...pageDef.sectionKeys.map((key) => loadSectionIcon(key)),
     ]);
 
+    const sideDeer = [
+        ...(await scatterDeerMarkOverlays(52, contentEndY - HEADER_H, HEADER_H, IMG_W - 60, {
+            count: 4,
+            seed: hashSeed('help-side-r', pageIndex),
+            markHeight: 40,
+            opacity: 0.12,
+        })),
+        ...(await scatterDeerMarkOverlays(48, contentEndY - HEADER_H, HEADER_H + 40, 4, {
+            count: 3,
+            seed: hashSeed('help-side-l', pageIndex),
+            markHeight: 36,
+            opacity: 0.1,
+        })),
+    ];
+    const bottomDeer = await scatterDeerMarkOverlays(IMG_W - 80, 56, contentEndY, 40, {
+        count: 5,
+        seed: hashSeed('help-bottom', pageIndex),
+        markHeight: 40,
+        opacity: 0.18,
+    });
+
     const layers = [
-        { input: buildPageSvg(pageDef, imgH, pageIndex, totalPages), top: 0, left: 0 },
+        { input: await buildPageContent(pageDef, imgH, pageIndex, totalPages), top: 0, left: 0 },
+        ...sideDeer,
+        ...bottomDeer,
     ];
     if (deerBig) layers.push({ input: deerBig, top: 12, left: IMG_W - (pageIndex === 0 ? 96 : 88) });
     if (deerSmall) layers.push({ input: deerSmall, top: imgH - 88, left: PAD + 4 });

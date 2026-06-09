@@ -460,12 +460,26 @@ export function sectionIconSlot(cx, y, iconSize) {
     return { left, top };
 }
 
-/** 左对齐分区行：图标槽 + 标题/正文起始 x（职业卡、帮助页等） */
-export function sectionLeftIconSlot(y, iconSize, padLeft = 24) {
+/** 左对齐分区行：图标槽 + 标题/正文起始 x（职业卡、鹿况等） */
+export function sectionLeftIconSlot(titleBaselineY, iconSize, padLeft = 24, fontSize = 14) {
+    const iconCy = titleBaselineY - Math.round(fontSize * 0.38);
     const left = px(padLeft);
-    const top = px(y - iconSize + 4);
+    const top = px(iconCy - iconSize / 2);
     const textX = padLeft + iconSize + 10;
-    return { left, top, textX };
+    return { left, top, textX, titleBaselineY };
+}
+
+/** 左对齐节标题行（SVG 部分；贴图由调用方 stickerOverlay） */
+export function buildSectionTitleRow(titleBaselineY, title, theme, {
+    padLeft = 24,
+    iconSize = 34,
+    fontSize = 13,
+    fill = null,
+} = {}) {
+    const slot = sectionLeftIconSlot(titleBaselineY, iconSize, padLeft, fontSize);
+    const color = fill || theme.accent;
+    const svg = `<text ${TXT_SOFT} x="${slot.textX}" y="${titleBaselineY}" font-size="${fontSize}" fill="${color}" font-weight="bold">${escapeXml(title)}</text>`;
+    return { svg, slot };
 }
 
 /** 水平居中面板 */
@@ -629,33 +643,39 @@ export function buildRibbonBadge(cx, y, text, kind = 'win') {
  * @returns {{ svg: string, artLeft: number, artTop: number, artSize: number }}
  */
 export function buildSideArtCell({
-    x, y, cellW, cellH, artSize, artPad = 10, theme,
+    x, y, cellW, cellH: cellHIn, artSize, artPad = 10, theme,
     title, subtitle = '', meta = '', badgeText = '', badgeKind = 'neutral',
     titleSize = 17, subSize = 12, metaSize = 11,
-    subtitleMaxLines = 2, metaMaxLines = 2,
+    subtitleMaxLines = 3, metaMaxLines = 2,
 }) {
     const artLeft = px(x + artPad);
-    const artTop = px(y + Math.round((cellH - artSize) / 2));
     const textLeft = artLeft + artSize + 12;
     const textPadRight = badgeText ? 58 : 8;
     const textMaxW = cellW - (textLeft - x) - textPadRight;
-    const subLineH = subSize + 3;
+    const subLineH = subSize + 4;
     const metaLineH = metaSize + 3;
     const subLines = subtitle ? wrapTextLines(subtitle, textMaxW, subSize, subtitleMaxLines) : [];
     const metaLines = meta ? wrapTextLines(meta, textMaxW, metaSize, metaMaxLines) : [];
-    const titleY = y + 18;
-    let cursorY = titleY + titleSize + 5;
+    const padTop = 12;
+    const titleY = y + padTop + titleSize;
+    const subStartY = titleY + titleSize + 6;
+    const metaGap = subLines.length && metaLines.length ? 8 : 0;
+    const metaStartY = subStartY + subLines.length * subLineH + metaGap;
+    const textBlockH = padTop + titleSize + (subStartY - titleY) + subLines.length * subLineH + metaGap
+        + metaLines.length * metaLineH + 18;
+    const cellH = cellHIn ?? Math.max(artSize + artPad * 2, textBlockH);
+    const artTop = px(y + Math.round((cellH - artSize) / 2));
     const badgeCx = x + cellW - 56;
     const badgeY = y + cellH - 30;
     const svg = `
         <rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.2"/>
         <rect x="${artLeft}" y="${artTop}" width="${artSize}" height="${artSize}" rx="10" fill="${theme.highlight}" opacity="0.28"/>
         <text ${TXT} x="${textLeft}" y="${titleY}" font-size="${titleSize}" fill="${theme.title}" font-weight="bold">${escapeXml(title)}</text>
-        ${subLines.length ? buildMultilineText(textLeft, cursorY, subLines, { fontSize: subSize, lineHeight: subLineH, fill: theme.muted }) : ''}
-        ${metaLines.length ? buildMultilineText(textLeft, cursorY + subLines.length * subLineH + 2, metaLines, { fontSize: metaSize, lineHeight: metaLineH, fill: theme.sub }) : ''}
+        ${subLines.length ? buildMultilineText(textLeft, subStartY, subLines, { fontSize: subSize, lineHeight: subLineH, fill: theme.muted }) : ''}
+        ${metaLines.length ? buildMultilineText(textLeft, metaStartY, metaLines, { fontSize: metaSize, lineHeight: metaLineH, fill: theme.sub }) : ''}
         ${badgeText ? buildRibbonBadge(badgeCx, badgeY, badgeText, badgeKind) : ''}
     `;
-    return { svg, artLeft, artTop, artSize };
+    return { svg, artLeft, artTop, artSize, cellH };
 }
 
 /** 统计 chip（圆角条，值侧截断防溢出） */
@@ -720,8 +740,8 @@ export async function fetchCircleAvatar(userId, size = 68, ringColor = null) {
     }
 }
 
-export async function renderStyledCard(width, height, innerSvg, themeKey = 'mischief', overlays = []) {
-    const theme = CARD_THEMES[themeKey] || CARD_THEMES.mischief;
+export async function renderStyledCard(width, height, innerSvg, themeKey = 'mischief', overlays = [], themeOverride = null) {
+    const theme = themeOverride || CARD_THEMES[themeKey] || CARD_THEMES.mischief;
     const w = px(width);
     const h = px(height);
     const svg = svgTextStyled(

@@ -301,6 +301,54 @@ export function parseWeatherPeriodSlot(periodKey) {
     return slot === 'pm' ? '下午场' : '上午场';
 }
 
+/** 天象详情卡配色（按 weatherId 区分背景/强调色） */
+export const WEATHER_CARD_THEMES = {
+    sunny: {
+        bgStops: '<stop offset="0%" style="stop-color:#fff9e6"/><stop offset="100%" style="stop-color:#ffe8a3"/>',
+        title: '#7a4a00', sub: '#9a6a10', line: '#3d2810', muted: '#8b6914', accent: '#f6ad55',
+        panel: 'rgba(255,255,255,0.78)', highlight: 'rgba(246,173,85,0.22)', barBg: 'rgba(255,255,255,0.5)',
+    },
+    drizzle: {
+        bgStops: '<stop offset="0%" style="stop-color:#e8f4ff"/><stop offset="100%" style="stop-color:#b8d4f0"/>',
+        title: '#1a3a5c', sub: '#2c5282', line: '#1a202c', muted: '#4a5568', accent: '#4299e1',
+        panel: 'rgba(255,255,255,0.75)', highlight: 'rgba(66,153,225,0.2)', barBg: 'rgba(255,255,255,0.45)',
+    },
+    snow: {
+        bgStops: '<stop offset="0%" style="stop-color:#f0f8ff"/><stop offset="100%" style="stop-color:#c8e0f8"/>',
+        title: '#1a365d', sub: '#2b6cb0', line: '#1a202c', muted: '#4a6fa5', accent: '#90cdf4',
+        panel: 'rgba(255,255,255,0.82)', highlight: 'rgba(144,205,244,0.25)', barBg: 'rgba(255,255,255,0.55)',
+    },
+    storm: {
+        bgStops: '<stop offset="0%" style="stop-color:#2d1b4e"/><stop offset="55%" style="stop-color:#1a1035"/><stop offset="100%" style="stop-color:#0f0820"/>',
+        title: '#f5ebff', sub: '#d4b8ff', line: '#faf5ff', muted: '#b794f4', accent: '#ffd700',
+        panel: 'rgba(0,0,0,0.45)', highlight: 'rgba(255,215,0,0.15)', barBg: 'rgba(255,255,255,0.12)',
+    },
+    fog: {
+        bgStops: '<stop offset="0%" style="stop-color:#e8e8ec"/><stop offset="100%" style="stop-color:#b8b8c8"/>',
+        title: '#2d3748', sub: '#4a5568', line: '#1a202c', muted: '#718096', accent: '#a0aec0',
+        panel: 'rgba(255,255,255,0.65)', highlight: 'rgba(160,174,192,0.25)', barBg: 'rgba(255,255,255,0.4)',
+    },
+    breeze: {
+        bgStops: '<stop offset="0%" style="stop-color:#e6fffa"/><stop offset="100%" style="stop-color:#b2f5ea"/>',
+        title: '#1a4731', sub: '#276749', line: '#1a202c', muted: '#38a169', accent: '#68d391',
+        panel: 'rgba(255,255,255,0.72)', highlight: 'rgba(104,211,145,0.2)', barBg: 'rgba(255,255,255,0.45)',
+    },
+    gloom: {
+        bgStops: '<stop offset="0%" style="stop-color:#1a1a2e"/><stop offset="100%" style="stop-color:#0f0f1a"/>',
+        title: '#e8e8f0', sub: '#a0a0b8', line: '#f0f0f8', muted: '#8888a0', accent: '#805ad5',
+        panel: 'rgba(0,0,0,0.5)', highlight: 'rgba(128,90,213,0.2)', barBg: 'rgba(255,255,255,0.1)',
+    },
+    rainbow: {
+        bgStops: '<stop offset="0%" style="stop-color:#fff0f8"/><stop offset="35%" style="stop-color:#f0fff4"/><stop offset="70%" style="stop-color:#ebf8ff"/><stop offset="100%" style="stop-color:#faf5ff"/>',
+        title: '#553c9a', sub: '#6b46c1', line: '#2d1b69', muted: '#805ad5', accent: '#ed64a6',
+        panel: 'rgba(255,255,255,0.72)', highlight: 'rgba(237,100,166,0.18)', barBg: 'rgba(255,255,255,0.5)',
+    },
+};
+
+export function resolveWeatherCardTheme(weatherId) {
+    return WEATHER_CARD_THEMES[weatherId] || WEATHER_CARD_THEMES.sunny;
+}
+
 export function getWeatherEffects(weatherId) {
     const def = WEATHER_CATALOG[weatherId] || WEATHER_CATALOG.sunny;
     /** @type {WeatherEffects & { id: string, name: string, emoji: string, tip: string }} */

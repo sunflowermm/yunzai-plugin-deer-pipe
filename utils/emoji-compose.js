@@ -3,7 +3,49 @@
  */
 import sharp from 'sharp';
 import { stickerOverlay } from './render-pipeline.js';
-import { estimateTextWidth, textCenteredEmoji, TXT } from './svg-base.js';
+import { escapeXml, estimateTextWidth, textCenteredEmoji, TXT } from './svg-base.js';
+
+const INLINE_EMOJI_RE = /(\p{Extended_Pictographic}(?:\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F)?)*)/gu;
+
+/** 单行混排：中文走 DeerFont，emoji 走 Twemoji 栅格 */
+export async function buildInlineEmojiText(x, y, text, {
+    style = TXT,
+    fontSize = 14,
+    fill = '#3d2914',
+    weight = '',
+    emojiScale = 1.12,
+} = {}) {
+    const s = String(text ?? '');
+    if (!s) return '';
+    const parts = [];
+    let last = 0;
+    for (const m of s.matchAll(INLINE_EMOJI_RE)) {
+        const idx = m.index ?? 0;
+        if (idx > last) parts.push({ t: 'text', v: s.slice(last, idx) });
+        parts.push({ t: 'emoji', v: m[0] });
+        last = idx + m[0].length;
+    }
+    if (last < s.length) parts.push({ t: 'text', v: s.slice(last) });
+    if (!parts.some((p) => p.t === 'emoji')) {
+        const w = weight ? ` font-weight="${weight}"` : '';
+        return `<text ${style} x="${x}" y="${y}" font-size="${fontSize}" fill="${fill}"${w}>${escapeXml(s)}</text>`;
+    }
+    const emojiSize = Math.round(fontSize * emojiScale);
+    const emojiCy = y - Math.round(fontSize * 0.3);
+    let cx = x;
+    let out = '';
+    for (const p of parts) {
+        if (p.t === 'text' && p.v) {
+            const w = weight ? ` font-weight="${weight}"` : '';
+            out += `<text ${style} x="${cx}" y="${y}" font-size="${fontSize}" fill="${fill}"${w}>${escapeXml(p.v)}</text>`;
+            cx += estimateTextWidth(p.v, fontSize);
+        } else if (p.t === 'emoji') {
+            out += await emojiSvgImage(cx + emojiSize / 2, emojiCy, p.v, emojiSize);
+            cx += emojiSize + 3;
+        }
+    }
+    return out;
+}
 
 const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72';
 const rasterCache = new Map();
@@ -18,12 +60,18 @@ function emojiCodepoints(emoji) {
 }
 
 async function fetchTwemojiBuffer(emoji) {
-    const code = emojiCodepoints(emoji);
+    let code = emojiCodepoints(emoji);
     if (!code) return null;
-    const url = `${TWEMOJI_BASE}/${code}.png`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
+    const tryFetch = async (c) => {
+        const res = await fetch(`${TWEMOJI_BASE}/${c}.png`);
+        if (!res.ok) return null;
+        return Buffer.from(await res.arrayBuffer());
+    };
+    let buf = await tryFetch(code);
+    if (!buf && code.includes('-fe0f')) {
+        buf = await tryFetch(code.replace(/-fe0f/g, ''));
+    }
+    return buf;
 }
 
 /** @returns {Promise<Buffer|null>} 透明底 PNG */
@@ -82,17 +130,20 @@ export async function buildCenteredEmojiTitleRaster(cx, y, emoji, title, {
     const gap = 6;
     const totalW = (emoji ? emojiSize + gap : 0) + titleW;
     const startX = cx - totalW / 2;
-    const overlays = [];
     let prefix = '';
     if (emoji) {
         const emojiTop = y - Math.round(emojiSize * 0.82);
-        const overlay = await emojiStickerOverlay(emoji, emojiTop, startX, emojiSize);
-        if (overlay) overlays.push(overlay);
-        else prefix = await emojiSvgImage(startX + emojiSize / 2, y - Math.round(emojiSize * 0.12), emoji, emojiSize);
+        const buf = await loadEmojiRaster(emoji, emojiSize);
+        if (buf) {
+            const b64 = buf.toString('base64');
+            prefix = `<image x="${Math.round(startX)}" y="${emojiTop}" width="${emojiSize}" height="${emojiSize}" href="data:image/png;base64,${b64}"/>`;
+        } else {
+            prefix = await emojiSvgImage(startX + emojiSize / 2, y - Math.round(emojiSize * 0.12), emoji, emojiSize);
+        }
     }
     const textX = startX + (emoji ? emojiSize + gap : 0);
     const fillAttr = fill ? ` fill="${fill}"` : '';
     const weightAttr = weight ? ` font-weight="${weight}"` : '';
     const svg = `${prefix}<text x="${Math.round(textX)}" y="${y}" font-size="${titleSize}" ${style}${fillAttr}${weightAttr}>${titleStr.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>`;
-    return { svg, overlays };
+    return { svg, overlays: [] };
 }
