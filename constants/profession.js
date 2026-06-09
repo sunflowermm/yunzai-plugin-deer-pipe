@@ -1,99 +1,134 @@
 /** 职业配额与玩法修正（独立于 game.js 全局常量） */
 
-/** 未转职时不生效任何职业 */
+import { resolveProfessionQuotas, formatProfessionQuotaSummary } from './profession-quotas.js';
+
+export { QUOTA, BASE_QUOTAS, PROFESSION_QUOTA_TABLE } from './profession-quotas.js';
+
 export const DEFAULT_PROFESSION_ID = 'ranger';
 
 export const PROFESSION_HELP_RANGE = [2, 14];
 export const PROFESSION_WITHDRAW_RANGE = [1, 10];
 
-/**
- * 每日必须先「转职」再玩；选定后当日锁定，0 点重置
- * @typedef {object} ProfessionDef
- */
-
-/** @type {Record<string, ProfessionDef>} */
+/** @type {Record<string, object>} */
 export const PROFESSIONS = {
     ranger: {
         id: 'ranger',
         name: '巡游鹿',
         emoji: '🦌',
-        tagline: '天象联动：晴/虹类正向天象效果 ×1.2',
-        helpQuota: 7,
-        helpWithdrawQuota: 5,
+        tagline: '天象联动 · 偷咒签运略升 · 玩法次数均衡',
         safeBonus: 0,
-        helpFailDelta: -0.01,
-        helpWithdrawFailDelta: -0.01,
-        deathDelta: -0.01,
-        stealDelta: 0.05,
-        curseApplyBonus: 0.06,
-        blessApplyBonus: 0.05,
-        weatherPositiveAmp: 1.2,
-        synergyTip: '偷鹿 +5% · 鹿咒/鹿福成功率略升 · 天象增益放大',
+        helpFailDelta: -0.02,
+        helpWithdrawFailDelta: -0.02,
+        deathDelta: -0.015,
+        stealDelta: 0.06,
+        curseApplyBonus: 0.08,
+        blessApplyBonus: 0.06,
+        lotteryLuckDelta: 0.05,
+        weatherPositiveAmp: 1.25,
+        synergyTip: '偷鹿+6% · 天象×1.25 · 签运/群游配额多 · 均衡探索',
     },
     medic: {
         id: 'medic',
         name: '鹿医师',
         emoji: '💊',
-        tagline: '救场专精：帮鹿/救活失手大减，成功可撕咒贴福',
-        helpQuota: 14,
-        helpWithdrawQuota: 1,
+        tagline: '救场专精：帮鹿失手大减，成功 12% 当日帮鹿次数+1',
         safeBonus: 0,
-        helpFailDelta: -0.05,
+        helpFailDelta: -0.06,
         helpWithdrawFailDelta: 0,
-        reviveFailDelta: -0.08,
-        helpCurseCleanseChance: 0.30,
-        helpBlessChance: 0.15,
-        synergyTip: '帮鹿成功 30% 撕 1 层咒 · 15% 贴 1 层鹿福 · 救活失手 -8%',
+        reviveFailDelta: -0.10,
+        helpCurseCleanseChance: 0.35,
+        helpBlessChance: 0.18,
+        helpQuotaBonusChance: 0.12,
+        synergyTip: '帮鹿14 · 禁偷咒 · 还阳/托梦多 · 12%帮鹿次数+1',
     },
     ascetic: {
         id: 'ascetic',
         name: '戒灵师',
         emoji: '📘',
-        tagline: '帮戒专精：失手大减，戒鹿区目标额外 -1',
-        helpQuota: 2,
-        helpWithdrawQuota: 10,
+        tagline: '帮戒专精：戒鹿区目标额外 -1，自戒再 -1 概率升',
         safeBonus: 0,
         helpFailDelta: 0,
-        helpWithdrawFailDelta: -0.12,
-        withdrawExtraChance: 0.25,
+        helpWithdrawFailDelta: -0.15,
+        withdrawExtraChance: 0.30,
         withdrawExtraAmount: 1,
+        asceticZoneBonus: 1,
         selfWithdrawBonus: 1,
-        selfWithdrawBonusChance: 0.30,
-        synergyTip: '目标已在戒鹿区（次数<0）帮戒必再 -1 · 自戒 30% 再 -1',
+        selfWithdrawBonusChance: 0.35,
+        synergyTip: '帮戒10 · 诈戒5 · 催鹿6 · 禁偷/互害',
     },
     grinder: {
         id: 'grinder',
         name: '卷王鹿',
         emoji: '🔥',
-        tagline: '自🦌安全区 +2，超限步步低，安全🦌 20% 连击 +1',
-        helpQuota: 3,
-        helpWithdrawQuota: 1,
-        safeBonus: 2,
+        tagline: '安全区 +3，超限鹿死封顶 22%，擂台次数多',
+        safeBonus: 3,
         helpFailDelta: 0,
         helpWithdrawFailDelta: 0,
-        deathDelta: -0.03,
-        overlimitStepReduce: 0.01,
-        safeLuDoubleChance: 0.20,
-        synergyTip: '安全区前 5 次零鹿死 · 超限递增 -1%/步 · 安全自🦌可连击',
+        deathDelta: -0.04,
+        overlimitStepReduce: 0.012,
+        overlimitDeathCap: 0.22,
+        safeLuDoubleChance: 0.25,
+        synergyTip: '安全+3 · 擂台8 · 皇城3 · 碰瓷4 · 同归2',
+    },
+    curser: {
+        id: 'curser',
+        name: '叠咒鹿',
+        emoji: '☠️',
+        tagline: '叠咒/冥咒/索命次数多，互害专精',
+        safeBonus: 0,
+        curseApplyBonus: 0.12,
+        deathDelta: 0.02,
+        helpFailDelta: 0.02,
+        synergyTip: '鹿咒7 · 冥咒4 · 索命4 · 群溅3 · 禁福',
+    },
+    blesser: {
+        id: 'blesser',
+        name: '福鹿使',
+        emoji: '✨',
+        tagline: '鹿福/解咒/解福次数多，互助偏正面',
+        safeBonus: 1,
+        blessApplyBonus: 0.10,
+        helpBlessChance: 0.22,
+        helpCurseCleanseChance: 0.25,
+        synergyTip: '鹿福6 · 解福4 · 解咒4 · 帮鹿11 · 禁偷咒',
+    },
+    rogue: {
+        id: 'rogue',
+        name: '窃光鹿',
+        emoji: '🥷',
+        tagline: '偷鹿/碰瓷/诈戒次数多，窃掠专精',
+        safeBonus: 0,
+        stealDelta: 0.10,
+        deathDelta: -0.02,
+        synergyTip: '偷鹿7 · 碰瓷5 · 诈戒5 · 倒贴3 · 皇城3',
     },
 };
 
-/** 转职指令别名 → id */
+/** 转职指令别名 → id（须与职业名一致，无歧义简称） */
 export const PROFESSION_ALIASES = {
     巡游: 'ranger',
     巡游鹿: 'ranger',
     默认: 'ranger',
-    鹿医: 'medic',
     鹿医师: 'medic',
     医师: 'medic',
-    医生: 'medic',
     戒师: 'ascetic',
     戒灵师: 'ascetic',
-    帮戒: 'ascetic',
     卷王: 'grinder',
     卷王鹿: 'grinder',
-    自鹿: 'grinder',
+    叠咒鹿: 'curser',
+    叠咒: 'curser',
+    咒师: 'curser',
+    福鹿使: 'blesser',
+    福使: 'blesser',
+    赐福鹿: 'blesser',
+    窃光鹿: 'rogue',
+    窃贼鹿: 'rogue',
+    窃光: 'rogue',
 };
+
+function formatQuotaBrief(profId) {
+    return formatProfessionQuotaSummary(profId, 'brief');
+}
 
 function formatProfessionPerk(p) {
     const parts = [];
@@ -102,14 +137,24 @@ function formatProfessionPerk(p) {
     if (p.helpWithdrawFailDelta) parts.push(`帮戒失手${Math.round(p.helpWithdrawFailDelta * 100)}%`);
     if (p.reviveFailDelta) parts.push(`救活失手${Math.round(p.reviveFailDelta * 100)}%`);
     if (p.weatherPositiveAmp && p.weatherPositiveAmp !== 1) parts.push(`天象×${p.weatherPositiveAmp}`);
-    if (p.helpCurseCleanseChance) parts.push(`帮鹿${Math.round(p.helpCurseCleanseChance * 100)}%撕咒`);
+    if (p.helpCurseCleanseChance) parts.push(`${Math.round(p.helpCurseCleanseChance * 100)}%撕咒`);
+    if (p.helpQuotaBonusChance) parts.push(`${Math.round(p.helpQuotaBonusChance * 100)}%帮鹿次数+1`);
     if (p.withdrawExtraChance) parts.push(`帮戒${Math.round(p.withdrawExtraChance * 100)}%再-1`);
+    if (p.asceticZoneBonus) parts.push(`戒区再-${p.asceticZoneBonus}`);
     if (p.safeLuDoubleChance) parts.push(`安全🦌${Math.round(p.safeLuDoubleChance * 100)}%连击`);
+    if (p.overlimitDeathCap) parts.push(`超限鹿死≤${Math.round(p.overlimitDeathCap * 100)}%`);
+    if (p.lotteryLuckDelta) parts.push(`签运+${Math.round(p.lotteryLuckDelta * 100)}%`);
+    if (p.stealDelta) parts.push(`偷鹿+${Math.round(p.stealDelta * 100)}%`);
+    if (p.curseApplyBonus) parts.push(`叠咒+${Math.round(p.curseApplyBonus * 100)}%`);
+    if (p.blessApplyBonus) parts.push(`鹿福+${Math.round(p.blessApplyBonus * 100)}%`);
     return parts.length ? ` · ${parts.join(' · ')}` : '';
 }
 
-export const PROFESSION_LIST_TEXT = Object.values(PROFESSIONS)
-    .map((p) => `${p.emoji} ${p.name}：帮鹿 ${p.helpQuota} · 帮戒 ${p.helpWithdrawQuota}${formatProfessionPerk(p)}`)
+export const PROFESSION_LIST_TEXT = Object.keys(PROFESSIONS)
+    .map((id) => {
+        const p = getProfessionDef(id);
+        return `${p.emoji} ${p.name}：${formatProfessionQuotaSummary(id, 'brief')}${formatProfessionPerk(p)}`;
+    })
     .join('\n');
 
 export const PROFESSION_SYNERGY_TEXT = Object.values(PROFESSIONS)
@@ -117,8 +162,16 @@ export const PROFESSION_SYNERGY_TEXT = Object.values(PROFESSIONS)
     .join('\n');
 
 export function getProfessionDef(id) {
-    return PROFESSIONS[id] || PROFESSIONS[DEFAULT_PROFESSION_ID];
+    const base = PROFESSIONS[id] || PROFESSIONS[DEFAULT_PROFESSION_ID];
+    const q = resolveProfessionQuotas(base.id);
+    return {
+        ...base,
+        helpQuota: q.help,
+        helpWithdrawQuota: q.helpWithdraw,
+    };
 }
+
+export { formatProfessionQuotaSummary };
 
 export function resolveProfessionId(token) {
     const raw = String(token ?? '').trim().replace(/\s+/g, '');
@@ -129,7 +182,6 @@ export function resolveProfessionId(token) {
     return PROFESSION_ALIASES[raw] || PROFESSION_ALIASES[lower] || null;
 }
 
-/** 各职业每日 1 次专属技（须先转职） */
 export const PROFESSION_SKILLS = {
     ranger: {
         id: 'ranger',
@@ -141,7 +193,7 @@ export const PROFESSION_SKILLS = {
         id: 'medic',
         name: '妙手愈鹿',
         cmd: '愈鹿@ / 鹿愈@',
-        desc: '不占帮鹿配额 · 零失手帮 +1 或救活',
+        desc: '不占帮鹿配额 · 零失手帮 +1 或救活（须鹿医师）',
     },
     ascetic: {
         id: 'ascetic',
@@ -154,6 +206,24 @@ export const PROFESSION_SKILLS = {
         name: '卷王冲锋',
         cmd: '卷王冲 / 卷冲',
         desc: '强制安全自🦌 +2（不计超限鹿死）',
+    },
+    curser: {
+        id: 'curser',
+        name: '咒缚',
+        cmd: '咒缚@',
+        desc: '不占鹿咒配额 · 零失手叠 1 层咒',
+    },
+    blesser: {
+        id: 'blesser',
+        name: '广福',
+        cmd: '广福@',
+        desc: '不占鹿福配额 · 零失手贴 1 层福',
+    },
+    rogue: {
+        id: 'rogue',
+        name: '夜袭',
+        cmd: '夜袭@',
+        desc: '不占偷鹿配额 · 高成功率偷 1 次',
     },
 };
 

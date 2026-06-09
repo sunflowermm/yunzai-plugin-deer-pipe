@@ -4,7 +4,7 @@
 import { REDIS_YUNZAI_DEER_PIPE_KING_ARCHIVE } from '../constants/core.js';
 import { pickRandom } from '../constants/game.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
-import { getDayRankInGroup } from './data.js';
+import { getDayBalancedRankInGroup } from './data.js';
 import { generateDailyKingImage } from './king-render.js';
 import hub, { resolveKingBroadcastGroupIds, sleepMs } from '../lib/deer-hub.js';
 
@@ -76,7 +76,7 @@ async function resolveGroupMembers(groupId) {
 export async function compileGroupDailyKing(deerData, groupId, rankDate = new Date()) {
     const members = await resolveGroupMembers(groupId);
     if (!members.length) return null;
-    const rank = getDayRankInGroup(deerData, members, rankDate);
+    const rank = getDayBalancedRankInGroup(deerData, members, rankDate);
     if (!rank.length) return null;
     const king = rank[0];
     const kingName = await resolveMemberName(groupId, king.id);
@@ -101,7 +101,7 @@ export function buildKingCaption(result) {
     const flavor = pickRandom(CARD_FLAVOR.king || CARD_FLAVOR.default);
     return [
         `👑 【日度鹿王】${result.dateLabel}`,
-        `本群鹿王：${result.kingName}（${result.count} 次）`,
+        `本群鹿王：${result.kingName}（综合 ${result.count} 分）`,
         `皇城鹿可向其宣战 · 发送「皇城🦌」`,
         flavor,
     ].join('\n');

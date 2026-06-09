@@ -182,6 +182,17 @@ export const CARD_THEMES = {
         panel: 'rgba(0,0,0,0.38)',
         highlight: 'rgba(93,173,226,0.18)',
     },
+    profession: {
+        bgStops: '<stop offset="0%" style="stop-color:#3d2810"/><stop offset="55%" style="stop-color:#2a1808"/><stop offset="100%" style="stop-color:#1a0f00"/>',
+        title: '#fff3d6',
+        sub: '#ffe0a8',
+        line: '#fffaf0',
+        muted: '#e8c878',
+        accent: '#ffb347',
+        panel: 'rgba(0,0,0,0.48)',
+        highlight: 'rgba(255,179,71,0.22)',
+        barBg: 'rgba(255,255,255,0.12)',
+    },
 };
 
 /** 稳定 hash，用于装饰粒子伪随机 */

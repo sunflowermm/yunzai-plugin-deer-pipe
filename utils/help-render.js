@@ -1,6 +1,5 @@
-import fs from 'fs';
 import sharp from 'sharp';
-import { DEERPIPE_IMG } from '../constants/core.js';
+import { HELP_SECTION_ART } from '../constants/deer-assets.js';
 import { escapeXml, truncText, textCentered, textEmoji, TXT, TXT_SOFT, svgTextStyled } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
@@ -10,6 +9,12 @@ import {
     HELP_TAGLINE,
 } from '../constants/help-catalog.js';
 import { pickRandom } from '../constants/game.js';
+import {
+    loadBrandLogo,
+    loadCatalogArt,
+    loadSectionArt,
+    stickerOverlay,
+} from './sticker-compose.js';
 
 const IMG_W = 720;
 const PAD = 20;
@@ -19,18 +24,7 @@ const LINE_H = 32;
 const ITEM_EXTRA = 24;
 const SECTION_GAP = 10;
 const HEADER_H = 188;
-
-let deerBaseBuf = null;
-
-async function loadDeerAsset() {
-    if (deerBaseBuf) return deerBaseBuf;
-    deerBaseBuf = await sharp(fs.readFileSync(DEERPIPE_IMG))
-        .ensureAlpha()
-        .trim({ threshold: 12 })
-        .png()
-        .toBuffer();
-    return deerBaseBuf;
-}
+const SECTION_ICON = 28;
 
 function truncDesc(text) {
     return truncText(text, DESC_MAX);
@@ -50,8 +44,15 @@ function estimatePageHeight(pageDef) {
     return h + 72;
 }
 
+async function loadSectionIcon(sectionKey) {
+    const artKey = HELP_SECTION_ART[sectionKey];
+    if (!artKey) return null;
+    if (artKey === 'catalog') return loadCatalogArt(SECTION_ICON);
+    return loadSectionArt(artKey, SECTION_ICON);
+}
+
 function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
-    const sections = sectionsForPage(pageDef);
+    const sections = pageDef.sectionKeys.map((key) => ({ key, ...HELP_SECTIONS[key] })).filter((s) => s.title);
     let y = HEADER_H + PAD;
     const blocks = [];
     blocks.push(`
@@ -62,9 +63,10 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
     `);
     for (const sec of sections) {
         y += LINE_H;
+        const titleX = HELP_SECTION_ART[sec.key] ? PAD + SECTION_ICON + 8 : PAD + 28;
         blocks.push(`
-            ${textEmoji(PAD, y, sec.emoji, { size: 20 })}
-            <text ${TXT} x="${PAD + 28}" y="${y}" font-size="20" fill="#5c3d2e" font-weight="bold">${escapeXml(sec.title)}</text>
+            ${HELP_SECTION_ART[sec.key] ? '' : textEmoji(PAD, y, sec.emoji, { size: 20 })}
+            <text ${TXT} x="${titleX}" y="${y}" font-size="20" fill="#5c3d2e" font-weight="bold">${escapeXml(sec.title)}</text>
         `);
         y += 6;
         for (const item of sec.items) {
@@ -98,17 +100,32 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
 
 async function composePage(pageDef, pageIndex, totalPages) {
     const imgH = estimatePageHeight(pageDef);
-    const deerSrc = await loadDeerAsset();
-    const deerBig = await sharp(deerSrc)
-        .resize(pageIndex === 0 ? 150 : 120, pageIndex === 0 ? 124 : 99, { fit: 'inside' })
-        .rotate(pageIndex === 0 ? -8 : 10, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toBuffer();
-    const deerSmall = await sharp(deerSrc)
-        .resize(64, 52, { fit: 'inside' })
-        .rotate(-12, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toBuffer();
+    const [deerBig, deerSmall, brandLogo, ...sectionIcons] = await Promise.all([
+        loadBrandLogo(pageIndex === 0 ? 40 : 32),
+        loadBrandLogo(26),
+        loadBrandLogo(22),
+        ...pageDef.sectionKeys.map((key) => loadSectionIcon(key)),
+    ]);
+
+    const layers = [
+        { input: buildPageSvg(pageDef, imgH, pageIndex, totalPages), top: 0, left: 0 },
+    ];
+    if (deerBig) layers.push({ input: deerBig, top: 72, left: IMG_W - (pageIndex === 0 ? 190 : 165) });
+    if (deerSmall) layers.push({ input: deerSmall, top: imgH - 88, left: PAD + 4 });
+    if (brandLogo) layers.push({ input: brandLogo, top: 14, left: PAD + 4 });
+
+    let y = HEADER_H + PAD;
+    for (let i = 0; i < pageDef.sectionKeys.length; i += 1) {
+        y += LINE_H;
+        const icon = sectionIcons[i];
+        if (icon) {
+            const overlay = stickerOverlay(icon, y - SECTION_ICON + 4, PAD);
+            if (overlay) layers.push(overlay);
+        }
+        const sec = HELP_SECTIONS[pageDef.sectionKeys[i]];
+        y += 6 + sec.items.length * (LINE_H + ITEM_EXTRA) + SECTION_GAP;
+    }
+
     return sharp({
         create: {
             width: IMG_W,
@@ -117,11 +134,7 @@ async function composePage(pageDef, pageIndex, totalPages) {
             background: { r: 255, g: 245, b: 235, alpha: 1 },
         },
     })
-        .composite([
-            { input: buildPageSvg(pageDef, imgH, pageIndex, totalPages), top: 0, left: 0 },
-            { input: deerBig, top: 72, left: IMG_W - (pageIndex === 0 ? 190 : 165) },
-            { input: deerSmall, top: imgH - 88, left: PAD + 4 },
-        ])
+        .composite(layers)
         .png()
         .toBuffer();
 }

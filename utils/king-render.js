@@ -86,14 +86,14 @@ export async function generateDailyKingImage({
     const avatarSize = 96;
     const avatar = await fetchCircleAvatar(kingId, avatarSize, '#ffd700');
     const statRows = [
-        { label: '今日🦌绩', value: `${count} 次`, color: '#ffd700' },
+        { label: '综合得分', value: `${count} 分`, color: '#ffd700' },
         { label: '鹿王 QQ', value: kingId || '—', color: '#ffe8a0' },
     ];
     if (rankTop[1]) {
-        statRows.push({ label: '榜二', value: `${truncText(rankTop[1].name, 8)} · ${rankTop[1].count}次`, color: '#c0c0c0' });
+        statRows.push({ label: '榜二', value: `${truncText(rankTop[1].name, 8)} · ${rankTop[1].count}分`, color: '#c0c0c0' });
     }
     if (rankTop[2]) {
-        statRows.push({ label: '榜三', value: `${truncText(rankTop[2].name, 8)} · ${rankTop[2].count}次`, color: '#cd7f32' });
+        statRows.push({ label: '榜三', value: `${truncText(rankTop[2].name, 8)} · ${rankTop[2].count}分`, color: '#cd7f32' });
     }
 
     const statTop = 248;
@@ -102,7 +102,7 @@ export async function generateDailyKingImage({
     const H = flavorY + 44;
     const flavor = pickRandom(CARD_FLAVOR.king || CARD_FLAVOR.default);
     const titleLine = dateLabel || `${date.getMonth() + 1}月${date.getDate()}日`;
-    const subtitle = groupLabel ? truncText(groupLabel, 28) : '鹿林日榜第一 · 今日鹿王';
+    const subtitle = groupLabel ? truncText(groupLabel, 28) : '综合日榜第一 · 今日鹿王';
     const decoSeed = hashSeed(kingId, dateLabel, count);
 
     const inner = `

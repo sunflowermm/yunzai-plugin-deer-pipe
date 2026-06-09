@@ -4,6 +4,9 @@ import {
     getProfessionSkill,
     resolveProfessionId,
 } from '../constants/profession.js';
+import { getProfessionQuotaLimit, QUOTA } from './profession-quota.js';
+
+export { getProfessionQuotaLimit, QUOTA } from './profession-quota.js';
 
 export {
     resolveProfessionId,
@@ -160,6 +163,10 @@ export function buildProfessionMods(def) {
         overlimitStepReduce: def.overlimitStepReduce || 0,
         safeLuDoubleChance: def.safeLuDoubleChance || 0,
         weatherPositiveAmp: def.weatherPositiveAmp || 1,
+        lotteryLuckDelta: def.lotteryLuckDelta || 0,
+        helpQuotaBonusChance: def.helpQuotaBonusChance || 0,
+        overlimitDeathCap: def.overlimitDeathCap ?? null,
+        asceticZoneBonus: def.asceticZoneBonus || 0,
     };
 }
 
@@ -171,13 +178,11 @@ export function getProfessionMods(monthData, day) {
 }
 
 export function getHelpQuotaLimit(monthData, day) {
-    const mods = getProfessionMods(monthData, day);
-    return mods ? mods.helpQuota : 0;
+    return getProfessionQuotaLimit(monthData, day, QUOTA.help);
 }
 
 export function getHelpWithdrawQuotaLimit(monthData, day) {
-    const mods = getProfessionMods(monthData, day);
-    return mods ? mods.helpWithdrawQuota : 0;
+    return getProfessionQuotaLimit(monthData, day, QUOTA.helpWithdraw);
 }
 
 export function setDayProfession(monthData, day, professionId) {

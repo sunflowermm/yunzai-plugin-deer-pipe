@@ -133,6 +133,8 @@ export const PRIVILEGED_QQ = '1814632762';
 export const META_PREFIX = {
     JOB: '_job_',
     HELP: '_hq_',
+    /** 鹿医师被动：当日额外帮鹿次数 */
+    HELP_BONUS: '_hqb_',
     HELP_WITHDRAW: '_hwq_',
     TOGETHER: '_tf_',
     IMPERIAL: '_hc_',
@@ -883,6 +885,27 @@ export const UI_MESSAGES = {
         if (scope === 'year') return '今年还没有人上榜，先来一发🦌吧~';
         if (scope === 'day') return '今日还没有人上榜，先来一发🦌吧~';
         if (scope === 'day_wd') return '今日还没有人可戒🦌排行~';
+        if (scope === 'day_heal' || scope === 'month_heal' || scope === 'year_heal') {
+            return '还没有人上榜，先去帮🦌/救活吧~';
+        }
+        if (scope === 'day_withdraw' || scope === 'month_withdraw' || scope === 'year_withdraw') {
+            return '还没有人上榜，先去帮戒🦌吧~';
+        }
+        if (scope === 'day_peak' || scope === 'month_peak' || scope === 'year_peak') {
+            return '还没有卷王上榜，安全区多🦌几发~';
+        }
+        if (scope === 'day_chaos' || scope === 'month_chaos' || scope === 'year_chaos') {
+            return '还没有恶趣上榜，去偷鹿/叠咒/擂台搞事吧~';
+        }
+        if (scope === 'day_balanced' || scope === 'month_balanced' || scope === 'year_balanced') {
+            return '还没有综合上榜，多玩互助/自律/活跃吧~';
+        }
+        if (scope === 'day_active' || scope === 'month_active' || scope === 'year_active') {
+            return '还没有活跃上榜，多去搞点玩法吧~';
+        }
+        if (scope === 'day_revive' || scope === 'month_revive' || scope === 'year_revive') {
+            return '还没有救活上榜，先去拉鹿友一把吧~';
+        }
         return '本月还没有人上榜，先来一发🦌吧~';
     },
     rank_footer: 'yunzai-plugin-deer-pipe · 上榜合计为净值之和',

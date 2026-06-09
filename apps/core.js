@@ -16,18 +16,35 @@ import {
     performGrinderRush,
     performMedicHealSkill,
     performAsceticCleanseSkill,
+    performCurserBindSkill,
+    performBlesserGrantSkill,
+    performRogueNightRaidSkill,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
 import { loadGameContext } from '../utils/context.js';
-import { replyDeerPanel, replyInteractionResult, replyStatusPanel } from '../utils/panel.js';
+import {
+    replyDeerPanel,
+    replyInteractionResult,
+    replyProfessionCatalog,
+    replyProfessionCard,
+    replyStatusPanel,
+    replyUserProfessionPanel,
+} from '../utils/panel.js';
 import {
     formatActionMessage,
     formatErrorMessage,
     formatHelperQuotaReply,
     formatViewEmpty,
 } from '../utils/messages.js';
-import { getMemberName, resolveHelpTargetId, resolveSubjectUser, resolveMedicSkillTargetId, resolveAsceticSkillTargetId } from '../utils/plugin-common.js';
+import {
+    getMemberName,
+    resolveHelpTargetId,
+    resolveSubjectUser,
+    resolveMedicSkillTargetId,
+    resolveAsceticSkillTargetId,
+    resolveTargetId,
+} from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 export class DeerPipe extends plugin {
@@ -55,6 +72,9 @@ export class DeerPipe extends plugin {
                 { reg: REG.medicHealSkillAlt, fnc: 'medicHealSkill' },
                 { reg: REG.asceticCleanseSkill, fnc: 'asceticCleanseSkill' },
                 { reg: REG.grinderRush, fnc: 'grinderRush' },
+                { reg: REG.curserBindSkill, fnc: 'curserBindSkill' },
+                { reg: REG.blesserGrantSkill, fnc: 'blesserGrantSkill' },
+                { reg: REG.rogueNightRaidSkill, fnc: 'rogueNightRaidSkill' },
             ],
         });
     }
@@ -138,12 +158,16 @@ export class DeerPipe extends plugin {
 
     async professionInfo() {
         const text = await this.buildQuotaReplyText('all', true);
-        await this.reply(text, true);
+        await replyProfessionCatalog(this.e, { text });
     }
 
     async helperQuotaInfo() {
+        const { user_id } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
         const text = await this.buildQuotaReplyText('all', false);
-        await this.reply(text, true);
+        await replyUserProfessionPanel(this.e, { monthData, day, text });
     }
 
     async helpLuQuotaInfo() {
@@ -187,7 +211,18 @@ export class DeerPipe extends plugin {
             return;
         }
         await saveDeerData(deerData);
-        await this.reply(formatActionMessage(result), true);
+        const text = formatActionMessage(result);
+        const monthData = getMonthData(getUserRecord(deerData, user_id), date);
+        if (result.changed && result.profession?.id) {
+            await replyProfessionCard(this.e, {
+                professionId: result.profession.id,
+                text,
+                monthData,
+                day,
+            });
+        } else {
+            await replyUserProfessionPanel(this.e, { monthData, day, text });
+        }
     }
 
     async helpLu() {
@@ -362,5 +397,62 @@ export class DeerPipe extends plugin {
             withPanel: true,
             duel: true,
         });
+    }
+
+    async _runTargetSkill(performFn, { needFriend = true } = {}) {
+        const { user_id, card, nickname } = this.e.sender;
+        const targetId = await resolveTargetId(this.e);
+        if (!targetId) {
+            await this.reply(ERROR_MESSAGES.no_target, true);
+            return;
+        }
+        if (needFriend) {
+            const friends = await loadFriends();
+            if (!canHelpFriend(friends, user_id, targetId)) {
+                await this.reply(ERROR_MESSAGES.not_friend, true);
+                return;
+            }
+        }
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performFn(deerData, user_id, targetId, date, day);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const targetName = await getMemberName(this.e, targetId);
+        const text = formatActionMessage(result, {
+            helperName: card || nickname,
+            targetName,
+        });
+        await replyInteractionResult(this.e, {
+            date,
+            name: targetName,
+            userId: targetId,
+            deerData,
+            text,
+            result,
+            helperName: card || nickname,
+            targetName,
+            helperId: user_id,
+            targetId,
+            dayOverride: day,
+            withPanel: true,
+            duel: true,
+        });
+    }
+
+    async curserBindSkill() {
+        await this._runTargetSkill(performCurserBindSkill);
+    }
+
+    async blesserGrantSkill() {
+        await this._runTargetSkill(performBlesserGrantSkill);
+    }
+
+    async rogueNightRaidSkill() {
+        await this._runTargetSkill(performRogueNightRaidSkill, { needFriend: false });
     }
 }

@@ -2,6 +2,11 @@ import { UI_MESSAGES } from '../constants/game.js';
 import { getMonthData, getUserRecord, isDayDead } from './data.js';
 import { generateImage, generateStatusImage } from './core.js';
 import { generateInteractionCard } from './card-render.js';
+import {
+    generateProfessionCard,
+    generateProfessionCatalogImage,
+    generateUserProfessionPanel,
+} from './profession-render.js';
 
 export async function replyStatusPanel(e, { date, name, status, isAt = false }) {
     const raw = await generateStatusImage(date, name, status);
@@ -71,5 +76,28 @@ export const replyPlayfulResult = replyInteractionResult;
 
 export async function replyWeatherCard(e, { caption, imageBuffer }) {
     const parts = caption ? [caption, segment.image(imageBuffer)] : [segment.image(imageBuffer)];
+    await e.reply(parts, true);
+}
+
+/** 职业一览图 + 文案 */
+export async function replyProfessionCatalog(e, { text }) {
+    const raw = await generateProfessionCatalogImage();
+    const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
+    await e.reply(parts, true);
+}
+
+/** 用户当日职业配额面板（含已用） */
+export async function replyUserProfessionPanel(e, { monthData, day, text }) {
+    const raw = await generateUserProfessionPanel(monthData, day);
+    const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
+    await e.reply(parts, true);
+}
+
+/** 单职业专精卡（转职成功等） */
+export async function replyProfessionCard(e, { professionId, text, monthData = null, day = null }) {
+    const raw = (monthData != null && day != null)
+        ? await generateUserProfessionPanel(monthData, day)
+        : await generateProfessionCard(professionId);
+    const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
     await e.reply(parts, true);
 }

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "path";
 import config from "./model/config.js";
 import hub from "./lib/deer-hub.js";
+import { verifyArtManifest } from "./constants/deer-assets.js";
 
 hub.startWatch();
 if (!global.segment) {
@@ -16,6 +17,11 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const pluginName = packageJson.name;
 // 初始化输出
 logger.info(logger.yellow(`🦌管插件（yunzai-plugin-deer-pipe）：${versionData[0].version}初始化，欢迎加入【R插件和它的朋友们】秋秋群：575663150`));
+
+const missingArt = verifyArtManifest();
+if (missingArt.length) {
+    logger.warn(`[deer-pipe] 贴图缺失 ${missingArt.length} 项：${missingArt.join(' · ')}`);
+}
 
 const files = fs.readdirSync(`./plugins/${pluginName}/apps`).filter(file => file.endsWith(".js"));
 

@@ -80,6 +80,12 @@ import {
 
 import { recordHelpAction } from './help-log.js';
 import {
+    calcDayBalancedScore as calcBalancedScore,
+    computeBalancedScore,
+    formatBalancedBreakdown,
+} from './balanced-score.js';
+import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
+import {
     getProfessionDef,
     getProfessionMods,
     getHelpQuotaLimit,
@@ -342,6 +348,75 @@ function readDailyUsed(monthData, day, key) {
     return typeof v === 'number' ? v : 1;
 }
 
+/** 玩法配额 used/max/left */
+function playQuotaSlice(monthData, day, quotaId, usedKeyFn) {
+    const max = getProfessionQuotaLimit(monthData, day, quotaId);
+    const used = readDailyUsed(monthData, day, usedKeyFn);
+    return { used, max, left: Math.max(0, max - used) };
+}
+
+/** 玩法配额：0 禁用 / 用尽 */
+function rejectIfPlayQuotaBlocked(monthData, day, quotaId, usedKeyFn, prefix) {
+    const max = getProfessionQuotaLimit(monthData, day, quotaId);
+    if (max <= 0) {
+        return { ok: false, type: `${prefix}_disabled`, [`${prefix}Max`]: 0 };
+    }
+    const used = readDailyUsed(monthData, day, usedKeyFn);
+    if (used >= max) {
+        return {
+            ok: false,
+            type: `${prefix}_used`,
+            [`${prefix}Used`]: used,
+            [`${prefix}Max`]: max,
+            [`${prefix}Left`]: 0,
+        };
+    }
+    return null;
+}
+
+/** 当日全玩法配额快照（鹿配额 / 鹿况） */
+export function getPlayQuotaSnapshot(monthData, day) {
+    if (!hasDayProfession(monthData, day)) {
+        return { professionRequired: true, play: {}, help: null, withdraw: null };
+    }
+    const profession = getProfessionMods(monthData, day);
+    const helpMax = getHelpQuotaLimit(monthData, day);
+    const withdrawMax = getHelpWithdrawQuotaLimit(monthData, day);
+    const helpUsed = getHelperQuota(monthData, day).used;
+    const withdrawUsed = getHelperWithdrawQuota(monthData, day).used;
+    const play = {
+        steal: playQuotaSlice(monthData, day, QUOTA.steal, stealUsedKey),
+        curse: playQuotaSlice(monthData, day, QUOTA.curse, curseUsedKey),
+        bless: playQuotaSlice(monthData, day, QUOTA.bless, blessUsedKey),
+        cleanseCurse: playQuotaSlice(monthData, day, QUOTA.cleanseCurse, cleanseUsedKey),
+        cleanseBless: playQuotaSlice(monthData, day, QUOTA.cleanseBless, cleanseBlessUsedKey),
+        arena: playQuotaSlice(monthData, day, QUOTA.arena, arenaUsedKey),
+        imperial: playQuotaSlice(monthData, day, QUOTA.imperial, imperialUsedKey),
+        sacrifice: playQuotaSlice(monthData, day, QUOTA.sacrifice, sacrificeUsedKey),
+        fakeWithdraw: playQuotaSlice(monthData, day, QUOTA.fakeWithdraw, fakeWithdrawUsedKey),
+        urge: playQuotaSlice(monthData, day, QUOTA.urge, urgeUsedKey),
+        howl: playQuotaSlice(monthData, day, QUOTA.howl, howlUsedKey),
+        greed: playQuotaSlice(monthData, day, QUOTA.greed, greedUsedKey),
+        groupSplash: playQuotaSlice(monthData, day, QUOTA.groupSplash, groupSplashUsedKey),
+        borrow: playQuotaSlice(monthData, day, QUOTA.borrow, borrowUsedKey),
+        bumper: playQuotaSlice(monthData, day, QUOTA.bumper, bumperUsedKey),
+        lottery: playQuotaSlice(monthData, day, QUOTA.lottery, lotteryUsedKey),
+        spectralCurse: playQuotaSlice(monthData, day, QUOTA.spectralCurse, spectralCurseUsedKey),
+        vengeance: playQuotaSlice(monthData, day, QUOTA.vengeance, vengeanceUsedKey),
+        dream: playQuotaSlice(monthData, day, QUOTA.dream, dreamUsedKey),
+        reviveLottery: playQuotaSlice(monthData, day, QUOTA.reviveLottery, reviveLotteryUsedKey),
+        together: playQuotaSlice(monthData, day, QUOTA.together, togetherUsedKey),
+    };
+    return {
+        professionRequired: false,
+        profession,
+        help: { used: helpUsed, max: helpMax, left: Math.max(0, helpMax - helpUsed) },
+        withdraw: { used: withdrawUsed, max: withdrawMax, left: Math.max(0, withdrawMax - withdrawUsed) },
+        play,
+        summary: formatProfessionQuotaSummary(profession.id, 'full'),
+    };
+}
+
 function isMetaKey(k) {
     return k.startsWith('_');
 }
@@ -372,7 +447,8 @@ export function getHelperWithdrawQuotaLeft(monthData, day) {
 
 /** 当日互助配额快照（职业上限 + 已用/剩余） */
 export function getHelperQuotaSnapshot(monthData, day) {
-    if (!hasDayProfession(monthData, day)) {
+    const snap = getPlayQuotaSnapshot(monthData, day);
+    if (snap.professionRequired) {
         return {
             professionRequired: true,
             profession: null,
@@ -381,25 +457,13 @@ export function getHelperQuotaSnapshot(monthData, day) {
             withdraw: { used: 0, max: 0, left: 0 },
         };
     }
-    const profession = getProfessionMods(monthData, day);
-    const helpUsed = getHelperQuota(monthData, day).used;
-    const withdrawUsed = getHelperWithdrawQuota(monthData, day).used;
-    const helpMax = profession.helpQuota;
-    const withdrawMax = profession.helpWithdrawQuota;
     return {
         professionRequired: false,
-        profession,
+        profession: snap.profession,
         locked: true,
-        help: {
-            used: helpUsed,
-            max: helpMax,
-            left: Math.max(0, helpMax - helpUsed),
-        },
-        withdraw: {
-            used: withdrawUsed,
-            max: withdrawMax,
-            left: Math.max(0, withdrawMax - withdrawUsed),
-        },
+        help: snap.help,
+        withdraw: snap.withdraw,
+        playSummary: snap.summary,
     };
 }
 
@@ -420,6 +484,7 @@ export function resetDailyHelperQuotas(monthData, day) {
     if (!monthData) return;
     delete monthData[helperQuotaKey(day)];
     delete monthData[helperWithdrawQuotaKey(day)];
+    delete monthData[helpQuotaBonusKey(day)];
 }
 
 /** 清空指定日期的玩法元数据（保留当日🦌绩 entry） */
@@ -427,6 +492,7 @@ export function resetUserDayMeta(monthData, day) {
     if (!monthData) return;
     delete monthData[helperQuotaKey(day)];
     delete monthData[helperWithdrawQuotaKey(day)];
+    delete monthData[helpQuotaBonusKey(day)];
     delete monthData[jobMetaKey(day)];
     delete monthData[jobSkillUsedKey(day)];
     delete monthData[patrolBuffKey(day)];
@@ -570,8 +636,18 @@ export function clearPlayfulMetaForAll(deerData, date, day) {
     return clearMetaKeysForAll(deerData, date, day, ...PLAYFUL_META_KEYS);
 }
 
+export function getTogetherUsedCount(monthData, day) {
+    return readDailyUsed(monthData, day, togetherUsedKey);
+}
+
+export function getTogetherQuotaLeft(monthData, day) {
+    return Math.max(0, getProfessionQuotaLimit(monthData, day, QUOTA.together) - getTogetherUsedCount(monthData, day));
+}
+
 export function hasUsedTogether(monthData, day) {
-    return !!monthData?.[togetherUsedKey(day)];
+    const limit = getProfessionQuotaLimit(monthData, day, QUOTA.together);
+    if (limit <= 0) return true;
+    return getTogetherUsedCount(monthData, day) >= limit;
 }
 
 export function getImperialUsedCount(monthData, day) {
@@ -579,11 +655,11 @@ export function getImperialUsedCount(monthData, day) {
 }
 
 export function getImperialQuotaLeft(monthData, day) {
-    return Math.max(0, DAILY_IMPERIAL_QUOTA - getImperialUsedCount(monthData, day));
+    return Math.max(0, getProfessionQuotaLimit(monthData, day, QUOTA.imperial) - getImperialUsedCount(monthData, day));
 }
 
 export function hasUsedImperial(monthData, day) {
-    return getImperialUsedCount(monthData, day) >= DAILY_IMPERIAL_QUOTA;
+    return getImperialUsedCount(monthData, day) >= getProfessionQuotaLimit(monthData, day, QUOTA.imperial);
 }
 
 export function getArenaUsedCount(monthData, day) {
@@ -591,11 +667,11 @@ export function getArenaUsedCount(monthData, day) {
 }
 
 export function getArenaQuotaLeft(monthData, day) {
-    return Math.max(0, DAILY_ARENA_QUOTA - getArenaUsedCount(monthData, day));
+    return Math.max(0, getProfessionQuotaLimit(monthData, day, QUOTA.arena) - getArenaUsedCount(monthData, day));
 }
 
 export function hasUsedArena(monthData, day) {
-    return getArenaUsedCount(monthData, day) >= DAILY_ARENA_QUOTA;
+    return getArenaUsedCount(monthData, day) >= getProfessionQuotaLimit(monthData, day, QUOTA.arena);
 }
 
 function consumeDailyQuota(monthData, day, keyFn, limit) {
@@ -671,6 +747,73 @@ export function sumYearNet(userRecord, year, date = new Date()) {
     return { sum, hasActivity };
 }
 
+const CHAOS_USED_KEYS = [
+    stealUsedKey,
+    curseUsedKey,
+    sacrificeUsedKey,
+    greedUsedKey,
+    groupSplashUsedKey,
+    bumperUsedKey,
+    arenaUsedKey,
+    togetherUsedKey,
+];
+
+function getPeakDayCountInMonth(monthData, upToDay) {
+    let peak = 0;
+    let hasActivity = false;
+    for (let d = 1; d <= upToDay; d++) {
+        const entry = getDayEntry(monthData, d);
+        if (!entry || entry.d) continue;
+        if (entry.c > peak) peak = entry.c;
+        if (entry.c > 0) hasActivity = true;
+    }
+    return { peak, hasActivity };
+}
+
+/** 互害恶趣味：偷咒献祭倒贴溅碰瓷擂台同归等玩法次数合计 */
+export function sumChaosActions(monthData, upToDay = 31) {
+    if (!monthData) return 0;
+    let sum = 0;
+    for (let d = 1; d <= upToDay; d++) {
+        sum += sumChaosActionsForDay(monthData, d);
+    }
+    return sum;
+}
+
+export function sumChaosActionsForDay(monthData, day) {
+    if (!monthData || day < 1) return 0;
+    let sum = 0;
+    for (const keyFn of CHAOS_USED_KEYS) {
+        sum += readDailyUsed(monthData, day, keyFn);
+    }
+    return sum;
+}
+
+/** 单日/月/年最高🦌绩（卷王榜） */
+export function getPeakDayCount(userRecord, date = new Date(), scope = 'month') {
+    if (!userRecord) return { peak: 0, hasActivity: false };
+    if (scope === 'day') {
+        const day = date.getDate();
+        const entry = getDayEntry(getMonthData(userRecord, date), day);
+        if (!entry || entry.d || entry.c <= 0) return { peak: 0, hasActivity: false };
+        return { peak: entry.c, hasActivity: true };
+    }
+    if (scope === 'year') {
+        const year = date.getFullYear();
+        let peak = 0;
+        let hasActivity = false;
+        for (const [monthKey, monthData] of Object.entries(getYearMonths(userRecord, year))) {
+            const m = parseInt(monthKey.split('-')[1], 10);
+            const capDay = m === date.getMonth() + 1 ? date.getDate() : 31;
+            const p = getPeakDayCountInMonth(monthData, capDay);
+            if (p.peak > peak) peak = p.peak;
+            hasActivity = hasActivity || p.hasActivity;
+        }
+        return { peak, hasActivity };
+    }
+    return getPeakDayCountInMonth(getMonthData(userRecord, date), date.getDate());
+}
+
 export function getMonthNetCount(userRecord, date, upToDay = null) {
     const monthData = getMonthData(userRecord, date);
     const cap = upToDay ?? date.getDate();
@@ -744,7 +887,7 @@ export function validateImperialStart(deerData, userId, date, day, members) {
         };
     }
 
-    const rank = getDayRankInGroup(deerData, members, date);
+    const rank = getDayBalancedRankInGroup(deerData, members, date);
     if (!rank.length) {
         return { ok: false, type: 'imperial_no_king' };
     }
@@ -771,9 +914,91 @@ export function getDayRankInGroup(deerData, members, date = new Date()) {
     return list;
 }
 
-/** 群鹿溅目标：日榜 Top N（排除施术者） */
+/** 单日综合分上下文（职业安全线 + 互害次数 + 咒福） */
+function resolveBalancedDayContext(monthData, day, entry) {
+    const prof = getProfessionMods(monthData, day);
+    return {
+        safeLimit: DAILY_SAFE_LIMIT + (prof?.safeBonus || 0),
+        chaosActions: sumChaosActionsForDay(monthData, day),
+        curse: getCurseInfo(entry),
+        bless: getBlessInfo(entry),
+    };
+}
+
+/** 单日综合分（鹿王/综合榜） */
+export function calcDayBalancedScore(entry, ctx) {
+    return calcBalancedScore(entry, ctx);
+}
+
+/** 综合分 + 分项（鹿况展示） */
+export function getDayBalancedDetail(monthData, day, entry) {
+    if (!entry) return { score: 0, parts: null, breakdown: '暂无' };
+    const ctx = resolveBalancedDayContext(monthData, day, entry);
+    const { score, parts } = computeBalancedScore(entry, ctx);
+    return { score, parts, breakdown: formatBalancedBreakdown(parts) };
+}
+
+/** 日榜综合分排序（鹿王册封用） */
+export function getDayBalancedRankInGroup(deerData, members, date = new Date()) {
+    const day = date.getDate();
+    const list = members.map((id) => {
+        const uid = String(id);
+        const monthData = getMonthData(getUserRecord(deerData, uid), date);
+        const entry = getDayEntry(monthData, day);
+        if (!entry || entry.d) return null;
+        const sum = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, day, entry));
+        if (sum <= 0) return null;
+        return { id: uid, sum };
+    }).filter(Boolean);
+    list.sort((a, b) => b.sum - a.sum || a.id.localeCompare(b.id));
+    return list;
+}
+
+export function sumMonthBalancedScore(monthData, upToDay = 31) {
+    if (!monthData) return { sum: 0, hasActivity: false };
+    let sum = 0;
+    let hasActivity = false;
+    for (let d = 1; d <= upToDay; d++) {
+        const entry = getDayEntry(monthData, d);
+        if (!entry || entry.d) continue;
+        const s = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, d, entry));
+        if (s > 0) hasActivity = true;
+        sum += s;
+    }
+    return { sum: Math.round(sum * 10) / 10, hasActivity };
+}
+
+export function sumYearBalancedScore(userRecord, year, date = new Date()) {
+    if (!userRecord) return { sum: 0, hasActivity: false };
+    const upToMonth = date.getMonth() + 1;
+    let sum = 0;
+    let hasActivity = false;
+    for (const [monthKey, monthData] of Object.entries(userRecord)) {
+        if (!/^\d{4}-\d{2}$/.test(monthKey)) continue;
+        if (parseInt(monthKey.split('-')[0], 10) !== year) continue;
+        const m = parseInt(monthKey.split('-')[1], 10);
+        const capDay = m === upToMonth ? date.getDate() : 31;
+        const ranked = sumMonthBalancedScore(monthData, capDay);
+        sum += ranked.sum;
+        hasActivity = hasActivity || ranked.hasActivity;
+    }
+    return { sum: Math.round(sum * 10) / 10, hasActivity };
+}
+
+export function sumMonthActiveAttempts(monthData, upToDay = 31) {
+    if (!monthData) return 0;
+    let sum = 0;
+    for (let d = 1; d <= upToDay; d++) {
+        const entry = getDayEntry(monthData, d);
+        if (!entry || entry.d) continue;
+        sum += entry.a || 0;
+    }
+    return sum;
+}
+
+/** 群鹿溅目标：综合日榜 Top N（排除施术者，与鹿王同算法） */
 export function pickSplashTargetsFromDayRank(deerData, members, casterId, date, topN = GROUP_SPLASH_TOP_N) {
-    return getDayRankInGroup(deerData, members, date)
+    return getDayBalancedRankInGroup(deerData, members, date)
         .filter((r) => String(r.id) !== String(casterId))
         .slice(0, topN)
         .map((r) => r.id);
@@ -871,7 +1096,14 @@ function resolvePlayModifiers(entry, weatherEffects = null, professionMods = nul
         helpFailDelta: (wx.helpFailDelta || 0) + (prof.helpFailDelta || 0),
         lotteryLuckDelta: (wx.lotteryLuckDelta || 0) + (prof.lotteryLuckDelta || 0),
         overlimitStepReduce: prof.overlimitStepReduce || 0,
+        overlimitDeathCap: prof.overlimitDeathCap ?? null,
     };
+}
+
+function applyOverlimitDeathCap(deathChance, profMods) {
+    const cap = profMods?.overlimitDeathCap;
+    if (cap == null) return deathChance;
+    return Math.min(deathChance, cap);
 }
 
 function wxOf(gameContext) {
@@ -1129,8 +1361,12 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
     let nextDeathChance = dead ? 0 : calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce);
     if (!dead && inRiskZone) {
         nextDeathChance = clampDeathChance(nextDeathChance + mods.deathDelta);
+        nextDeathChance = applyOverlimitDeathCap(nextDeathChance, profession);
     }
     const bi = getBlessInfo(entry);
+    const balanced = getDayBalancedDetail(monthData, day, entry);
+    const pq = getPlayQuotaSnapshot(monthData, day);
+    const p = pq.play || {};
     return {
         entry,
         count,
@@ -1169,29 +1405,52 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
         helperHelpLeft: getHelperQuotaLeft(monthData, day),
         helperWithdrawUsed: getHelperWithdrawQuota(monthData, day).used,
         helperWithdrawLeft: getHelperWithdrawQuotaLeft(monthData, day),
-        togetherUsed: hasUsedTogether(monthData, day),
-        imperialUsed: getImperialUsedCount(monthData, day),
-        imperialLeft: getImperialQuotaLeft(monthData, day),
-        arenaUsed: getArenaUsedCount(monthData, day),
-        arenaLeft: getArenaQuotaLeft(monthData, day),
-        stealUsed: readDailyUsed(monthData, day, stealUsedKey),
-        curseUsed: readDailyUsed(monthData, day, curseUsedKey),
-        blessUsed: readDailyUsed(monthData, day, blessUsedKey),
-        sacrificeUsed: readDailyUsed(monthData, day, sacrificeUsedKey),
-        fakeWithdrawUsed: readDailyUsed(monthData, day, fakeWithdrawUsedKey),
-        urgeUsed: readDailyUsed(monthData, day, urgeUsedKey),
-        howlUsed: readDailyUsed(monthData, day, howlUsedKey),
-        greedUsed: readDailyUsed(monthData, day, greedUsedKey),
-        groupSplashUsed: readDailyUsed(monthData, day, groupSplashUsedKey),
-        cleanseUsed: readDailyUsed(monthData, day, cleanseUsedKey),
-        cleanseBlessUsed: readDailyUsed(monthData, day, cleanseBlessUsedKey),
-        borrowUsed: readDailyUsed(monthData, day, borrowUsedKey),
-        bumperUsed: readDailyUsed(monthData, day, bumperUsedKey),
-        lotteryUsed: readDailyUsed(monthData, day, lotteryUsedKey),
-        spectralCurseUsed: readDailyUsed(monthData, day, spectralCurseUsedKey),
-        vengeanceUsed: readDailyUsed(monthData, day, vengeanceUsedKey),
-        dreamUsed: readDailyUsed(monthData, day, dreamUsedKey),
-        reviveLotteryUsed: readDailyUsed(monthData, day, reviveLotteryUsedKey),
+        togetherUsed: p.together?.used ?? 0,
+        togetherMax: p.together?.max ?? 0,
+        togetherLeft: p.together?.left ?? 0,
+        imperialUsed: p.imperial?.used ?? 0,
+        imperialMax: p.imperial?.max ?? 0,
+        imperialLeft: p.imperial?.left ?? 0,
+        arenaUsed: p.arena?.used ?? 0,
+        arenaMax: p.arena?.max ?? 0,
+        arenaLeft: p.arena?.left ?? 0,
+        stealUsed: p.steal?.used ?? 0,
+        stealMax: p.steal?.max ?? 0,
+        curseUsed: p.curse?.used ?? 0,
+        curseMax: p.curse?.max ?? 0,
+        blessUsed: p.bless?.used ?? 0,
+        blessMax: p.bless?.max ?? 0,
+        sacrificeUsed: p.sacrifice?.used ?? 0,
+        sacrificeMax: p.sacrifice?.max ?? 0,
+        fakeWithdrawUsed: p.fakeWithdraw?.used ?? 0,
+        fakeWithdrawMax: p.fakeWithdraw?.max ?? 0,
+        urgeUsed: p.urge?.used ?? 0,
+        urgeMax: p.urge?.max ?? 0,
+        howlUsed: p.howl?.used ?? 0,
+        howlMax: p.howl?.max ?? 0,
+        greedUsed: p.greed?.used ?? 0,
+        greedMax: p.greed?.max ?? 0,
+        groupSplashUsed: p.groupSplash?.used ?? 0,
+        groupSplashMax: p.groupSplash?.max ?? 0,
+        cleanseUsed: p.cleanseCurse?.used ?? 0,
+        cleanseMax: p.cleanseCurse?.max ?? 0,
+        cleanseBlessUsed: p.cleanseBless?.used ?? 0,
+        cleanseBlessMax: p.cleanseBless?.max ?? 0,
+        borrowUsed: p.borrow?.used ?? 0,
+        borrowMax: p.borrow?.max ?? 0,
+        bumperUsed: p.bumper?.used ?? 0,
+        bumperMax: p.bumper?.max ?? 0,
+        lotteryUsed: p.lottery?.used ?? 0,
+        lotteryMax: p.lottery?.max ?? 0,
+        spectralCurseUsed: p.spectralCurse?.used ?? 0,
+        spectralCurseMax: p.spectralCurse?.max ?? 0,
+        vengeanceUsed: p.vengeance?.used ?? 0,
+        vengeanceMax: p.vengeance?.max ?? 0,
+        dreamUsed: p.dream?.used ?? 0,
+        dreamMax: p.dream?.max ?? 0,
+        reviveLotteryUsed: p.reviveLottery?.used ?? 0,
+        reviveLotteryMax: p.reviveLottery?.max ?? 0,
+        playQuotaSummary: pq.summary || '',
         weather,
         weatherEffects: weatherEffects || null,
         ...(() => {
@@ -1225,9 +1484,12 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
         canUseSpecial: !dead,
         canUseDeathEcology: dead,
         canHelpOthers: !dead,
-        canTogether: !dead && !hasUsedTogether(monthData, day),
-        canImperial: !dead && getImperialQuotaLeft(monthData, day) > 0,
-        canArena: !dead && getArenaQuotaLeft(monthData, day) > 0,
+        canTogether: !dead && (p.together?.left ?? 0) > 0,
+        canImperial: !dead && (p.imperial?.left ?? 0) > 0,
+        canArena: !dead && (p.arena?.left ?? 0) > 0,
+        balancedScore: balanced.score,
+        balancedBreakdown: balanced.breakdown,
+        balancedParts: balanced.parts,
     };
 }
 
@@ -1319,6 +1581,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
     let deathChance = clampDeathChance(
         calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
     );
+    deathChance = applyOverlimitDeathCap(deathChance, profMods);
     if (rollChance(deathChance)) {
         const snap = applyDeath(entry, { reason: DEATH_REASON.SELF });
         if (hadActiveCurse) consumeCurseRound(entry);
@@ -1359,8 +1622,11 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         entry,
         count: entry.c,
         deathChance,
-        nextDeathChance: clampDeathChance(
-            calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
+        nextDeathChance: applyOverlimitDeathCap(
+            clampDeathChance(
+                calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
+            ),
+            profMods,
         ),
         hadCurse: hadActiveCurse,
         hadBless: hadActiveBless,
@@ -1412,7 +1678,17 @@ export function performSetProfession(deerData, userId, professionToken, date, da
 export function performJobSkillInfo(deerData, userId, date, day) {
     const monthData = ensureMonthData(deerData, userId, date);
     const snap = getJobSkillSnapshot(monthData, day);
-    return { ok: true, type: 'job_skill_info', ...snap };
+    const entry = getDayEntry(monthData, day);
+    const balanced = entry && !entry.d
+        ? getDayBalancedDetail(monthData, day, entry)
+        : { score: 0, breakdown: '暂无' };
+    return {
+        ok: true,
+        type: 'job_skill_info',
+        ...snap,
+        balancedScore: balanced.score,
+        balancedBreakdown: balanced.breakdown,
+    };
 }
 
 /** 巡游鹿专属：鹿巡 — 下一次玩法消费天象正向 ×1.35 */
@@ -1528,7 +1804,10 @@ export function performMedicHealSkill(deerData, helperId, targetId, date, day, g
         };
     }
     applyMedicHelpSynergy(entry, helperProf, result);
-    recordHelpAction('help_lu', helperId, targetId, date);
+    recordHelpAction('help_lu', helperId, targetId, date, {
+        revive: result.type === 'job_skill_medic_revive',
+        skill: true,
+    });
     return result;
 }
 
@@ -1550,13 +1829,104 @@ export function performAsceticCleanseSkill(deerData, helperId, targetId, date, d
     markJobSkillUsed(helperMonth, day);
     entry.a += 1;
     adjustDayCount(entry, -ASCETIC_SKILL_WITHDRAW);
-    recordHelpAction('help_withdraw', helperId, targetId, date);
+    recordHelpAction('help_withdraw', helperId, targetId, date, { withdrawSkill: true });
     return {
         ok: true,
         type: 'job_skill_ascetic_cleanse',
         entry,
         count: entry.c,
         withdrawAmount: ASCETIC_SKILL_WITHDRAW,
+    };
+}
+
+/** 叠咒鹿专属：咒缚 — 不占鹿咒配额、叠 1 层咒 */
+export function performCurserBindSkill(deerData, userId, targetId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, userId, date, day, 'curser');
+    if (wrong) return wrong;
+    const monthData = ensureMonthData(deerData, userId, date);
+    if (hasUsedJobSkill(monthData, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const entry = ensureDayEntry(targetMonth, day);
+    if (entry.d) return { ok: false, type: 'target_dead' };
+    markJobSkillUsed(monthData, day);
+    entry.a += 1;
+    const stacks = applyCurseStacks(entry, 1);
+    return {
+        ok: true,
+        type: 'job_skill_curser_bind',
+        entry,
+        count: entry.c,
+        curseStacks: stacks,
+    };
+}
+
+/** 福鹿使专属：广福 — 不占鹿福配额、贴 1 层福 */
+export function performBlesserGrantSkill(deerData, userId, targetId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, userId, date, day, 'blesser');
+    if (wrong) return wrong;
+    const monthData = ensureMonthData(deerData, userId, date);
+    if (hasUsedJobSkill(monthData, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const entry = ensureDayEntry(targetMonth, day);
+    if (entry.d) return { ok: false, type: 'target_dead' };
+    markJobSkillUsed(monthData, day);
+    entry.a += 1;
+    const stacks = applyBlessStacks(entry, 1);
+    return {
+        ok: true,
+        type: 'job_skill_blesser_grant',
+        entry,
+        count: entry.c,
+        blessStacks: stacks,
+    };
+}
+
+/** 窃光鹿专属：夜袭 — 不占偷鹿配额、高成功率偷 1 */
+export function performRogueNightRaidSkill(deerData, thiefId, targetId, date, day) {
+    if (String(thiefId) === String(targetId)) {
+        return { ok: false, type: 'steal_self' };
+    }
+    const blocked = rejectUnlessPlayReady(deerData, thiefId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, thiefId, date, day, 'rogue');
+    if (wrong) return wrong;
+    const thiefMonth = ensureMonthData(deerData, thiefId, date);
+    if (hasUsedJobSkill(thiefMonth, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
+    if (targetEntry.d) return { ok: false, type: 'steal_target_dead' };
+    if (targetEntry.c <= 0) return { ok: false, type: 'steal_empty' };
+    markJobSkillUsed(thiefMonth, day);
+    const thiefEntry = ensureDayEntry(thiefMonth, day);
+    thiefEntry.a += 1;
+    const nightChance = 0.85;
+    if (rollChance(nightChance)) {
+        adjustDayCount(targetEntry, -1);
+        adjustDayCount(thiefEntry, 1);
+        return {
+            ok: true,
+            type: 'job_skill_rogue_raid_success',
+            thiefCount: thiefEntry.c,
+            targetCount: targetEntry.c,
+            nightChance,
+        };
+    }
+    adjustDayCount(thiefEntry, -1);
+    return {
+        ok: true,
+        type: 'job_skill_rogue_raid_fail',
+        thiefCount: thiefEntry.c,
+        targetCount: targetEntry.c,
+        nightChance,
     };
 }
 
@@ -1597,7 +1967,6 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
         );
         if (rollChance(reviveFail)) {
             const quota = consumeHelperQuota(helperMonth, day, targetId);
-            recordHelpAction('help_lu', helperId, targetId, date);
             return attachQuota({
                 ok: true,
                 type: 'help_revive_fail',
@@ -1663,10 +2032,19 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
 
     if (result?.ok && (result.type === 'help' || result.type === 'revive')) {
         applyMedicHelpSynergy(entry, helperProf, result);
+        if (helperProf?.id === 'medic' && helperProf.helpQuotaBonusChance
+            && rollChance(helperProf.helpQuotaBonusChance)) {
+            helperMonth[helpQuotaBonusKey(day)] = (helperMonth[helpQuotaBonusKey(day)] || 0) + 1;
+            result.helpQuotaBonus = true;
+        }
     }
 
     const quota = consumeHelperQuota(helperMonth, day, targetId);
-    recordHelpAction('help_lu', helperId, targetId, date);
+    if (result?.ok && (result.type === 'help' || result.type === 'revive')) {
+        recordHelpAction('help_lu', helperId, targetId, date, {
+            revive: result.type === 'revive',
+        });
+    }
     return attachQuota(result, quota);
 }
 
@@ -1709,8 +2087,13 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const initiatorMonth = ensureMonthData(deerData, userId, date);
-    if (hasUsedTogether(initiatorMonth, day)) {
-        return { ok: false, type: 'together_used' };
+    const togetherMax = getProfessionQuotaLimit(initiatorMonth, day, QUOTA.together);
+    if (togetherMax <= 0) {
+        return { ok: false, type: 'together_disabled' };
+    }
+    const togetherUsed = getTogetherUsedCount(initiatorMonth, day);
+    if (togetherUsed >= togetherMax) {
+        return { ok: false, type: 'together_used', togetherUsed, togetherMax };
     }
 
     const selfEntry = ensureDayEntry(initiatorMonth, day);
@@ -1723,10 +2106,13 @@ export function performTogetherFall(deerData, userId, targetId, date, day) {
     adjustDayCount(targetEntry, -TOGETHER_FALL_COST);
     selfEntry.a += 1;
     targetEntry.a += 1;
-    initiatorMonth[togetherUsedKey(day)] = 1;
+    initiatorMonth[togetherUsedKey(day)] = togetherUsed + 1;
     return {
         ok: true,
         type: 'together_fall',
+        togetherUsed: togetherUsed + 1,
+        togetherMax,
+        togetherLeft: Math.max(0, togetherMax - togetherUsed - 1),
         selfCount: selfEntry.c,
         targetCount: targetEntry.c,
         cost: TOGETHER_FALL_COST,
@@ -1765,7 +2151,6 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
     const inWithdrawalZone = entry.c < 0;
     if (rollHelpWithdrawFail(withdrawFailExtra)) {
         const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
-        recordHelpAction('help_withdraw', helperId, targetId, date);
         return {
             ok: true,
             type: 'help_withdraw_fail',
@@ -1778,7 +2163,10 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
 
     adjustDayCount(entry, -1);
     let withdrawExtra = 0;
-    if (inWithdrawalZone) withdrawExtra += 1;
+    if (inWithdrawalZone) {
+        withdrawExtra += 1;
+        if (helperProf?.asceticZoneBonus) withdrawExtra += helperProf.asceticZoneBonus;
+    }
     if (helperProf?.withdrawExtraChance && rollChance(helperProf.withdrawExtraChance)) {
         withdrawExtra += helperProf.withdrawExtraAmount || 1;
     }
@@ -1865,14 +2253,14 @@ export function performAmnestyAll(deerData, operatorId, date, day) {
 /** 标记今日已使用一次皇城鹿 */
 export function markImperialUsed(deerData, userId, date, day) {
     const monthData = ensureMonthData(deerData, userId, date);
-    const quota = consumeDailyQuota(monthData, day, imperialUsedKey, DAILY_IMPERIAL_QUOTA);
+    const quota = consumeDailyQuota(monthData, day, imperialUsedKey, getProfessionQuotaLimit(monthData, day, QUOTA.imperial));
     return quota != null;
 }
 
 /** 标记今日已使用一次擂台鹿 */
 export function markArenaUsed(deerData, userId, date, day) {
     const monthData = ensureMonthData(deerData, userId, date);
-    const quota = consumeDailyQuota(monthData, day, arenaUsedKey, DAILY_ARENA_QUOTA);
+    const quota = consumeDailyQuota(monthData, day, arenaUsedKey, getProfessionQuotaLimit(monthData, day, QUOTA.arena));
     return quota != null;
 }
 
@@ -1958,10 +2346,9 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     const actorDead = rejectUnlessPlayReady(deerData, thiefId, date, day);
     if (actorDead) return actorDead;
     const thiefMonth = ensureMonthData(deerData, thiefId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(thiefMonth, day, QUOTA.steal, stealUsedKey, 'steal');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(thiefMonth, day, stealUsedKey);
-    if (used >= DAILY_STEAL_QUOTA) {
-        return { ok: false, type: 'steal_used', stealUsed: used, stealLeft: 0 };
-    }
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'steal_target_dead' };
@@ -1986,7 +2373,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
             thiefCount: thiefEntry.c,
             targetCount: targetEntry.c,
             stealUsed: used + 1,
-            stealLeft: DAILY_STEAL_QUOTA - used - 1,
+            stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
             curseStacks,
             stealBonus,
         };
@@ -2004,7 +2391,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
             thiefCount: thiefEntry.c,
             targetCount: targetEntry.c,
             stealUsed: used + 1,
-            stealLeft: DAILY_STEAL_QUOTA - used - 1,
+            stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
             curseStacks,
             stealBonus,
             curseBackfire,
@@ -2021,7 +2408,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
         thiefCount: thiefEntry.c,
         targetCount: targetEntry.c,
         stealUsed: used + 1,
-        stealLeft: DAILY_STEAL_QUOTA - used - 1,
+        stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
         curseStacks,
         stealBonus,
         curseBackfire,
@@ -2036,11 +2423,9 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
     const actorDead = rejectUnlessPlayReady(deerData, casterId, date, day);
     if (actorDead) return actorDead;
     const casterMonth = ensureMonthData(deerData, casterId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(casterMonth, day, QUOTA.curse, curseUsedKey, 'curse');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(casterMonth, day, curseUsedKey);
-    if (used >= DAILY_CURSE_QUOTA) {
-        return { ok: false, type: 'curse_used', curseUsed: used, curseLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     casterMonth[curseUsedKey(day)] = used + 1;
@@ -2059,7 +2444,7 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
         ok: true,
         type: 'curse',
         curseUsed: used + 1,
-        curseLeft: DAILY_CURSE_QUOTA - used - 1,
+        curseLeft: getProfessionQuotaLimit(monthData, day, QUOTA.curse) - used - 1,
         curseStacks: stacks,
         curseRounds: targetEntry.curR,
         bonus: CURSE_DEATH_BONUS,
@@ -2075,11 +2460,9 @@ export function performCleanseCurse(deerData, helperId, targetId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, helperId, date, day);
     if (actorDead) return actorDead;
     const helperMonth = ensureMonthData(deerData, helperId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(helperMonth, day, QUOTA.cleanseCurse, cleanseUsedKey, 'cleanse');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(helperMonth, day, cleanseUsedKey);
-    if (used >= DAILY_CLEANSE_CURSE_QUOTA) {
-        return { ok: false, type: 'cleanse_used', cleanseUsed: used, cleanseLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     if (!getCurseInfo(targetEntry).active) {
@@ -2093,7 +2476,7 @@ export function performCleanseCurse(deerData, helperId, targetId, date, day) {
         ok: true,
         type: 'cleanse_curse',
         cleanseUsed: used + 1,
-        cleanseLeft: DAILY_CLEANSE_CURSE_QUOTA - used - 1,
+        cleanseLeft: getProfessionQuotaLimit(monthData, day, QUOTA.cleanseCurse) - used - 1,
         clearedStacks,
     };
 }
@@ -2106,11 +2489,9 @@ export function performBlessDeer(deerData, casterId, targetId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, casterId, date, day);
     if (actorDead) return actorDead;
     const casterMonth = ensureMonthData(deerData, casterId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(casterMonth, day, QUOTA.bless, blessUsedKey, 'bless');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(casterMonth, day, blessUsedKey);
-    if (used >= DAILY_BLESS_QUOTA) {
-        return { ok: false, type: 'bless_used', blessUsed: used, blessLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     casterMonth[blessUsedKey(day)] = used + 1;
@@ -2123,7 +2504,7 @@ export function performBlessDeer(deerData, casterId, targetId, date, day) {
         ok: true,
         type: 'bless',
         blessUsed: used + 1,
-        blessLeft: DAILY_BLESS_QUOTA - used - 1,
+        blessLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bless) - used - 1,
         blessStacks: stacks,
         blessRounds: targetEntry.bleR,
         reduce: BLESS_DEATH_REDUCE,
@@ -2138,11 +2519,9 @@ export function performCleanseBless(deerData, helperId, targetId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, helperId, date, day);
     if (actorDead) return actorDead;
     const helperMonth = ensureMonthData(deerData, helperId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(helperMonth, day, QUOTA.cleanseBless, cleanseBlessUsedKey, 'cleanseBless');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(helperMonth, day, cleanseBlessUsedKey);
-    if (used >= DAILY_CLEANSE_BLESS_QUOTA) {
-        return { ok: false, type: 'cleanse_bless_used', cleanseBlessUsed: used, cleanseBlessLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     if (!getBlessInfo(targetEntry).active) {
@@ -2156,7 +2535,7 @@ export function performCleanseBless(deerData, helperId, targetId, date, day) {
         ok: true,
         type: 'cleanse_bless',
         cleanseBlessUsed: used + 1,
-        cleanseBlessLeft: DAILY_CLEANSE_BLESS_QUOTA - used - 1,
+        cleanseBlessLeft: getProfessionQuotaLimit(monthData, day, QUOTA.cleanseBless) - used - 1,
         clearedStacks,
     };
 }
@@ -2169,13 +2548,13 @@ export function performSacrificeDeer(deerData, userId, targetId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const selfMonth = ensureMonthData(deerData, userId, date);
-    if (readDailyUsed(selfMonth, day, sacrificeUsedKey) >= DAILY_SACRIFICE_QUOTA) {
-        return { ok: false, type: 'sacrifice_used' };
-    }
+    const sacrificeBlock = rejectIfPlayQuotaBlocked(selfMonth, day, QUOTA.sacrifice, sacrificeUsedKey, 'sacrifice');
+    if (sacrificeBlock) return sacrificeBlock;
+    const sacrificeUsed = readDailyUsed(selfMonth, day, sacrificeUsedKey);
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-    selfMonth[sacrificeUsedKey(day)] = 1;
+    selfMonth[sacrificeUsedKey(day)] = sacrificeUsed + 1;
     const selfEntry = ensureDayEntry(selfMonth, day);
     adjustDayCount(selfEntry, -SACRIFICE_TRANSFER);
     adjustDayCount(targetEntry, SACRIFICE_TRANSFER);
@@ -2204,11 +2583,9 @@ export function performFakeWithdrawal(deerData, userId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const monthData = ensureMonthData(deerData, userId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(monthData, day, QUOTA.fakeWithdraw, fakeWithdrawUsedKey, 'fakeWithdraw');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(monthData, day, fakeWithdrawUsedKey);
-    if (used >= DAILY_FAKE_WITHDRAW_QUOTA) {
-        return { ok: false, type: 'fake_withdraw_used', fakeWithdrawUsed: used, fakeWithdrawLeft: 0 };
-    }
-
     monthData[fakeWithdrawUsedKey(day)] = used + 1;
     const entry = ensureDayEntry(monthData, day);
     entry.c += 1;
@@ -2221,7 +2598,7 @@ export function performFakeWithdrawal(deerData, userId, date, day) {
         count: entry.c,
         fakeCount,
         fakeWithdrawUsed: used + 1,
-        fakeWithdrawLeft: DAILY_FAKE_WITHDRAW_QUOTA - used - 1,
+        fakeWithdrawLeft: getProfessionQuotaLimit(monthData, day, QUOTA.fakeWithdraw) - used - 1,
     };
 }
 
@@ -2233,11 +2610,9 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const selfMonth = ensureMonthData(deerData, userId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(selfMonth, day, QUOTA.urge, urgeUsedKey, 'urge');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(selfMonth, day, urgeUsedKey);
-    if (used >= DAILY_URGE_QUOTA) {
-        return { ok: false, type: 'urge_used', urgeUsed: used, urgeLeft: 0 };
-    }
-
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const targetEntry = ensureDayEntry(targetMonth, day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
@@ -2257,7 +2632,7 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
         ok: true,
         type: 'urge',
         urgeUsed: used + 1,
-        urgeLeft: DAILY_URGE_QUOTA - used - 1,
+        urgeLeft: getProfessionQuotaLimit(monthData, day, QUOTA.urge) - used - 1,
         buffApplied: targetWasZero,
         curseUrged,
         targetCount: targetEntry.c,
@@ -2270,11 +2645,9 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
 export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
     const monthData = ensureMonthData(deerData, userId, date);
     const entry = ensureDayEntry(monthData, day);
+    const quotaBlock = rejectIfPlayQuotaBlocked(monthData, day, QUOTA.howl, howlUsedKey, 'howl');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(monthData, day, howlUsedKey);
-    if (used >= DAILY_HOWL_QUOTA) {
-        return { ok: false, type: 'howl_used', howlUsed: used, howlLeft: 0 };
-    }
-
     if (entry.d) {
         const ghostBlocked = rejectUnlessGhostReady(deerData, userId, date, day);
         if (ghostBlocked) return ghostBlocked;
@@ -2297,7 +2670,7 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
             count: 0,
             lostCount: entry.snap ?? 0,
             howlUsed: used + 1,
-            howlLeft: DAILY_HOWL_QUOTA - used - 1,
+            howlLeft: getProfessionQuotaLimit(monthData, day, QUOTA.howl) - used - 1,
             ghostEffect,
             killerId,
             curseStacks: killerId && ghostEffect === 'haunt_killer'
@@ -2339,7 +2712,7 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
         howlEffect,
         curseDispelled,
         howlUsed: used + 1,
-        howlLeft: DAILY_HOWL_QUOTA - used - 1,
+        howlLeft: getProfessionQuotaLimit(monthData, day, QUOTA.howl) - used - 1,
     };
 }
 
@@ -2351,13 +2724,13 @@ export function performGreedDeer(deerData, userId, targetId, date, day, gameCont
     const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const selfMonth = ensureMonthData(deerData, userId, date);
-    if (readDailyUsed(selfMonth, day, greedUsedKey) >= DAILY_GREED_QUOTA) {
-        return { ok: false, type: 'greed_used' };
-    }
+    const greedBlock = rejectIfPlayQuotaBlocked(selfMonth, day, QUOTA.greed, greedUsedKey, 'greed');
+    if (greedBlock) return greedBlock;
+    const greedUsed = readDailyUsed(selfMonth, day, greedUsedKey);
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
-    selfMonth[greedUsedKey(day)] = 1;
+    selfMonth[greedUsedKey(day)] = greedUsed + 1;
     const selfEntry = ensureDayEntry(selfMonth, day);
     selfEntry.a += 1;
     const prof = getProfessionMods(selfMonth, day);
@@ -2402,16 +2775,9 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day, gam
     }
 
     const casterMonth = ensureMonthData(deerData, casterId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(casterMonth, day, QUOTA.groupSplash, groupSplashUsedKey, 'groupSplash');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(casterMonth, day, groupSplashUsedKey);
-    if (used >= DAILY_GROUP_SPLASH_QUOTA) {
-        return {
-            ok: false,
-            type: 'splash_used',
-            splashUsed: used,
-            splashLeft: 0,
-        };
-    }
-
     const victims = [];
     const { wx } = weatherForAction(gameContext, casterMonth, day);
     const prof = getProfessionMods(casterMonth, day);
@@ -2466,7 +2832,7 @@ export function performGroupSplash(deerData, casterId, memberIds, date, day, gam
         burstDamage: GROUP_SPLASH_CURSE_BURST_DAMAGE,
         casterCount: casterEntry.c,
         splashUsed: used + 1,
-        splashLeft: DAILY_GROUP_SPLASH_QUOTA - used - 1,
+        splashLeft: getProfessionQuotaLimit(monthData, day, QUOTA.groupSplash) - used - 1,
     };
 }
 
@@ -2478,11 +2844,9 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
     const actorDead = rejectUnlessPlayReady(deerData, borrowerId, date, day);
     if (actorDead) return actorDead;
     const borrowerMonth = ensureMonthData(deerData, borrowerId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(borrowerMonth, day, QUOTA.borrow, borrowUsedKey, 'borrow');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(borrowerMonth, day, borrowUsedKey);
-    if (used >= DAILY_BORROW_QUOTA) {
-        return { ok: false, type: 'borrow_used', borrowUsed: used, borrowLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     const targetMonthNet = getMonthNetCount(getUserRecord(deerData, targetId), date, day);
@@ -2505,7 +2869,7 @@ export function performBorrowDeer(deerData, borrowerId, targetId, date, day) {
         targetMonthNet: getMonthNetCount(getUserRecord(deerData, targetId), date, day),
         curseStripped,
         borrowUsed: used + 1,
-        borrowLeft: DAILY_BORROW_QUOTA - used - 1,
+        borrowLeft: getProfessionQuotaLimit(monthData, day, QUOTA.borrow) - used - 1,
     };
 }
 
@@ -2517,11 +2881,9 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
     const actorDead = rejectUnlessPlayReady(deerData, actorId, date, day);
     if (actorDead) return actorDead;
     const actorMonth = ensureMonthData(deerData, actorId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(actorMonth, day, QUOTA.bumper, bumperUsedKey, 'bumper');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(actorMonth, day, bumperUsedKey);
-    if (used >= DAILY_BUMPER_QUOTA) {
-        return { ok: false, type: 'bumper_used', bumperUsed: used, bumperLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     actorMonth[bumperUsedKey(day)] = used + 1;
@@ -2548,7 +2910,7 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
             targetCount: targetEntry.c,
             curseApplied,
             bumperUsed: used + 1,
-            bumperLeft: DAILY_BUMPER_QUOTA - used - 1,
+            bumperLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bumper) - used - 1,
         };
     }
     if (roll < winChance + BUMPER_DRAW_CHANCE) {
@@ -2560,7 +2922,7 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
             selfCount: actorEntry.c,
             targetCount: targetEntry.c,
             bumperUsed: used + 1,
-            bumperLeft: DAILY_BUMPER_QUOTA - used - 1,
+            bumperLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bumper) - used - 1,
         };
     }
     adjustDayCount(actorEntry, -BUMPER_FAIL_PENALTY);
@@ -2571,7 +2933,7 @@ export function performBumperDeer(deerData, actorId, targetId, date, day, gameCo
         targetCount: targetEntry.c,
         penalty: BUMPER_FAIL_PENALTY,
         bumperUsed: used + 1,
-        bumperLeft: DAILY_BUMPER_QUOTA - used - 1,
+        bumperLeft: getProfessionQuotaLimit(monthData, day, QUOTA.bumper) - used - 1,
     };
 }
 
@@ -2580,11 +2942,9 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const monthData = ensureMonthData(deerData, userId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(monthData, day, QUOTA.lottery, lotteryUsedKey, 'lottery');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(monthData, day, lotteryUsedKey);
-    if (used >= DAILY_LOTTERY_QUOTA) {
-        return { ok: false, type: 'lottery_used', lotteryUsed: used, lotteryLeft: 0 };
-    }
-
     monthData[lotteryUsedKey(day)] = used + 1;
     const entry = ensureDayEntry(monthData, day);
     entry.a += 1;
@@ -2636,7 +2996,7 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
         curseStacks: ci.stacks,
         curseRounds: ci.rounds,
         lotteryUsed: used + 1,
-        lotteryLeft: DAILY_LOTTERY_QUOTA - used - 1,
+        lotteryLeft: getProfessionQuotaLimit(monthData, day, QUOTA.lottery) - used - 1,
     };
 }
 
@@ -2648,11 +3008,9 @@ export function performSpectralCurse(deerData, ghostId, targetId, date, day) {
     const mustDead = rejectUnlessGhostReady(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
     const ghostMonth = ensureMonthData(deerData, ghostId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(ghostMonth, day, QUOTA.spectralCurse, spectralCurseUsedKey, 'spectralCurse');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(ghostMonth, day, spectralCurseUsedKey);
-    if (used >= DAILY_SPECTRAL_CURSE_QUOTA) {
-        return { ok: false, type: 'spectral_curse_used', spectralCurseUsed: used, spectralCurseLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     ghostMonth[spectralCurseUsedKey(day)] = used + 1;
@@ -2661,7 +3019,7 @@ export function performSpectralCurse(deerData, ghostId, targetId, date, day) {
         ok: true,
         type: 'spectral_curse',
         spectralCurseUsed: used + 1,
-        spectralCurseLeft: DAILY_SPECTRAL_CURSE_QUOTA - used - 1,
+        spectralCurseLeft: getProfessionQuotaLimit(monthData, day, QUOTA.spectralCurse) - used - 1,
         curseStacks: stacks,
         curseRounds: targetEntry.curR,
         ascended: stacks >= CURSE_ASCENDED_STACKS,
@@ -2683,11 +3041,9 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
     }
 
     const ghostMonth = ensureMonthData(deerData, ghostId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(ghostMonth, day, QUOTA.vengeance, vengeanceUsedKey, 'vengeance');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(ghostMonth, day, vengeanceUsedKey);
-    if (used >= DAILY_VENGEANCE_QUOTA) {
-        return { ok: false, type: 'vengeance_used', vengeanceUsed: used, vengeanceLeft: 0 };
-    }
-
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     ghostMonth[vengeanceUsedKey(day)] = used + 1;
@@ -2702,7 +3058,7 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
                 curseStacks: stacks,
                 targetCount: targetEntry.c,
                 vengeanceUsed: used + 1,
-                vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+                vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
             };
         }
         if (roll < VENGEANCE_CURSE_CHANCE + VENGEANCE_DEDUCT_CHANCE) {
@@ -2714,7 +3070,7 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
                 mode: 'killer',
                 targetCount: targetEntry.c,
                 vengeanceUsed: used + 1,
-                vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+                vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
             };
         }
         return {
@@ -2722,7 +3078,7 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
             type: 'vengeance_fail',
             mode: 'killer',
             vengeanceUsed: used + 1,
-            vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+            vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
         };
     }
 
@@ -2735,7 +3091,7 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
             curseStacks: stacks,
             targetCount: targetEntry.c,
             vengeanceUsed: used + 1,
-            vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+            vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
         };
     }
     return {
@@ -2743,7 +3099,7 @@ export function performVengeanceDeer(deerData, ghostId, targetId, date, day) {
         type: 'vengeance_fail',
         mode: 'substitute',
         vengeanceUsed: used + 1,
-        vengeanceLeft: DAILY_VENGEANCE_QUOTA - used - 1,
+        vengeanceLeft: getProfessionQuotaLimit(monthData, day, QUOTA.vengeance) - used - 1,
     };
 }
 
@@ -2755,11 +3111,9 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
     const mustDead = rejectUnlessGhostReady(deerData, ghostId, date, day);
     if (mustDead) return mustDead;
     const ghostMonth = ensureMonthData(deerData, ghostId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(ghostMonth, day, QUOTA.dream, dreamUsedKey, 'dream');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(ghostMonth, day, dreamUsedKey);
-    if (used >= DAILY_DREAM_QUOTA) {
-        return { ok: false, type: 'dream_used', dreamUsed: used, dreamLeft: 0 };
-    }
-
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const targetEntry = ensureDayEntry(targetMonth, day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
@@ -2783,7 +3137,7 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
         curseRounds: getCurseRoundsLeft(targetEntry),
         curseStacks: getActiveCurseStacks(targetEntry),
         dreamUsed: used + 1,
-        dreamLeft: DAILY_DREAM_QUOTA - used - 1,
+        dreamLeft: getProfessionQuotaLimit(monthData, day, QUOTA.dream) - used - 1,
     };
 }
 
@@ -2792,11 +3146,9 @@ export function performReviveLottery(deerData, userId, date, day) {
     const mustDead = rejectUnlessGhostReady(deerData, userId, date, day);
     if (mustDead) return mustDead;
     const monthData = ensureMonthData(deerData, userId, date);
+    const quotaBlock = rejectIfPlayQuotaBlocked(monthData, day, QUOTA.reviveLottery, reviveLotteryUsedKey, 'reviveLottery');
+    if (quotaBlock) return quotaBlock;
     const used = readDailyUsed(monthData, day, reviveLotteryUsedKey);
-    if (used >= DAILY_REVIVE_LOTTERY_QUOTA) {
-        return { ok: false, type: 'revive_lottery_used', reviveLotteryUsed: used, reviveLotteryLeft: 0 };
-    }
-
     monthData[reviveLotteryUsedKey(day)] = used + 1;
     const entry = ensureDayEntry(monthData, day);
     const snap = entry.snap ?? 0;

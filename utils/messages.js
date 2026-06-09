@@ -175,7 +175,10 @@ export function formatHelperQuotaReply(snapshot, mode = 'all') {
     }
     if (mode === 'all') {
         lines.push(profession.tagline);
-        lines.push('转职：转职鹿医 / 转职戒师 / 转职卷王 / 转职巡游');
+        if (snapshot.playSummary) {
+            lines.push(`今日配额：${snapshot.playSummary}`);
+        }
+        lines.push('转职：转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等');
     }
     return lines.join('\n');
 }
@@ -223,17 +226,19 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.empty;
         case 'together_used':
             return ERROR_MESSAGES.together_used;
+        case 'together_disabled':
+            return '当前职业无法使用同归鹿尽（配额 0）';
         case 'together_self':
             return ERROR_MESSAGES.together_self;
         case 'imperial_used':
             return ERROR_MESSAGES.imperial_used(
-                result.imperialUsed ?? DAILY_IMPERIAL_QUOTA,
-                DAILY_IMPERIAL_QUOTA,
+                result.imperialUsed ?? result.imperialMax ?? DAILY_IMPERIAL_QUOTA,
+                result.imperialMax ?? DAILY_IMPERIAL_QUOTA,
             );
         case 'arena_used':
             return ERROR_MESSAGES.arena_used(
-                result.arenaUsed ?? DAILY_ARENA_QUOTA,
-                DAILY_ARENA_QUOTA,
+                result.arenaUsed ?? result.arenaMax ?? DAILY_ARENA_QUOTA,
+                result.arenaMax ?? DAILY_ARENA_QUOTA,
             );
         case 'arena_self':
             return ERROR_MESSAGES.arena_self;
@@ -246,7 +251,10 @@ export function formatErrorMessage(result) {
         case 'arena_busy':
             return pickRandom(ARENA_BUSY_MESSAGES) || ERROR_MESSAGES.arena_busy;
         case 'steal_used':
-            return ERROR_MESSAGES.steal_used(result.stealUsed ?? DAILY_STEAL_QUOTA, DAILY_STEAL_QUOTA);
+            return ERROR_MESSAGES.steal_used(
+                result.stealUsed ?? result.stealMax ?? DAILY_STEAL_QUOTA,
+                result.stealMax ?? DAILY_STEAL_QUOTA,
+            );
         case 'steal_target_dead':
             return ERROR_MESSAGES.steal_target_dead;
         case 'steal_empty':
@@ -366,6 +374,9 @@ export function formatErrorMessage(result) {
         case 'privilege_only':
             return ERROR_MESSAGES.privilege_only;
         default:
+            if (typeof result.type === 'string' && result.type.endsWith('_disabled')) {
+                return '当前职业无法使用此玩法（配额 0）';
+            }
             return result.message || ERROR_MESSAGES.default;
     }
 }
@@ -414,14 +425,17 @@ export function formatActionMessage(result, ctx = {}) {
             const pctText = pct ? `（福咒对冲${modifierDeathNote(result)}，触发 ${pct}% 判定）` : '';
             return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
         }
-        case 'revive':
-            return `${helperName || '🦌友'} 救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 咒印尽散）${q}`;
+        case 'revive': {
+            const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿次数+1' : '';
+            return `${helperName || '🦌友'} 救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 咒印尽散）${bonus}${q}`;
+        }
         case 'help_revive_fail':
             return `${helperName || '你'} 救 ${targetName || 'ta'} ${pickRandom(HELP_REVIVE_FAIL_MESSAGES)}（${helpFailPct}% 固定概率 · 仍鹿死）${q}`;
         case 'help': {
             const soothe = result.curseSoothe ? ' · 顺手下咒回合 -1' : '';
-            const medic = result.medicCleanse ? ' · 鹿医撕咒' : (result.medicBless ? ' · 鹿医贴福' : '');
-            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${q}`;
+            const medic = result.medicCleanse ? ' · 鹿医师撕咒' : (result.medicBless ? ' · 鹿医师贴福' : '');
+            const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿次数+1' : '';
+            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${bonus}${q}`;
         }
         case 'help_kill':
             return `${helperName || '你'} 误伤 ${targetName || 'ta'}！${pickDeathMessage(DEATH_REASON.HELP)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}`;
@@ -639,7 +653,10 @@ export function formatActionMessage(result, ctx = {}) {
                 skill?.desc || '',
                 `指令：${skill?.cmd || '见说明书'}`,
                 statusLine,
-            ].join('\n');
+                result.balancedScore > 0
+                    ? `综合 ${result.balancedScore} 分 · ${result.balancedBreakdown || ''}`
+                    : '',
+            ].filter(Boolean).join('\n');
         }
         case 'job_skill_patrol':
             return `🦌 天象巡游开启！下一次玩法天象正向修正 ×${result.amp || 1.35}（与巡游被动叠加）`;
@@ -655,6 +672,14 @@ export function formatActionMessage(result, ctx = {}) {
         }
         case 'job_skill_ascetic_cleanse':
             return `${helperName || '你'} 清规戒律！帮 ${targetName || 'ta'} -${result.withdrawAmount || 2}（现 ${result.count} 次 · 零失手 · 不占帮戒配额）`;
+        case 'job_skill_curser_bind':
+            return `${helperName || '你'} 咒缚！${targetName || 'ta'} 叠咒至 ${result.curseStacks} 层（不占鹿咒配额）`;
+        case 'job_skill_blesser_grant':
+            return `${helperName || '你'} 广福！${targetName || 'ta'} 鹿福至 ${result.blessStacks} 层（不占鹿福配额）`;
+        case 'job_skill_rogue_raid_success':
+            return `${helperName || '你'} 夜袭得手！你 ${result.thiefCount} 次 · ${targetName || 'ta'} ${result.targetCount} 次（不占偷鹿配额）`;
+        case 'job_skill_rogue_raid_fail':
+            return `${helperName || '你'} 夜袭失手，自损 1 次（现 ${result.thiefCount} 次 · 不占偷鹿配额）`;
         default:
             return result.message || '操作完成';
     }

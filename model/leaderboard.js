@@ -26,6 +26,8 @@ export default class Leaderboard extends Base {
             isWithdrawal,
             totalCount,
             rankCount: rankData.length,
+            rankFooter: options.rankFooter || 'yunzai-plugin-deer-pipe · 上榜合计为净值之和',
+            sumUnit: options.sumUnit || '次',
         }
     }
 }
