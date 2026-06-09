@@ -71,7 +71,7 @@
 
 ```bash
 git clone --depth=1 https://github.com/sunflowermm/yunzai-plugin-deer-pipe ./plugins/yunzai-plugin-deer-pipe/
-cd plugins/yunzai-plugin-deer-pipe && npm install
+cd plugins/yunzai-plugin-deer-pipe && pnpm install
 ```
 
 | 依赖 | 用途 |
@@ -102,8 +102,6 @@ flowchart TD
     I -->|否| K["消耗配额"]
     K --> L["次日 0:00 职业重置 + 鹿王"]
 ```
-
-> Mermaid 节点含 `@` 或 emoji 时须用双引号，否则 GitHub 解析失败。
 
 | 步骤 | 指令 | 得到什么 |
 |:----:|------|----------|
