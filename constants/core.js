@@ -13,8 +13,6 @@ export {
     verifyArtManifest,
 } from './deer-assets.js';
 
-export { DEERPIPE_LOGO as DEERPIPE_IMG, CHECK_MARK as CHECK_IMG } from './deer-assets.js';
-
 // Redis 键（仅存 Redis，不写插件目录或本地文件）
 export const REDIS_YUNZAI_DEER_PIPE = "Yz:deer_pipe:sign";
 export const REDIS_YUNZAI_DEER_PIPE_FRIENDS = "Yz:deer_pipe:friends";

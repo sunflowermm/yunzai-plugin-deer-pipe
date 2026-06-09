@@ -136,9 +136,15 @@ function qDenom(result, usedKey, leftKey, maxKey, fallback) {
 }
 
 function quotaHint(result) {
-    return result.helpQuotaLeft != null
-        ? `（帮🦌剩余 ${result.helpQuotaLeft}/${result.helpQuotaMax ?? DAILY_HELP_QUOTA}）`
-        : '';
+    if (result.helpQuotaLeft == null && result.helperHelpLeft == null) return '';
+    const left = result.helpQuotaLeft ?? result.helperHelpLeft;
+    const max = resolveQuotaDenom({
+        used: result.helpQuotaUsed ?? result.helperHelpUsed,
+        left,
+        max: result.helpQuotaMax,
+        fallback: DAILY_HELP_QUOTA,
+    });
+    return `（帮🦌剩余 ${left}/${max}）`;
 }
 
 function riskHint(result) {
@@ -160,9 +166,15 @@ function modifierDeathNote(result) {
 }
 
 function withdrawQuotaHint(result) {
-    return result.helpWithdrawLeft != null
-        ? `（帮戒🦌剩余 ${result.helpWithdrawLeft}/${result.helpWithdrawMax ?? DAILY_HELP_WITHDRAW_QUOTA}）`
-        : '';
+    if (result.helpWithdrawLeft == null && result.helperWithdrawLeft == null) return '';
+    const left = result.helpWithdrawLeft ?? result.helperWithdrawLeft;
+    const max = resolveQuotaDenom({
+        used: result.helpWithdrawUsed ?? result.helperWithdrawUsed,
+        left,
+        max: result.helpWithdrawMax ?? result.helpWithdrawQuotaMax,
+        fallback: DAILY_HELP_WITHDRAW_QUOTA,
+    });
+    return `（帮戒🦌剩余 ${left}/${max}）`;
 }
 
 /** 互助配额查询/职业面板文案 */
@@ -208,14 +220,24 @@ export function formatErrorMessage(result) {
         case 'target_dead':
             return pickRandom(TARGET_DEAD_MESSAGES) || ERROR_MESSAGES.target_dead;
         case 'help_quota': {
-            const max = result.helpQuotaMax ?? DAILY_HELP_QUOTA;
-            const used = result.helpQuotaUsed ?? max;
+            const max = resolveQuotaDenom({
+                used: result.helpQuotaUsed ?? result.helperHelpUsed,
+                left: result.helpQuotaLeft ?? result.helperHelpLeft,
+                max: result.helpQuotaMax,
+                fallback: DAILY_HELP_QUOTA,
+            });
+            const used = result.helpQuotaUsed ?? result.helperHelpUsed ?? max;
             return result.message || pickRandom(HELP_QUOTA_MESSAGES)
                 || ERROR_MESSAGES.help_quota(used, max);
         }
         case 'help_withdraw_quota': {
-            const max = result.helpWithdrawMax ?? DAILY_HELP_WITHDRAW_QUOTA;
-            const used = result.helpWithdrawUsed ?? max;
+            const max = resolveQuotaDenom({
+                used: result.helpWithdrawUsed ?? result.helperWithdrawUsed,
+                left: result.helpWithdrawLeft ?? result.helperWithdrawLeft,
+                max: result.helpWithdrawMax ?? result.helpWithdrawQuotaMax,
+                fallback: DAILY_HELP_WITHDRAW_QUOTA,
+            });
+            const used = result.helpWithdrawUsed ?? result.helperWithdrawUsed ?? max;
             return pickRandom(HELP_WITHDRAW_QUOTA_MESSAGES)
                 || ERROR_MESSAGES.help_withdraw_quota(used, max);
         }

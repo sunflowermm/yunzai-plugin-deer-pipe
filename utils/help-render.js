@@ -1,5 +1,5 @@
 import { HELP_SECTION_ART } from '../constants/deer-assets.js';
-import { escapeXml, truncText, textCentered, textEmoji, TXT, TXT_SOFT, svgTextStyled } from './svg-base.js';
+import { escapeXml, truncText, textCentered, textEmoji, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
     HELP_FOOTER,
@@ -18,16 +18,26 @@ import { compositeToPng } from './render-pipeline.js';
 
 const IMG_W = 720;
 const PAD = 20;
-const DESC_X = PAD + 208;
-const DESC_MAX = 34;
+const CMD_X = PAD + 6;
+const CMD_MAX = 28;
+const DESC_MAX = 52;
 const LINE_H = 32;
-const ITEM_EXTRA = 24;
-const SECTION_GAP = 10;
+const ITEM_PAD = 8;
+const ITEM_H = 56;
+const SECTION_GAP = 12;
 const HEADER_H = 188;
 const SECTION_ICON = 28;
 
+function truncCmd(text) {
+    return truncText(text, CMD_MAX);
+}
+
 function truncDesc(text) {
     return truncText(text, DESC_MAX);
+}
+
+function itemBlockHeight() {
+    return ITEM_PAD + ITEM_H;
 }
 
 function sectionsForPage(pageDef) {
@@ -38,7 +48,7 @@ function estimatePageHeight(pageDef) {
     let h = HEADER_H + PAD;
     for (const sec of sectionsForPage(pageDef)) {
         h += LINE_H + 6;
-        h += sec.items.length * (LINE_H + ITEM_EXTRA);
+        h += sec.items.length * itemBlockHeight();
         h += SECTION_GAP;
     }
     return h + 72;
@@ -70,14 +80,14 @@ function buildPageSvg(pageDef, imgH, pageIndex, totalPages) {
         `);
         y += 6;
         for (const item of sec.items) {
-            y += LINE_H;
+            y += ITEM_PAD;
             const tag = item.tag ? ` [${item.tag}]` : '';
             blocks.push(`
-                <text ${TXT} x="${PAD + 6}" y="${y}" font-size="16" fill="#3d2914" font-weight="bold">${escapeXml(item.cmd)}${escapeXml(tag)}</text>
-                <text ${TXT_SOFT} x="${DESC_X}" y="${y}" font-size="15" fill="#6b4a32">${truncDesc(item.desc)}</text>
-                <text ${TXT_SOFT} x="${PAD + 6}" y="${y + 18}" font-size="13" fill="#a07050">└ ${truncText(item.quota, 42)}</text>
+                <text ${TXT_PLAIN} x="${CMD_X}" y="${y + 16}" font-size="15" fill="#3d2914" font-weight="bold">${truncCmd(item.cmd)}${escapeXml(tag)}</text>
+                <text ${TXT_PLAIN} x="${CMD_X}" y="${y + 34}" font-size="14" fill="#6b4a32">${truncDesc(item.desc)}</text>
+                <text ${TXT_PLAIN} x="${CMD_X}" y="${y + 50}" font-size="12" fill="#a07050">└ ${truncText(item.quota, 54)}</text>
             `);
-            y += ITEM_EXTRA;
+            y += ITEM_H;
         }
         y += SECTION_GAP;
     }
@@ -110,7 +120,7 @@ async function composePage(pageDef, pageIndex, totalPages) {
     const layers = [
         { input: buildPageSvg(pageDef, imgH, pageIndex, totalPages), top: 0, left: 0 },
     ];
-    if (deerBig) layers.push({ input: deerBig, top: 72, left: IMG_W - (pageIndex === 0 ? 190 : 165) });
+    if (deerBig) layers.push({ input: deerBig, top: 12, left: IMG_W - (pageIndex === 0 ? 96 : 88) });
     if (deerSmall) layers.push({ input: deerSmall, top: imgH - 88, left: PAD + 4 });
     if (brandLogo) layers.push({ input: brandLogo, top: 14, left: PAD + 4 });
 
@@ -123,7 +133,7 @@ async function composePage(pageDef, pageIndex, totalPages) {
             if (overlay) layers.push(overlay);
         }
         const sec = HELP_SECTIONS[pageDef.sectionKeys[i]];
-        y += 6 + sec.items.length * (LINE_H + ITEM_EXTRA) + SECTION_GAP;
+        y += 6 + sec.items.length * itemBlockHeight() + SECTION_GAP;
     }
 
     return compositeToPng(IMG_W, imgH, layers, { r: 255, g: 245, b: 235, alpha: 1 });

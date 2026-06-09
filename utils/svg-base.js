@@ -194,6 +194,53 @@ export const CARD_THEMES = {
     },
 };
 
+/** 鹿况面板主题（由状态推导，复用 CARD_THEMES 配色） */
+export function statusPanelTheme(status) {
+    const { dead, cursed, blessed, inRiskZone, inWithdrawalZone } = status;
+    if (dead) {
+        return {
+            ...CARD_THEMES.fail,
+            barBg: '#4a2828',
+        };
+    }
+    if (cursed) {
+        return { ...CARD_THEMES.curse, barBg: '#3d2a55' };
+    }
+    if (blessed) {
+        return { ...CARD_THEMES.bless, barBg: '#2a4030' };
+    }
+    if (inRiskZone) {
+        return {
+            bgStops: '<stop offset="0%" style="stop-color:#3d2818"/><stop offset="100%" style="stop-color:#2a1508"/>',
+            title: '#fff5eb',
+            sub: '#ffe0c8',
+            line: '#fffaf5',
+            muted: '#ffcc99',
+            accent: '#ff9a56',
+            barBg: '#5c4030',
+            panel: 'rgba(0,0,0,0.35)',
+            highlight: 'rgba(255,154,86,0.18)',
+        };
+    }
+    if (inWithdrawalZone) {
+        return {
+            bgStops: '<stop offset="0%" style="stop-color:#e8f4fc"/><stop offset="100%" style="stop-color:#d0e8f8"/>',
+            title: '#1a5276',
+            sub: '#2874a6',
+            line: '#154360',
+            muted: '#5dade2',
+            accent: '#3498db',
+            barBg: '#aed6f1',
+            panel: 'rgba(255,255,255,0.55)',
+            highlight: 'rgba(52,152,219,0.15)',
+        };
+    }
+    return {
+        ...CARD_THEMES.mischief,
+        barBg: '#e8d5c4',
+    };
+}
+
 /** 稳定 hash，用于装饰粒子伪随机 */
 export function hashSeed(...parts) {
     let h = 2166136261;

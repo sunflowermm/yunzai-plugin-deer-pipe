@@ -1,6 +1,6 @@
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
-import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs, textCentered, textCenteredEmoji, buildFooterBar, buildCenteredPanel, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, buildSectionTitle, buildCenteredEmojiLine, TXT, TXT_SOFT } from './svg-base.js';
-import { loadCalendarDeerMark, loadCheckMark, loadProfessionArt, loadSectionArt, loadSkillArt, stickerOverlay } from './sticker-compose.js';
+import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs, textCentered, textCenteredEmoji, buildFooterBar, buildCenteredPanel, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, buildSectionTitle, buildCenteredEmojiLine, statusPanelTheme, sectionIconSlot, TXT, TXT_SOFT, TXT_PLAIN, TXT_EMOJI } from './svg-base.js';
+import { loadCalendarDeerMark, loadProfessionArt, loadSectionArt, loadSkillArt, stickerOverlay } from './sticker-compose.js';
 import { compositeToPng } from './render-pipeline.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
 import {
@@ -47,6 +47,7 @@ import {
     pickRandom,
 } from '../constants/game.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
+import { resolveQuotaDenom } from '../constants/profession-quotas.js';
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 const BOX_W = 100;
@@ -112,88 +113,6 @@ function pickStatusFlavor(status) {
     return pickRandom(CARD_FLAVOR[key] || CARD_FLAVOR.default);
 }
 
-function statusTheme(status) {
-    const { dead, cursed, blessed, inRiskZone, inWithdrawalZone } = status;
-    if (dead) {
-        return {
-            bgStops: '<stop offset="0%" style="stop-color:#1a0a0a"/><stop offset="100%" style="stop-color:#0d0404"/>',
-            title: '#ffffff',
-            sub: '#ffe4e4',
-            line: '#fff8f8',
-            muted: '#ffcaca',
-            accent: '#ff7070',
-            barBg: '#4a2828',
-            panel: 'rgba(0,0,0,0.55)',
-            highlight: 'rgba(255,112,112,0.18)',
-        };
-    }
-    if (cursed) {
-        return {
-            bgStops: '<stop offset="0%" style="stop-color:#1f1230"/><stop offset="100%" style="stop-color:#120a1c"/>',
-            title: '#f5ebff',
-            sub: '#e8d4ff',
-            line: '#faf5ff',
-            muted: '#d4b8ff',
-            accent: '#c39bff',
-            barBg: '#3d2a55',
-            panel: 'rgba(0,0,0,0.4)',
-            highlight: 'rgba(195,155,255,0.2)',
-        };
-    }
-    if (blessed) {
-        return {
-            bgStops: '<stop offset="0%" style="stop-color:#1a2818"/><stop offset="100%" style="stop-color:#0f1a0d"/>',
-            title: '#f0fff0',
-            sub: '#d8ffd8',
-            line: '#f5fff5',
-            muted: '#b8f0b8',
-            accent: '#7dffb0',
-            barBg: '#2a4030',
-            panel: 'rgba(0,0,0,0.35)',
-            highlight: 'rgba(125,255,176,0.15)',
-        };
-    }
-    if (inRiskZone) {
-        return {
-            bgStops: '<stop offset="0%" style="stop-color:#3d2818"/><stop offset="100%" style="stop-color:#2a1508"/>',
-            title: '#fff5eb',
-            sub: '#ffe0c8',
-            line: '#fffaf5',
-            muted: '#ffcc99',
-            accent: '#ff9a56',
-            barBg: '#5c4030',
-            panel: 'rgba(0,0,0,0.35)',
-            highlight: 'rgba(255,154,86,0.18)',
-        };
-    }
-    if (inWithdrawalZone) {
-        return {
-            bgStops: '<stop offset="0%" style="stop-color:#e8f4fc"/><stop offset="100%" style="stop-color:#d0e8f8"/>',
-            title: '#1a5276',
-            sub: '#2874a6',
-            line: '#154360',
-            muted: '#5dade2',
-            accent: '#3498db',
-            barBg: '#aed6f1',
-            panel: 'rgba(255,255,255,0.55)',
-            highlight: 'rgba(52,152,219,0.15)',
-        };
-    }
-    return {
-        bgStops: '<stop offset="0%" style="stop-color:#fff8f0"/><stop offset="100%" style="stop-color:#ffe8d6"/>',
-        title: '#3d2818',
-        sub: '#5c3d2e',
-        line: '#2a1a10',
-        muted: '#7a4e32',
-        accent: '#e67e22',
-        barBg: '#e8d5c4',
-        panel: 'rgba(255,255,255,0.55)',
-        highlight: 'rgba(230,126,34,0.12)',
-    };
-}
-
-const svgText = svgTextPlain;
-
 /**
  * @param {object} options highlightDay=高亮日期, forceDeadBanner=强制显示鹿死横幅
  */
@@ -211,9 +130,8 @@ export async function generateImage(now, name, monthData, options = {}) {
     const todaySnap = getDaySnap(todayEntry);
     const todayReason = getDeathReason(todayEntry);
     const deerpipeSmall = await loadCalendarDeerMark(48);
-    const checkSmall = await loadCheckMark(36);
     const compositeArray = [{
-        input: svgText(`
+        input: svgTextPlain(`
             <defs>
                 <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
                     ${todayDead
@@ -251,9 +169,9 @@ export async function generateImage(now, name, monthData, options = {}) {
     const weekY = HEADER_H_CAL;
     for (let i = 0; i < 7; i++) {
         compositeArray.push({
-            input: svgText(`
+            input: svgTextStyled(`
                 <rect x="0" y="0" width="${BOX_W}" height="${BOX_H}" fill="#f0e6dc" rx="6"/>
-                <text x="${BOX_W / 2}" y="62" font-size="22" font-family="DeerFont" fill="#8b6914" text-anchor="middle" font-weight="bold">${WEEK_LABELS[i]}</text>
+                <text ${TXT_PLAIN} x="${BOX_W / 2}" y="62" font-size="22" fill="#8b6914" text-anchor="middle" font-weight="bold">${WEEK_LABELS[i]}</text>
             `, BOX_W, BOX_H),
             top: weekY,
             left: i * BOX_W,
@@ -281,19 +199,19 @@ export async function generateImage(now, name, monthData, options = {}) {
                 : (isHighlight ? '#ff9a56' : '#e8d5c4');
             const strokeW = isHighlight ? 3 : 1;
             compositeArray.push({
-                input: svgText(`
+                input: svgTextStyled(`
                     <rect x="2" y="2" width="${BOX_W - 4}" height="${BOX_H - 4}" fill="rgb(${bg.r},${bg.g},${bg.b})" rx="8" stroke="${stroke}" stroke-width="${strokeW}"/>
                     ${dead ? `<line x1="8" y1="90" x2="${BOX_W - 8}" y2="20" stroke="#ff4444" stroke-width="2" opacity="0.5"/>` : ''}
-                    <text x="10" y="28" font-size="18" font-family="DeerFont" fill="${dead ? '#888' : '#666'}">${day}</text>
+                    <text ${TXT_PLAIN} x="10" y="28" font-size="18" fill="${dead ? '#888' : '#666'}">${day}</text>
                     ${dead ? `
-                        <text x="${BOX_W / 2}" y="58" font-size="26" font-family="DeerFont" fill="#ff6b6b" text-anchor="middle">💀</text>
-                        <text x="${BOX_W / 2}" y="82" font-size="14" font-family="DeerFont" fill="#ff9999" text-anchor="middle">失${snap}</text>
-                        <text x="${BOX_W - 8}" y="18" font-size="12" font-family="DeerFont" fill="#ff7777" text-anchor="end">${reasonLabel}</text>
+                        <text ${TXT_EMOJI} x="${BOX_W / 2}" y="58" font-size="26" fill="#ff6b6b" text-anchor="middle">💀</text>
+                        <text ${TXT_PLAIN} x="${BOX_W / 2}" y="82" font-size="14" fill="#ff9999" text-anchor="middle">失${snap}</text>
+                        <text ${TXT_PLAIN} x="${BOX_W - 8}" y="18" font-size="12" fill="#ff7777" text-anchor="end">${reasonLabel}</text>
                     ` : ''}
-                    ${!dead && count !== 0 ? `<text x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" font-family="DeerFont" fill="${count < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${count > 99 ? '99+' : count < -99 ? '-99+' : count}</text>` : ''}
-                    ${!dead && count > DAILY_SAFE_LIMIT ? `<text x="8" y="48" font-size="14" font-family="DeerFont" fill="#e67e22">危</text>` : ''}
-                    ${!dead && count < 0 ? `<text x="8" y="48" font-size="14" font-family="DeerFont" fill="#3498db">戒</text>` : ''}
-                    ${!dead && count === 0 && isHighlight ? `<text x="${BOX_W / 2}" y="68" font-size="14" font-family="DeerFont" fill="#bbb" text-anchor="middle">空</text>` : ''}
+                    ${!dead && count !== 0 ? `<text ${TXT_PLAIN} x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" fill="${count < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${count > 99 ? '99+' : count < -99 ? '-99+' : count}</text>` : ''}
+                    ${!dead && count > DAILY_SAFE_LIMIT ? `<text ${TXT_PLAIN} x="8" y="48" font-size="14" fill="#e67e22">危</text>` : ''}
+                    ${!dead && count < 0 ? `<text ${TXT_PLAIN} x="8" y="48" font-size="14" fill="#3498db">戒</text>` : ''}
+                    ${!dead && count === 0 && isHighlight ? `<text ${TXT_PLAIN} x="${BOX_W / 2}" y="68" font-size="14" fill="#bbb" text-anchor="middle">空</text>` : ''}
                 `, BOX_W, BOX_H),
                 top: y0,
                 left: x0,
@@ -302,14 +220,7 @@ export async function generateImage(now, name, monthData, options = {}) {
                 compositeArray.push({
                     input: deerpipeSmall,
                     top: y0 + 30,
-                    left: x0 + 26,
-                });
-            }
-            if (!dead && count > 0 && checkSmall) {
-                compositeArray.push({
-                    input: checkSmall,
-                    top: y0 + 28,
-                    left: x0 + 32,
+                    left: x0 + 28,
                 });
             }
         }
@@ -335,7 +246,7 @@ export async function generateYearImage(now, name, userRecord) {
     const IMG_W = COLS * MINI_W + (COLS + 1) * PAD;
     const IMG_H = TITLE_H + ROWS * MINI_H + (ROWS + 1) * PAD;
     const compositeArray = [{
-        input: svgText(`
+        input: svgTextPlain(`
             <defs>
                 <linearGradient id="ybg" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" style="stop-color:#1a1a2e"/>
@@ -393,10 +304,10 @@ export async function generateYearImage(now, name, userRecord) {
         }
 
         compositeArray.push({
-            input: svgText(`
+            input: svgTextStyled(`
                 <rect x="0" y="0" width="${MINI_W}" height="${MINI_H}" fill="rgb(${bg.r},${bg.g},${bg.b})" rx="10" stroke="${isCurrentMonth ? '#ffd700' : '#444'}" stroke-width="${isCurrentMonth ? 2 : 1}"/>
-                <text x="10" y="24" font-size="18" font-family="DeerFont" fill="#333" font-weight="bold">${m}月</text>
-                <text x="${MINI_W - 10}" y="24" font-size="16" font-family="DeerFont" fill="${total < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${total}次</text>
+                <text ${TXT_PLAIN} x="10" y="24" font-size="18" fill="#333" font-weight="bold">${m}月</text>
+                <text ${TXT_PLAIN} x="${MINI_W - 10}" y="24" font-size="16" fill="${total < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${total}次</text>
                 ${cells}
             `, MINI_W, MINI_H),
             top: y0,
@@ -412,7 +323,7 @@ export async function generateStatusImage(now, name, status) {
     now = ensureDate(now);
     const W = 740;
     const CX = W / 2;
-    const theme = statusTheme(status);
+    const theme = statusPanelTheme(status);
     const dead = status.dead;
     const profHint = status.professionRequired
         ? '🎭未转职'
@@ -511,8 +422,18 @@ export async function generateStatusImage(now, name, status) {
     const flavorY = gridTop + gridRows * GRID_GAP_Y + 24;
     const H = flavorY + 40;
 
-    const helpMax = status.helpQuotaMax ?? DAILY_HELP_QUOTA;
-    const wdMax = status.helpWithdrawQuotaMax ?? DAILY_HELP_WITHDRAW_QUOTA;
+    const helpMax = resolveQuotaDenom({
+        used: helpUsed,
+        left: status.helperHelpLeft,
+        max: status.helpQuotaMax,
+        fallback: DAILY_HELP_QUOTA,
+    });
+    const wdMax = resolveQuotaDenom({
+        used: wdUsed,
+        left: status.helperWithdrawLeft,
+        max: status.helpWithdrawQuotaMax,
+        fallback: DAILY_HELP_WITHDRAW_QUOTA,
+    });
     const quotaSvg = buildQuotaBarStack(CX, QUOTA_TOP, [
         { label: '帮鹿', used: helpUsed, total: helpMax, color: '#e67e22' },
         { label: '帮戒', used: wdUsed, total: wdMax, color: '#3498db' },
@@ -563,11 +484,13 @@ export async function generateStatusImage(now, name, status) {
     }];
     const thumbOverlay = profThumb ? stickerOverlay(profThumb, 28, W - 100) : null;
     if (thumbOverlay) layers.push(thumbOverlay);
-    const helpTitleOverlay = helpIcon ? stickerOverlay(helpIcon, QUOTA_TITLE_Y - 22, 28) : null;
+    const helpIconSlot = sectionIconSlot(CX, QUOTA_TITLE_Y, 30);
+    const playIconSlot = sectionIconSlot(CX, GRID_TITLE_Y, 30);
+    const helpTitleOverlay = helpIcon ? stickerOverlay(helpIcon, helpIconSlot.top, helpIconSlot.left) : null;
     if (helpTitleOverlay) layers.push(helpTitleOverlay);
-    const playTitleOverlay = harmIcon ? stickerOverlay(harmIcon, GRID_TITLE_Y - 22, 28) : null;
+    const playTitleOverlay = harmIcon ? stickerOverlay(harmIcon, playIconSlot.top, playIconSlot.left) : null;
     if (playTitleOverlay) layers.push(playTitleOverlay);
-    const pvpTitleOverlay = pvpIcon ? stickerOverlay(pvpIcon, GRID_TITLE_Y - 22, 68) : null;
+    const pvpTitleOverlay = pvpIcon ? stickerOverlay(pvpIcon, GRID_TITLE_Y - 22, W - 56) : null;
     if (pvpTitleOverlay) layers.push(pvpTitleOverlay);
     const skillOverlay = skillIcon ? stickerOverlay(skillIcon, gridTop + gridRows * GRID_GAP_Y - 8, W - 72) : null;
     if (skillOverlay) layers.push(skillOverlay);

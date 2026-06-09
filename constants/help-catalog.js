@@ -4,7 +4,7 @@
 import { D_SHOW, WEATHER_CMD_SHOW } from './commands.js';
 import { BALANCED_FORMULA_HINT } from './balanced-score.js';
 import { PRIVILEGED_QQ } from './game.js';
-import { PROFESSION_HELP_RANGE, PROFESSION_LIST_TEXT, PROFESSION_WITHDRAW_RANGE } from './profession.js';
+import { PROFESSION_HELP_RANGE, PROFESSION_WITHDRAW_RANGE } from './profession.js';
 import { PROFESSION_QUOTA_TABLE } from './profession-quotas.js';
 import {
     ARENA_STAKE,
@@ -24,8 +24,6 @@ import {
     DAILY_GREED_QUOTA,
     DAILY_GROUP_SPLASH_QUOTA,
     GROUP_SPLASH_TOP_N,
-    DAILY_HELP_QUOTA,
-    DAILY_HELP_WITHDRAW_QUOTA,
     DAILY_HOWL_QUOTA,
     DAILY_IMPERIAL_QUOTA,
     DAILY_SAFE_LIMIT,
@@ -202,11 +200,6 @@ export const HELP_PAGES = [
         sectionKeys: ['pvp', 'death', 'privilege', 'data', 'easter'],
     },
 ];
-
-/** @deprecated 兼容旧引用 */
-export const HELP_CATALOG = HELP_PAGES.flatMap((page) =>
-    page.sectionKeys.map((key) => HELP_SECTIONS[key]),
-);
 
 export const HELP_FOOTER = '鹿管说明书 · 数据 Redis · 天象群播见控制台「鹿管配置」';
 export const HELP_TAGLINE = '一只鹿管，全村社死';

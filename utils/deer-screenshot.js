@@ -3,10 +3,8 @@
  * tplFile 必须保持相对路径，否则会跳过 art-template 编译。
  */
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import RendererLoader from '../../../lib/renderer/loader.js';
 import { DEER_FONT, getFontBase64DataUri } from '../constants/core.js';
-
 /** 用户触发类截图：低精度、快出图 */
 export const DEER_SHOT_FAST = Object.freeze({
     deviceScaleFactor: 1,
@@ -42,11 +40,6 @@ export function toImageBuffer(result) {
 
 export function getRenderer() {
     return RendererLoader.getRenderer?.() ?? global.RendererLoader?.getRenderer?.();
-}
-
-/** 本地 Genshin 字体 file://（resourceRewrite 兜底） */
-export function getDeerFontFileUrl() {
-    return pathToFileURL(path.resolve(DEER_FONT)).href;
 }
 
 /** Puppeteer 字体 resourceRewrite（对齐 XRK-plugin 天气截图） */

@@ -1,6 +1,5 @@
 import {
     WEATHER_CATALOG,
-    WEATHER_IDS,
     formatWeatherPeriodLabel,
     parseWeatherPeriodSlot,
 } from '../constants/weather.js';
@@ -11,6 +10,7 @@ import {
     BLESS_MAX_ROUNDS,
     CURSE_MAX_ROUNDS,
     DAILY_BLESS_QUOTA,
+    DAILY_CLEANSE_BLESS_QUOTA,
     DAILY_CLEANSE_CURSE_QUOTA,
     DAILY_CURSE_QUOTA,
     DAILY_HOWL_QUOTA,
@@ -23,16 +23,6 @@ import {
 } from '../constants/game.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
 import { resolveQuotaDenom } from '../constants/profession-quotas.js';
-
-function cardQuotaDenom(result, usedKey, leftKey, maxKey, fallback) {
-    return resolveQuotaDenom({
-        used: result[usedKey],
-        left: result[leftKey],
-        max: result[maxKey],
-        fallback,
-    });
-}
-
 import {
     escapeXml,
     truncText,
@@ -83,39 +73,13 @@ function countRatio(value) {
     return parseDayCountRatio(value, DAILY_SAFE_LIMIT + 4);
 }
 
-/** 天象八象图鉴 */
-export async function generateWeatherCatalogImage(currentWeatherId = null) {
-    const theme = CARD_THEMES.weather;
-    const rowH = 58;
-    const headerH = 118;
-    const footerH = 52;
-    const H = headerH + WEATHER_IDS.length * rowH + footerH;
-    let rows = '';
-    let y = headerH + 10;
-    for (const id of WEATHER_IDS) {
-        const def = WEATHER_CATALOG[id];
-        const active = id === currentWeatherId;
-        const bg = active ? theme.highlight : 'transparent';
-        rows += `
-            <rect x="16" y="${y - 24}" width="${CARD_W - 32}" height="${rowH - 8}" rx="10" fill="${bg}" stroke="${active ? theme.accent : 'transparent'}" stroke-width="2"/>
-            ${textEmoji(28, y, def.emoji, { size: 20 })}
-            <text ${TXT} x="58" y="${y}" font-size="17" fill="${theme.title}" font-weight="bold">${escapeXml(def.name)}${active ? ' · 当前' : ''}</text>
-            <text ${TXT_SOFT} x="${CARD_W - 28}" y="${y}" font-size="13" fill="${theme.muted}" text-anchor="end">权重 ${def.weight}</text>
-            ${textCentered(CX, y + 22, truncText(def.tip, 56), TXT_SOFT, { size: 13, fill: theme.sub })}
-        `;
-        y += rowH;
-    }
-
-    const inner = `
-        <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
-        ${buildCardDecorations(CARD_W, H, theme, hashSeed('weather-catalog'))}
-        ${buildCenteredEmojiTitle(CX, 44, '🌤', '天象一览 · 鹿林八象', { emojiSize: 26, titleSize: 26, style: TXT, fill: theme.title })}
-        ${textCentered(CX, 72, `00:00 / 12:00 换场 · 查本场「${escapeXml(WEATHER_CMD_HINT)}」`, TXT_SOFT, { size: 14, fill: theme.muted })}
-        ${rows}
-        ${textCentered(CX, H - 30, '晴/鹿虹偏吉 · 阴霾/雷暴偏凶', TXT_SOFT, { size: 12, fill: theme.muted })}
-        ${textCentered(CX, H - 14, '细雨偷鹿狂 · 换场见分晓', TXT_SOFT, { size: 12, fill: theme.muted })}
-    `;
-    return renderStyledCard(CARD_W, H, inner, 'weather');
+function quotaDenom(result, usedKey, leftKey, maxKey, fallback) {
+    return resolveQuotaDenom({
+        used: result[usedKey],
+        left: result[leftKey],
+        max: result[maxKey],
+        fallback,
+    });
 }
 
 /** 当前半天场次天象详情卡 */
@@ -230,27 +194,28 @@ function buildPlayfulStatRows(result, { helperName, targetName } = {}) {
         case 'steal_curse_fail':
             push('你', `${result.thiefCount ?? '?'} 次`, '#ff6b81');
             push('目标', `${result.targetCount ?? '?'} 次`, '#ffd700');
-            push('偷鹿配额', `${result.stealUsed ?? '?'}/${cardQuotaDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}`, '#ccc');
+            push('偷鹿配额', `${result.stealUsed ?? '?'}/${quotaDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}`, '#ccc');
             if (result.stealBonus > 0) push('借咒加成', `+${Math.round(result.stealBonus * 100)}%`, '#c39bff');
             break;
         case 'curse':
             push('咒层', `×${result.curseStacks}`, '#c39bff');
             push('回合', `${result.curseRounds}/${CURSE_MAX_ROUNDS}`, '#e8d4ff');
             push('叠毒', `+${Math.round((result.bonus ?? 0.1) * (result.curseStacks ?? 1) * 100)}%`, '#ff8888');
-            push('配额', `${result.curseUsed}/${cardQuotaDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA)}`, '#ccc');
+            push('配额', `${result.curseUsed}/${quotaDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA)}`, '#ccc');
             if (result.ascended) push('状态', '⚡天咒', '#ffd700');
             break;
         case 'cleanse_curse':
             push('撕咒', `${result.clearedStacks} 层`, '#7dffb0');
-            push('配额', `${result.cleanseUsed}/${cardQuotaDenom(result, 'cleanseUsed', 'cleanseLeft', 'cleanseMax', DAILY_CLEANSE_CURSE_QUOTA)}`, '#ccc');
+            push('配额', `${result.cleanseUsed}/${quotaDenom(result, 'cleanseUsed', 'cleanseLeft', 'cleanseMax', DAILY_CLEANSE_CURSE_QUOTA)}`, '#ccc');
             break;
         case 'bless':
             push('福层', `×${result.blessStacks}`, '#7dffb0');
             push('回合', `${result.blessRounds}/${BLESS_MAX_ROUNDS}`, '#d8ffd8');
-            push('配额', `${result.blessUsed}/${cardQuotaDenom(result, 'blessUsed', 'blessLeft', 'blessMax', DAILY_BLESS_QUOTA)}`, '#ccc');
+            push('配额', `${result.blessUsed}/${quotaDenom(result, 'blessUsed', 'blessLeft', 'blessMax', DAILY_BLESS_QUOTA)}`, '#ccc');
             break;
         case 'cleanse_bless':
             push('收福', `${result.clearedStacks} 层`, '#7dffb0');
+            push('配额', `${result.cleanseBlessUsed}/${quotaDenom(result, 'cleanseBlessUsed', 'cleanseBlessLeft', 'cleanseBlessMax', DAILY_CLEANSE_BLESS_QUOTA)}`, '#ccc');
             break;
         case 'sacrifice':
         case 'greed_success':
@@ -276,7 +241,7 @@ function buildPlayfulStatRows(result, { helperName, targetName } = {}) {
         case 'howl_dead':
         case 'howl_dead_haunt':
             push('次数', `${result.count ?? 0}`, '#68d391');
-            push('配额', `${result.howlUsed}/${cardQuotaDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA)}`, '#ccc');
+            push('配额', `${result.howlUsed}/${quotaDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA)}`, '#ccc');
             if (result.howlEffect) push('效果', result.howlEffect, '#ffd700');
             break;
         case 'group_splash':
