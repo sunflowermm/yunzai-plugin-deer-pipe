@@ -12,6 +12,11 @@ import {
 } from '../constants/profession-quotas.js';
 import { getPlayQuotaSnapshot } from './data.js';
 import {
+    buildCenteredEmojiTitleRaster,
+    emojiStickerOverlay,
+    emojiSvgImage,
+} from './emoji-compose.js';
+import {
     buildPortraitGlowSvg,
     loadBanner,
     loadBrandLogo,
@@ -23,7 +28,6 @@ import {
 } from './sticker-compose.js';
 import {
     buildCardDecorations,
-    buildCenteredEmojiTitle,
     buildCenteredPanel,
     buildFooterBar,
     buildQuotaBarStack,
@@ -37,10 +41,8 @@ import {
     renderStyledCard,
     sectionIconSlot,
     textCentered,
-    textCenteredEmoji,
     truncText,
     TXT,
-    TXT_EMOJI,
     TXT_SOFT,
 } from './svg-base.js';
 
@@ -64,10 +66,10 @@ const SKILL_CELL_W = 324;
 const SKILL_CELL_H = 52;
 const SKILL_THUMB = 40;
 
-function cellArtEmojiSvg(artLeft, artTop, artSize, emoji) {
+async function cellArtEmojiImg(artLeft, artTop, artSize, emoji) {
     const cx = artLeft + artSize / 2;
     const cy = artTop + artSize / 2 + Math.round(artSize * 0.1);
-    return textCenteredEmoji(cx, cy, emoji, { size: Math.round(artSize * 0.52) });
+    return emojiSvgImage(cx, cy, emoji, Math.round(artSize * 0.52));
 }
 
 function sectionTitleSvg(cx, y, title, theme) {
@@ -144,7 +146,7 @@ async function buildSkillRow(professionId, skillY, theme) {
     const skillIcon = await loadSkillArt(professionId, SKILL_ICON);
     const prof = PROFESSIONS[professionId];
     const emojiArt = !skillIcon && prof?.emoji
-        ? cellArtEmojiSvg(cell.artLeft, cell.artTop, cell.artSize, prof.emoji)
+        ? await cellArtEmojiImg(cell.artLeft, cell.artTop, cell.artSize, prof.emoji)
         : '';
     const overlays = [];
     if (skillIcon) {
@@ -173,28 +175,44 @@ export async function generateProfessionCard(professionId, opts = {}) {
     const footerY = skillY + skillBlock.height + 12;
     const H = footerY + 56;
 
-    const [portrait, brandLogo] = await Promise.all([
+    const [portrait, brandLogo, titleBlock] = await Promise.all([
         loadProfessionArt(professionId, PORTRAIT_SIZE, { borderWidth: 0, shadow: true }),
         loadBrandLogo(),
+        buildCenteredEmojiTitleRaster(CX, 38, prof.emoji, `${prof.name} · 职业专精`, {
+            emojiSize: 28, titleSize: 24, style: TXT, fill: theme.title,
+        }),
     ]);
+
+    const portraitOverlays = [];
+    let portraitEmojiSvg = '';
+    if (!portrait) {
+        const emojiSize = Math.round(PORTRAIT_SIZE * 0.42);
+        const cy = portraitTop + illuPanelH / 2 + 8;
+        const overlay = await emojiStickerOverlay(prof.emoji, cy - emojiSize / 2, CX - emojiSize / 2, emojiSize);
+        if (overlay) portraitOverlays.push(overlay);
+        else portraitEmojiSvg = await emojiSvgImage(CX, cy, prof.emoji, emojiSize);
+    }
 
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, seed)}
-        ${buildCenteredEmojiTitle(CX, 38, prof.emoji, `${prof.name} · 职业专精`, {
-            emojiSize: 28, titleSize: 24, style: TXT, fill: theme.title,
-        })}
+        ${titleBlock.svg}
         ${textCentered(CX, 62, truncText(prof.tagline, 42), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
         ${buildRibbonBadge(CX, 72, '转职锁定至次日0点', 'neutral')}
         ${portrait ? buildPortraitGlowSvg(CX, portraitTop + illuPanelH / 2, PORTRAIT_SIZE) : ''}
         ${portrait ? '' : buildCenteredPanel(CX, portraitTop + illuPanelH / 2 - 8, PORTRAIT_SIZE + 48, illuPanelH, theme)}
-        ${portrait ? '' : textCenteredEmoji(CX, portraitTop + illuPanelH / 2 + 8, prof.emoji, { size: PORTRAIT_SIZE * 0.42 })}
+        ${portrait ? '' : portraitEmojiSvg}
         ${quotaBlock.svg}
         ${skillBlock.svg}
         ${buildFooterBar(CARD_W, footerY, flavor, theme, 52)}
     `;
 
-    const overlays = [...quotaBlock.overlays, ...skillBlock.overlays];
+    const overlays = [
+        ...titleBlock.overlays,
+        ...quotaBlock.overlays,
+        ...skillBlock.overlays,
+        ...portraitOverlays,
+    ];
     if (portrait) {
         const pad = 4;
         overlays.push(stickerOverlay(portrait, portraitTop + PORTRAIT_PAD - pad, Math.round(CX - PORTRAIT_SIZE / 2 - pad)));
@@ -205,23 +223,23 @@ export async function generateProfessionCard(professionId, opts = {}) {
     return renderStyledCard(CARD_W, H, inner, 'profession', overlays.filter(Boolean));
 }
 
-function buildSynergyGrid(theme, topY) {
+async function buildSynergyGrid(theme, topY) {
     const ids = Object.keys(PROFESSIONS);
     const rows = Math.ceil(ids.length / CATALOG_COLS);
     const colW = CATALOG_CELL_W;
     let svg = buildSectionTitle(CX, topY, '联动专精', theme);
-    let y = topY + 22;
-    ids.forEach((id, i) => {
+    const y = topY + 22;
+    const lines = await Promise.all(ids.map(async (id, i) => {
         const p = PROFESSIONS[id];
         const col = i % CATALOG_COLS;
         const row = Math.floor(i / CATALOG_COLS);
         const x = CATALOG_PAD_X + col * (colW + CATALOG_GAP);
         const lineY = y + row * 20;
-        svg += `<text ${TXT_SOFT} x="${x + 6}" y="${lineY}" font-size="12" fill="${theme.line}">
-            <tspan ${TXT_EMOJI} font-size="13">${escapeXml(p.emoji)}</tspan>
-            <tspan> ${truncText(p.synergyTip || p.tagline, 26)}</tspan>
-        </text>`;
-    });
+        const emojiImg = await emojiSvgImage(x + 14, lineY - 8, p.emoji, 16);
+        const tip = truncText(p.synergyTip || p.tagline, 26);
+        return `${emojiImg}<text ${TXT_SOFT} x="${x + 28}" y="${lineY}" font-size="12" fill="${theme.line}">${escapeXml(tip)}</text>`;
+    }));
+    svg += lines.join('');
     return { svg, height: 22 + rows * 20 + 12 };
 }
 
@@ -230,11 +248,9 @@ async function buildSkillsGrid(theme, topY) {
     const rows = Math.ceil(ids.length / CATALOG_COLS);
     let svg = buildSectionTitle(CX, topY, '专属技 · 1次/日', theme);
     const gridTop = topY + 24;
-    let cells = '';
-    const cellLayouts = [];
     const skillIcons = await Promise.all(ids.map((id) => loadSkillArt(id, SKILL_THUMB)));
 
-    ids.forEach((id, i) => {
+    const cellParts = await Promise.all(ids.map(async (id, i) => {
         const skill = PROFESSION_SKILLS[id];
         const prof = PROFESSIONS[id];
         const col = i % CATALOG_COLS;
@@ -257,18 +273,17 @@ async function buildSkillsGrid(theme, topY) {
             badgeKind: 'neutral',
         });
         const emojiArt = !skillIcons[i] && prof?.emoji
-            ? cellArtEmojiSvg(cell.artLeft, cell.artTop, cell.artSize, prof.emoji)
+            ? await cellArtEmojiImg(cell.artLeft, cell.artTop, cell.artSize, prof.emoji)
             : '';
-        cells += cell.svg + emojiArt;
-        cellLayouts.push({ ...cell, id, icon: skillIcons[i] });
-    });
+        return { svg: cell.svg + emojiArt, cell, icon: skillIcons[i] };
+    }));
 
-    const overlays = cellLayouts
+    const overlays = cellParts
         .filter((c) => c.icon)
-        .map((c) => stickerOverlay(c.icon, c.artTop, c.artLeft));
+        .map((c) => stickerOverlay(c.icon, c.cell.artTop, c.cell.artLeft));
 
     return {
-        svg: svg + cells,
+        svg: svg + cellParts.map((c) => c.svg).join(''),
         height: 24 + rows * (SKILL_CELL_H + 10) + 8,
         overlays,
     };
@@ -282,11 +297,6 @@ export async function generateProfessionCatalogImage(opts = {}) {
     const headerEnd = CATALOG_BANNER_TOP + CATALOG_BANNER_H;
     const hasStatus = opts.snapshot && !opts.snapshot.professionRequired;
     const synergyTop = headerEnd + (hasStatus ? 54 : 36);
-    const synergyBlock = buildSynergyGrid(theme, synergyTop);
-    const gridTop = synergyTop + synergyBlock.height + 16;
-    const skillsTop = gridTop + profRows * (CATALOG_CELL_H + CATALOG_GAP) + 20;
-    const skillsBlock = await buildSkillsGrid(theme, skillsTop);
-    const H = skillsTop + skillsBlock.height + 52;
 
     const [banner, brandLogo, ...thumbs] = await Promise.all([
         loadBanner(PROFESSION_CATALOG_ART, CARD_W - 48, CATALOG_BANNER_H),
@@ -294,9 +304,13 @@ export async function generateProfessionCatalogImage(opts = {}) {
         ...ids.map((id) => loadCatalogThumb(id, CATALOG_THUMB)),
     ]);
 
-    let cells = '';
-    const cellLayouts = [];
-    ids.forEach((id, i) => {
+    const synergyBlock = await buildSynergyGrid(theme, synergyTop);
+    const gridTop = synergyTop + synergyBlock.height + 16;
+    const skillsTop = gridTop + profRows * (CATALOG_CELL_H + CATALOG_GAP) + 20;
+    const skillsBlock = await buildSkillsGrid(theme, skillsTop);
+    const H = skillsTop + skillsBlock.height + 52;
+
+    const cellParts = await Promise.all(ids.map(async (id, i) => {
         const p = PROFESSIONS[id];
         const col = i % CATALOG_COLS;
         const row = Math.floor(i / CATALOG_COLS);
@@ -316,28 +330,44 @@ export async function generateProfessionCatalogImage(opts = {}) {
             badgeKind: p.easterEgg ? 'accent' : 'neutral',
         });
         const emojiArt = (!thumbs[i] || professionUsesEmojiArt(id)) && p.emoji
-            ? cellArtEmojiSvg(cell.artLeft, cell.artTop, cell.artSize, p.emoji)
+            ? await cellArtEmojiImg(cell.artLeft, cell.artTop, cell.artSize, p.emoji)
             : '';
-        cells += cell.svg + emojiArt;
-        cellLayouts.push(cell);
-    });
+        return { svg: cell.svg + emojiArt, cell };
+    }));
+    const cells = cellParts.map((c) => c.svg).join('');
+    const cellLayouts = cellParts.map((c) => c.cell);
+
+    const headerOverlays = [];
+    let headerSvg = '';
+    if (!banner) {
+        const title = await buildCenteredEmojiTitleRaster(CX, 40, '🦌', '鹿林八职业', {
+            emojiSize: 26, titleSize: 24, style: TXT, fill: theme.title,
+        });
+        headerSvg = title.svg;
+        headerOverlays.push(...title.overlays);
+    }
 
     let statusSvg = '';
+    const statusOverlays = [];
     if (hasStatus) {
         const { profession, help, withdraw } = opts.snapshot;
         const statusY = headerEnd + 14;
-        statusSvg = `
-            ${buildCenteredEmojiTitle(CX, statusY, profession.emoji, `${profession.name} · 今日互助`, {
+        const statusTitle = await buildCenteredEmojiTitleRaster(
+            CX, statusY, profession.emoji, `${profession.name} · 今日互助`, {
                 emojiSize: 16, titleSize: 14, style: TXT, fill: theme.title,
-            })}
+            },
+        );
+        statusSvg = `
+            ${statusTitle.svg}
             ${textCentered(CX, statusY + 18, `帮鹿 ${help.left}/${help.max} · 帮戒 ${withdraw.left}/${withdraw.max}`, TXT_SOFT, { size: 12, fill: theme.sub })}
         `;
+        statusOverlays.push(...statusTitle.overlays);
     }
 
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, hashSeed('prof-catalog'))}
-        ${banner ? '' : buildCenteredEmojiTitle(CX, 40, '🦌', '鹿林八职业', { emojiSize: 26, titleSize: 24, style: TXT, fill: theme.title })}
+        ${headerSvg}
         ${statusSvg || textCentered(CX, headerEnd + 14, '转职+职业名 · 当日锁定 · 次日0点重置', TXT_SOFT, { size: 13, fill: theme.muted })}
         ${synergyBlock.svg}
         ${cells}
@@ -345,7 +375,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
         ${buildFooterBar(CARD_W, H - 28, '没转职=没配额：先转职，再开鹿', theme, 48)}
     `;
 
-    const overlays = [...skillsBlock.overlays];
+    const overlays = [...headerOverlays, ...statusOverlays, ...skillsBlock.overlays];
     if (banner) overlays.push(stickerOverlay(banner, CATALOG_BANNER_TOP, 24));
     ids.forEach((id, i) => {
         if (!thumbs[i] || professionUsesEmojiArt(id)) return;
