@@ -49,7 +49,7 @@ function emptyHelperStats() {
 }
 
 function scoreHealStats(stats) {
-    return (stats.helpLu || 0) + (stats.revive || 0) * 2 + (stats.medicSkill || 0);
+    return (stats.helpLu || 0) + (stats.revive || 0) * 3 + (stats.medicSkill || 0);
 }
 
 function scoreWithdrawStats(stats) {
@@ -184,6 +184,15 @@ export async function getHelpLogForDay(date = new Date()) {
     await ensureHelpLogLoaded();
     const dayKey = formatDayKey(date);
     return cache[dayKey] || { helpers: {}, helped: {} };
+}
+
+/** 已加载 help-log 时同步读取施助统计（综合分/榜单用） */
+export function peekHelperStats(userId, date = new Date()) {
+    if (!cache || userId == null) return null;
+    const dayKey = formatDayKey(date);
+    const bucket = cache[dayKey];
+    if (!bucket?.helpers) return null;
+    return bucket.helpers[String(userId)] || null;
 }
 
 export async function getHelpLogDayKeys(limit = 31) {

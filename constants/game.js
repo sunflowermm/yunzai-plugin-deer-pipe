@@ -2,10 +2,10 @@
 export const DAILY_SAFE_LIMIT = 3;
 
 /** 自🦌超限后首次（第 4 次）鹿死概率 */
-export const OVERLIMIT_DEATH_CHANCE_BASE = 0.10;
+export const OVERLIMIT_DEATH_CHANCE_BASE = 0.12;
 
-/** 自🦌每多尝试一次，鹿死概率递增量（第 5 次 12%、第 6 次 14%…） */
-export const OVERLIMIT_DEATH_CHANCE_STEP = 0.02;
+/** 自🦌每多尝试一次，鹿死概率递增量（第 5 次 14%、第 6 次 16%…） */
+export const OVERLIMIT_DEATH_CHANCE_STEP = 0.022;
 
 /** 帮🦌误伤/拉下马/救人失手：固定 10%，不递增 */
 export const HELP_FAIL_CHANCE = 0.10;

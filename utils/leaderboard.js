@@ -151,11 +151,11 @@ export function buildBalancedRankData(deerData, members, { scope = 'month', date
         let sum = 0;
         let hasActivity = false;
         if (scope === 'year') {
-            const ranked = sumYearBalancedScore(userRecord, year, date);
+            const ranked = sumYearBalancedScore(userRecord, year, date, uid);
             sum = ranked.sum;
             hasActivity = ranked.hasActivity;
         } else {
-            const ranked = sumMonthBalancedScore(userRecord[monthKey], upToDay);
+            const ranked = sumMonthBalancedScore(userRecord[monthKey], upToDay, { userId: uid, date });
             sum = ranked.sum;
             hasActivity = ranked.hasActivity;
         }

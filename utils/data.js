@@ -78,7 +78,7 @@ import {
     getDeathReasonText,
 } from '../constants/game.js';
 
-import { recordHelpAction } from './help-log.js';
+import { recordHelpAction, peekHelperStats } from './help-log.js';
 import {
     calcDayBalancedScore as calcBalancedScore,
     computeBalancedScore,
@@ -914,14 +914,20 @@ export function getDayRankInGroup(deerData, members, date = new Date()) {
     return list;
 }
 
-/** 单日综合分上下文（职业安全线 + 互害次数 + 咒福） */
-function resolveBalancedDayContext(monthData, day, entry) {
+/** 单日综合分上下文（职业安全线 + 互害次数 + 咒福 + 施助日志） */
+function resolveBalancedDayContext(monthData, day, entry, opts = {}) {
     const prof = getProfessionMods(monthData, day);
+    let helperStats = null;
+    if (opts.userId != null && opts.date instanceof Date) {
+        const dayDate = new Date(opts.date.getFullYear(), opts.date.getMonth(), day);
+        helperStats = peekHelperStats(opts.userId, dayDate);
+    }
     return {
         safeLimit: DAILY_SAFE_LIMIT + (prof?.safeBonus || 0),
         chaosActions: sumChaosActionsForDay(monthData, day),
         curse: getCurseInfo(entry),
         bless: getBlessInfo(entry),
+        helperStats,
     };
 }
 
@@ -931,9 +937,9 @@ export function calcDayBalancedScore(entry, ctx) {
 }
 
 /** 综合分 + 分项（鹿况展示） */
-export function getDayBalancedDetail(monthData, day, entry) {
+export function getDayBalancedDetail(monthData, day, entry, opts = {}) {
     if (!entry) return { score: 0, parts: null, breakdown: '暂无' };
-    const ctx = resolveBalancedDayContext(monthData, day, entry);
+    const ctx = resolveBalancedDayContext(monthData, day, entry, opts);
     const { score, parts } = computeBalancedScore(entry, ctx);
     return { score, parts, breakdown: formatBalancedBreakdown(parts) };
 }
@@ -946,7 +952,7 @@ export function getDayBalancedRankInGroup(deerData, members, date = new Date()) 
         const monthData = getMonthData(getUserRecord(deerData, uid), date);
         const entry = getDayEntry(monthData, day);
         if (!entry || entry.d) return null;
-        const sum = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, day, entry));
+        const sum = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, day, entry, { userId: uid, date }));
         if (sum <= 0) return null;
         return { id: uid, sum };
     }).filter(Boolean);
@@ -954,21 +960,25 @@ export function getDayBalancedRankInGroup(deerData, members, date = new Date()) 
     return list;
 }
 
-export function sumMonthBalancedScore(monthData, upToDay = 31) {
+export function sumMonthBalancedScore(monthData, upToDay = 31, opts = {}) {
     if (!monthData) return { sum: 0, hasActivity: false };
     let sum = 0;
     let hasActivity = false;
+    const baseDate = opts.date instanceof Date ? opts.date : null;
     for (let d = 1; d <= upToDay; d++) {
         const entry = getDayEntry(monthData, d);
         if (!entry || entry.d) continue;
-        const s = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, d, entry));
+        const dayOpts = opts.userId != null && baseDate
+            ? { userId: opts.userId, date: baseDate }
+            : {};
+        const s = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, d, entry, dayOpts));
         if (s > 0) hasActivity = true;
         sum += s;
     }
     return { sum: Math.round(sum * 10) / 10, hasActivity };
 }
 
-export function sumYearBalancedScore(userRecord, year, date = new Date()) {
+export function sumYearBalancedScore(userRecord, year, date = new Date(), userId = null) {
     if (!userRecord) return { sum: 0, hasActivity: false };
     const upToMonth = date.getMonth() + 1;
     let sum = 0;
@@ -978,7 +988,8 @@ export function sumYearBalancedScore(userRecord, year, date = new Date()) {
         if (parseInt(monthKey.split('-')[0], 10) !== year) continue;
         const m = parseInt(monthKey.split('-')[1], 10);
         const capDay = m === upToMonth ? date.getDate() : 31;
-        const ranked = sumMonthBalancedScore(monthData, capDay);
+        const monthDate = new Date(year, m - 1, 1);
+        const ranked = sumMonthBalancedScore(monthData, capDay, { userId, date: monthDate });
         sum += ranked.sum;
         hasActivity = hasActivity || ranked.hasActivity;
     }
@@ -1104,6 +1115,19 @@ function applyOverlimitDeathCap(deathChance, profMods) {
     const cap = profMods?.overlimitDeathCap;
     if (cap == null) return deathChance;
     return Math.min(deathChance, cap);
+}
+
+/** 自🦌超限区：当前 entry 状态下再🦌一次的鹿死概率（含天象/职业/咒福） */
+function computeSelfLuDeathChance(entry, weatherEffects = null, professionMods = null) {
+    const mods = resolvePlayModifiers(entry, weatherEffects, professionMods);
+    const { safeLimit, overlimitStepReduce, deathDelta } = mods;
+    if ((entry?.c ?? 0) < safeLimit) return 0;
+    return applyOverlimitDeathCap(
+        clampDeathChance(
+            calcOverlimitDeathChance(entry.c, safeLimit, overlimitStepReduce) + deathDelta,
+        ),
+        professionMods,
+    );
 }
 
 function wxOf(gameContext) {
@@ -1358,11 +1382,7 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
     const recoveryNeeded = inWithdrawalZone ? safeLimit - count : 0;
     const inRiskZone = !dead && count >= safeLimit;
     const monthNet = sumMonthNet(monthData, { upToDay: day }).sum;
-    let nextDeathChance = dead ? 0 : calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce);
-    if (!dead && inRiskZone) {
-        nextDeathChance = clampDeathChance(nextDeathChance + mods.deathDelta);
-        nextDeathChance = applyOverlimitDeathCap(nextDeathChance, profession);
-    }
+    const nextDeathChance = dead ? 0 : computeSelfLuDeathChance(entry, weatherEffects, profession);
     const bi = getBlessInfo(entry);
     const balanced = getDayBalancedDetail(monthData, day, entry);
     const pq = getPlayQuotaSnapshot(monthData, day);
@@ -1622,12 +1642,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         entry,
         count: entry.c,
         deathChance,
-        nextDeathChance: applyOverlimitDeathCap(
-            clampDeathChance(
-                calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
-            ),
-            profMods,
-        ),
+        nextDeathChance: computeSelfLuDeathChance(entry, wx, profMods),
         hadCurse: hadActiveCurse,
         hadBless: hadActiveBless,
         curseStacks: curseBefore.stacks,
