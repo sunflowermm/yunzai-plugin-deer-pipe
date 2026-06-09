@@ -24,11 +24,20 @@ export function getFontBase64DataUri() {
 
 export const PROFESSION_CATALOG_ART = `${ASSET_ROOT}/professions/catalog.png`;
 
+/** 策划彩蛋职业：无独立 PNG，职业卡/一览用 emoji 占位 */
+export const PROFESSION_EMOJI_ONLY = new Set(['sunflower']);
+
+export function professionUsesEmojiArt(professionId) {
+    return PROFESSION_EMOJI_ONLY.has(professionId);
+}
+
 export function professionArtPath(professionId) {
+    if (professionUsesEmojiArt(professionId)) return null;
     return `${ASSET_ROOT}/professions/${professionId}.png`;
 }
 
 export function skillArtPath(professionId) {
+    if (professionUsesEmojiArt(professionId)) return null;
     return `${ASSET_ROOT}/stickers/skills/${professionId}.png`;
 }
 
@@ -47,9 +56,9 @@ export const HELP_SECTION_ART = {
 function listArtRelativePaths() {
     const ids = Object.keys(PROFESSIONS);
     const paths = ['Genshin.ttf'];
-    paths.push(...ids.map((id) => `professions/${id}.png`));
+    paths.push(...ids.filter((id) => !professionUsesEmojiArt(id)).map((id) => `professions/${id}.png`));
     paths.push('professions/catalog.png');
-    paths.push(...ids.map((id) => `stickers/skills/${id}.png`));
+    paths.push(...ids.filter((id) => !professionUsesEmojiArt(id)).map((id) => `stickers/skills/${id}.png`));
     paths.push(...QUOTA_GROUPS.map((g) => `stickers/sections/${g.sectionKey}.png`));
     return paths;
 }

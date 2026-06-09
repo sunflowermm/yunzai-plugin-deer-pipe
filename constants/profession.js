@@ -105,6 +105,23 @@ export const PROFESSIONS = {
         deathDelta: -0.015,
         synergyTip: '偷鹿7 · 碰瓷5 · 诈戒5 · 倒贴3 · 皇城3',
     },
+    sunflower: {
+        id: 'sunflower',
+        name: '向日葵鹿',
+        emoji: '🌻',
+        easterEgg: true,
+        tagline: '策划彩蛋 · 向光生长：天象/催福/签运专精',
+        safeBonus: 2,
+        helpFailDelta: -0.05,
+        deathDelta: -0.04,
+        reviveFailDelta: -0.06,
+        weatherPositiveAmp: 1.28,
+        blessApplyBonus: 0.12,
+        helpBlessChance: 0.22,
+        helpCurseCleanseChance: 0.20,
+        lotteryLuckDelta: 0.10,
+        synergyTip: '彩蛋 · 鹿福6 · 催鹿7 · 签运+10% · 天象×1.28',
+    },
 };
 
 /** 转职指令别名 → id（须与职业名一致，无歧义简称） */
@@ -127,6 +144,10 @@ export const PROFESSION_ALIASES = {
     窃光鹿: 'rogue',
     窃贼鹿: 'rogue',
     窃光: 'rogue',
+    向日葵: 'sunflower',
+    向日葵鹿: 'sunflower',
+    向光鹿: 'sunflower',
+    葵鹿: 'sunflower',
 };
 
 function formatProfessionPerk(p) {
@@ -149,9 +170,9 @@ function formatProfessionPerk(p) {
     return parts.length ? ` · ${parts.join(' · ')}` : '';
 }
 
-/** 转职提示（7 职业，多处文案统一引用） */
+/** 转职提示（8 职业，多处文案统一引用） */
 export const TRANSFER_PROFESSION_HINT =
-    '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游鹿 / 转职叠咒鹿 / 转职福鹿使 / 转职窃光鹿（或「鹿职业」查看）';
+    '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游鹿 / 转职叠咒鹿 / 转职福鹿使 / 转职窃光鹿 / 转职向日葵（或「鹿职业」查看）';
 
 export const PROFESSION_LIST_TEXT = Object.keys(PROFESSIONS)
     .map((id) => {
@@ -227,6 +248,12 @@ export const PROFESSION_SKILLS = {
         name: '夜袭',
         cmd: '夜袭@',
         desc: '不占偷鹿配额 · 高成功率偷 1 次',
+    },
+    sunflower: {
+        id: 'sunflower',
+        name: '向阳',
+        cmd: '向阳@',
+        desc: '不占催鹿/鹿福配额 · 催更+1 · 贴 2 层福 · 咒回合-2（须向日葵鹿）',
     },
 };
 

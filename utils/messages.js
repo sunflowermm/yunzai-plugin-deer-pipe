@@ -719,6 +719,11 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '你'} 咒缚！${targetName || 'ta'} 叠咒至 ${result.curseStacks} 层（不占鹿咒配额）`;
         case 'job_skill_blesser_grant':
             return `${helperName || '你'} 广福！${targetName || 'ta'} 鹿福至 ${result.blessStacks} 层（不占鹿福配额）`;
+        case 'job_skill_sunflower_facing': {
+            const parts = ['催更+1', `鹿福 ${result.blessStacks} 层`];
+            if (result.curseReduced) parts.push(`咒回合-${result.curseReduced}`);
+            return `${helperName || '你'} 向阳！${targetName || 'ta'} ${parts.join(' · ')}（不占催鹿/鹿福配额）`;
+        }
         case 'job_skill_rogue_raid_success':
             return `${helperName || '你'} 夜袭得手！你 ${result.thiefCount} 次 · ${targetName || 'ta'} ${result.targetCount} 次（不占偷鹿配额）`;
         case 'job_skill_rogue_raid_fail':

@@ -56,7 +56,7 @@ function wrapWithFrame(content, size, { radius, border, borderWidth, shadow }) {
 }
 
 export async function loadSticker(filePath, size, opts = {}) {
-    if (!FileUtils.existsSync(filePath)) return null;
+    if (!filePath || !FileUtils.existsSync(filePath)) return null;
     const box = px(size);
     const radius = opts.radius ?? px(box * 0.14);
     const border = opts.border ?? 'rgba(255,179,71,0.85)';

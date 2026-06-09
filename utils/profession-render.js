@@ -1,4 +1,4 @@
-import { PROFESSION_CATALOG_ART } from '../constants/deer-assets.js';
+import { PROFESSION_CATALOG_ART, professionUsesEmojiArt } from '../constants/deer-assets.js';
 import {
     PROFESSIONS,
     PROFESSION_SKILLS,
@@ -63,6 +63,12 @@ const CATALOG_BANNER_H = 76;
 const SKILL_CELL_W = 324;
 const SKILL_CELL_H = 52;
 const SKILL_THUMB = 40;
+
+function cellArtEmojiSvg(artLeft, artTop, artSize, emoji) {
+    const cx = artLeft + artSize / 2;
+    const cy = artTop + artSize / 2 + Math.round(artSize * 0.1);
+    return textCenteredEmoji(cx, cy, emoji, { size: Math.round(artSize * 0.52) });
+}
 
 function sectionTitleSvg(cx, y, title, theme) {
     return textCentered(cx, y, escapeXml(title), TXT_SOFT, {
@@ -136,11 +142,15 @@ async function buildSkillRow(professionId, skillY, theme) {
         subSize: 11,
     });
     const skillIcon = await loadSkillArt(professionId, SKILL_ICON);
+    const prof = PROFESSIONS[professionId];
+    const emojiArt = !skillIcon && prof?.emoji
+        ? cellArtEmojiSvg(cell.artLeft, cell.artTop, cell.artSize, prof.emoji)
+        : '';
     const overlays = [];
     if (skillIcon) {
         overlays.push(stickerOverlay(skillIcon, cell.artTop, cell.artLeft));
     }
-    return { svg: cell.svg, height: cellH + 8, overlays };
+    return { svg: cell.svg + emojiArt, height: cellH + 8, overlays };
 }
 
 export async function generateProfessionCard(professionId, opts = {}) {
@@ -246,7 +256,10 @@ async function buildSkillsGrid(theme, topY) {
             badgeText: prof?.name?.replace(/鹿$/, '') || '',
             badgeKind: 'neutral',
         });
-        cells += cell.svg;
+        const emojiArt = !skillIcons[i] && prof?.emoji
+            ? cellArtEmojiSvg(cell.artLeft, cell.artTop, cell.artSize, prof.emoji)
+            : '';
+        cells += cell.svg + emojiArt;
         cellLayouts.push({ ...cell, id, icon: skillIcons[i] });
     });
 
@@ -261,7 +274,7 @@ async function buildSkillsGrid(theme, topY) {
     };
 }
 
-/** 七职业一览：配额/联动/专属技均渲染进图 */
+/** 职业一览：配额/联动/专属技均渲染进图 */
 export async function generateProfessionCatalogImage(opts = {}) {
     const theme = CARD_THEMES.profession;
     const ids = Object.keys(PROFESSIONS);
@@ -299,10 +312,13 @@ export async function generateProfessionCatalogImage(opts = {}) {
             title: p.name,
             subtitle: p.tagline,
             meta: formatProfessionQuotaSummary(id, 'brief'),
-            badgeText: `转职${p.name.replace(/鹿$/, '')}`,
-            badgeKind: 'neutral',
+            badgeText: p.easterEgg ? '彩蛋' : `转职${p.name.replace(/鹿$/, '')}`,
+            badgeKind: p.easterEgg ? 'accent' : 'neutral',
         });
-        cells += cell.svg;
+        const emojiArt = (!thumbs[i] || professionUsesEmojiArt(id)) && p.emoji
+            ? cellArtEmojiSvg(cell.artLeft, cell.artTop, cell.artSize, p.emoji)
+            : '';
+        cells += cell.svg + emojiArt;
         cellLayouts.push(cell);
     });
 
@@ -321,7 +337,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, hashSeed('prof-catalog'))}
-        ${banner ? '' : buildCenteredEmojiTitle(CX, 40, '🦌', '鹿林七职业', { emojiSize: 26, titleSize: 24, style: TXT, fill: theme.title })}
+        ${banner ? '' : buildCenteredEmojiTitle(CX, 40, '🦌', '鹿林八职业', { emojiSize: 26, titleSize: 24, style: TXT, fill: theme.title })}
         ${statusSvg || textCentered(CX, headerEnd + 14, '转职+职业名 · 当日锁定 · 次日0点重置', TXT_SOFT, { size: 13, fill: theme.muted })}
         ${synergyBlock.svg}
         ${cells}
@@ -332,7 +348,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
     const overlays = [...skillsBlock.overlays];
     if (banner) overlays.push(stickerOverlay(banner, CATALOG_BANNER_TOP, 24));
     ids.forEach((id, i) => {
-        if (!thumbs[i]) return;
+        if (!thumbs[i] || professionUsesEmojiArt(id)) return;
         const layout = cellLayouts[i];
         overlays.push(stickerOverlay(thumbs[i], layout.artTop, layout.artLeft));
     });

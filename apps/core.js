@@ -17,6 +17,7 @@ import {
     performAsceticCleanseSkill,
     performCurserBindSkill,
     performBlesserGrantSkill,
+    performSunflowerFacingSkill,
     performRogueNightRaidSkill,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
@@ -73,6 +74,7 @@ export class DeerPipe extends plugin {
                 { reg: REG.grinderRush, fnc: 'grinderRush' },
                 { reg: REG.curserBindSkill, fnc: 'curserBindSkill' },
                 { reg: REG.blesserGrantSkill, fnc: 'blesserGrantSkill' },
+                { reg: REG.sunflowerFacingSkill, fnc: 'sunflowerFacingSkill' },
                 { reg: REG.rogueNightRaidSkill, fnc: 'rogueNightRaidSkill' },
             ],
         });
@@ -447,6 +449,10 @@ export class DeerPipe extends plugin {
 
     async blesserGrantSkill() {
         await this._runTargetSkill(performBlesserGrantSkill);
+    }
+
+    async sunflowerFacingSkill() {
+        await this._runTargetSkill(performSunflowerFacingSkill);
     }
 
     async rogueNightRaidSkill() {

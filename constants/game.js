@@ -367,8 +367,8 @@ export const HELP_QUOTA_CLEARANCE_MESSAGES = [
 /** 每日 0:00 职业重置群播（首行固定，正文随机） */
 export const PROFESSION_RESET_BROADCAST_MESSAGES = [
     '新的一天：必须先转职才能🦌/互助/互害！未转职所有玩法封印',
-    '鹿职业已刷新 · 7 职业任选 · 选定后当日锁定',
-    '先选路线再出门：鹿医师救场、戒灵师拉戒、卷王苟安全区、叠咒/福鹿使/窃光各有专精',
+    '鹿职业已刷新 · 8 职业任选 · 选定后当日锁定',
+    '先选路线再出门：医师救场、戒师拉戒、卷王苟安全区、向日葵向光催福…',
     '发送「鹿职业」看 buff 联动 · 「鹿配额」查互助剩余',
 ];
 
@@ -787,7 +787,7 @@ export const ERROR_MESSAGES = {
     help_quota: (used, total) => `今日帮🦌次数已用完（${used}/${total}），明天再来吧`,
     help_withdraw_quota: (used, total) => `今日帮戒🦌次数已用完（${used}/${total}）`,
     profession_unknown: (token) => `未知职业「${token || '?'}」，发送「鹿职业」查看可转职列表`,
-    profession_required: '今日尚未转职！请先发送：转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游鹿 / 转职叠咒鹿 / 转职福鹿使 / 转职窃光鹿（或「鹿职业」查看详情）',
+    profession_required: '今日尚未转职！请先发送：转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游鹿 / 转职叠咒鹿 / 转职福鹿使 / 转职窃光鹿 / 转职向日葵（或「鹿职业」查看详情）',
     profession_locked: (name) => `今日已锁定为${name}，次日 0 点后可重选 · 发送「鹿配额」查剩余`,
     job_skill_used: '今日职业专属技已用过，明日 0 点重置',
     job_skill_wrong_profession: (expected, current) => `该专属技需「${expected}」，你今日是「${current}」`,

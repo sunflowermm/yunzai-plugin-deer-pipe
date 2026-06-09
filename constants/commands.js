@@ -97,6 +97,7 @@ export const REG = {
     medicHealSkillAlt: `^${D}愈`,
     asceticCleanseSkill: `^清规${D}`,
     grinderRush: `^(卷王冲|卷冲)$`,
+    sunflowerFacingSkill: '^向阳',
 };
 
 /** 清洗指令文本（去 CQ 码、@、误粘 QQ 号） */

@@ -511,6 +511,7 @@ export function buildRibbonBadge(cx, y, text, kind = 'win') {
         fail: { bg: '#ef4444', fg: '#fff' },
         invite: { bg: '#ff7043', fg: '#fff' },
         neutral: { bg: '#68d391', fg: '#0f2918' },
+        accent: { bg: '#f6c90e', fg: '#3d2a00' },
         curse: { bg: '#a855f7', fg: '#fff' },
     };
     const { bg, fg } = palette[kind] || palette.neutral;

@@ -1879,6 +1879,42 @@ export function performCurserBindSkill(deerData, userId, targetId, date, day) {
     };
 }
 
+/** 向日葵鹿专属：向阳 — 不占催鹿/鹿福配额，催更 + 双福 + 咒回合削减 */
+export function performSunflowerFacingSkill(deerData, helperId, targetId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
+    if (blocked) return blocked;
+    const wrong = rejectIfWrongProfession(deerData, helperId, date, day, 'sunflower');
+    if (wrong) return wrong;
+    const helperMonth = ensureMonthData(deerData, helperId, date);
+    if (hasUsedJobSkill(helperMonth, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const entry = ensureDayEntry(targetMonth, day);
+    if (entry.d) return { ok: false, type: 'target_dead' };
+    markJobSkillUsed(helperMonth, day);
+    entry.a += 1;
+    targetMonth[urgeBuffKey(day)] = 1;
+    const blessStacks = applyBlessStacks(entry, 2);
+    let curseReduced = 0;
+    if (getCurseInfo(entry).active && entry.curR > 0) {
+        curseReduced = Math.min(2, entry.curR);
+        entry.curR -= curseReduced;
+        if (entry.curR <= 0) clearCurse(entry);
+    }
+    recordHelpAction('help_lu', helperId, targetId, date, { sunflowerSkill: true });
+    return {
+        ok: true,
+        type: 'job_skill_sunflower_facing',
+        entry,
+        count: entry.c,
+        blessStacks,
+        blessLayers: 2,
+        curseReduced,
+        urged: true,
+    };
+}
+
 /** 福鹿使专属：广福 — 不占鹿福配额、贴 1 层福 */
 export function performBlesserGrantSkill(deerData, userId, targetId, date, day) {
     const blocked = rejectUnlessPlayReady(deerData, userId, date, day);

@@ -420,6 +420,22 @@ export const PROFESSION_QUOTA_TABLE = {
 
     },
 
+    /** 向日葵鹿：催鹿/鹿福/鹿鸣/签运，向光互助 */
+
+    sunflower: {
+
+        help: 11, helpWithdraw: 3, steal: 0, curse: 0, bless: 6,
+
+        cleanseBless: 4, cleanseCurse: 3, urge: 7, howl: 6,
+
+        lottery: 4, borrow: 3, dream: 3, reviveLottery: 3, arena: 3,
+
+        imperial: 1, bumper: 2, fakeWithdraw: 1, sacrifice: 1,
+
+        groupSplash: 1, greed: 0, spectralCurse: 0, vengeance: 0, together: 1,
+
+    },
+
 };
 
 

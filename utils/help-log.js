@@ -45,11 +45,12 @@ function getDayKeysForScope(scope, date = new Date()) {
 }
 
 function emptyHelperStats() {
-    return { helpLu: 0, revive: 0, withdraw: 0, medicSkill: 0, asceticSkill: 0 };
+    return { helpLu: 0, revive: 0, withdraw: 0, medicSkill: 0, asceticSkill: 0, sunflowerSkill: 0 };
 }
 
 function scoreHealStats(stats) {
-    return (stats.helpLu || 0) + (stats.revive || 0) * 3 + (stats.medicSkill || 0);
+    return (stats.helpLu || 0) + (stats.revive || 0) * 3 + (stats.medicSkill || 0)
+        + (stats.sunflowerSkill || 0) * 2;
 }
 
 function scoreWithdrawStats(stats) {
@@ -145,6 +146,9 @@ export function recordHelpAction(kind, helperId, targetId, date = new Date(), op
     } else if (opts.revive) {
         helper.revive = (helper.revive || 0) + 1;
         helped.revive = (helped.revive || 0) + 1;
+    } else if (opts.sunflowerSkill) {
+        helper.sunflowerSkill = (helper.sunflowerSkill || 0) + 1;
+        helped.sunflowerSkill = (helped.sunflowerSkill || 0) + 1;
     } else if (opts.skill) {
         helper.medicSkill = (helper.medicSkill || 0) + 1;
         helped.medicSkill = (helped.medicSkill || 0) + 1;
