@@ -112,6 +112,14 @@ export async function loadSectionArt(sectionKey, size = 34) {
     });
 }
 
+export async function loadCatalogThumb(professionId, size) {
+    return loadProfessionArt(professionId, size, {
+        fitScale: 0.92,
+        borderWidth: 0,
+        shadow: false,
+    });
+}
+
 export async function loadCatalogArt(size = 68) {
     return loadSticker(PROFESSION_CATALOG_ART, size, { radius: 14, borderWidth: 2, fitScale: 0.9 });
 }

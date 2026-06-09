@@ -463,6 +463,31 @@ export function buildRibbonBadge(cx, y, text, kind = 'win') {
     `;
 }
 
+/**
+ * 左贴图槽 + 右文案（SVG 与 sharp overlay 共用整数坐标，避免字图重叠）
+ * @returns {{ svg: string, artLeft: number, artTop: number, artSize: number }}
+ */
+export function buildSideArtCell({
+    x, y, cellW, cellH, artSize, artPad = 10, theme,
+    title, subtitle = '', badgeText = '', badgeKind = 'neutral',
+}) {
+    const artLeft = x + artPad;
+    const artTop = y + Math.round((cellH - artSize) / 2);
+    const textLeft = artLeft + artSize + 12;
+    const titleY = y + Math.round(cellH * 0.42);
+    const subY = titleY + 20;
+    const badgeCx = x + cellW - 56;
+    const badgeY = y + cellH - 30;
+    const svg = `
+        <rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" rx="12" fill="${theme.panel}" stroke="${theme.accent}" stroke-width="1.2"/>
+        <rect x="${artLeft}" y="${artTop}" width="${artSize}" height="${artSize}" rx="10" fill="${theme.highlight}" opacity="0.28"/>
+        <text ${TXT} x="${textLeft}" y="${titleY}" font-size="17" fill="${theme.title}" font-weight="bold">${escapeXml(title)}</text>
+        ${subtitle ? `<text ${TXT_SOFT} x="${textLeft}" y="${subY}" font-size="12" fill="${theme.muted}">${truncText(subtitle, 20)}</text>` : ''}
+        ${badgeText ? buildRibbonBadge(badgeCx, badgeY, badgeText, badgeKind) : ''}
+    `;
+    return { svg, artLeft, artTop, artSize };
+}
+
 /** 统计 chip（圆角条，值侧截断防溢出） */
 export function buildStatChip(x, y, label, value, color, theme) {
     const val = truncText(String(value ?? ''), 10);
