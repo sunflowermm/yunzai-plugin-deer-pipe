@@ -7,5 +7,5 @@ export const PROFESSION_ART_FLAVOR = {
     curser: '咒缚：叠咒不花钱，层数叠到对面喊妈',
     blesser: '广福：贴福像贴便利贴，正面能量批发',
     rogue: '夜袭：偷鹿不占配额，成功率靠脸（和职业）',
-    sunflower: '策划彩蛋 · 向阳：催更+双福+撕咒，向光生长不配图',
+    sunflower: '向阳：催更+双福+撕咒，向光生长',
 };

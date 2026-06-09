@@ -27,6 +27,11 @@ function lineWidth(text, fontSize) {
     return [...String(text)].reduce((w, ch) => w + charWidth(ch, fontSize), 0);
 }
 
+/** 估算 DeerFont 文本像素宽度（居中标题 / emoji 混排） */
+export function estimateTextWidth(text, fontSize) {
+    return lineWidth(text, fontSize);
+}
+
 function wrapLongSegment(segment, maxWidthPx, fontSize) {
     const out = [];
     let line = '';
@@ -453,6 +458,14 @@ export function sectionIconSlot(cx, y, iconSize) {
     const left = px(cx - quotaRowWidth() / 2 - iconSize - 10);
     const top = px(y - iconSize + 2);
     return { left, top };
+}
+
+/** 左对齐分区行：图标槽 + 标题/正文起始 x（职业卡、帮助页等） */
+export function sectionLeftIconSlot(y, iconSize, padLeft = 24) {
+    const left = px(padLeft);
+    const top = px(y - iconSize + 4);
+    const textX = padLeft + iconSize + 10;
+    return { left, top, textX };
 }
 
 /** 水平居中面板 */

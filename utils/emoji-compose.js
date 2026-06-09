@@ -3,7 +3,7 @@
  */
 import sharp from 'sharp';
 import { stickerOverlay } from './render-pipeline.js';
-import { textCenteredEmoji, TXT } from './svg-base.js';
+import { estimateTextWidth, textCenteredEmoji, TXT } from './svg-base.js';
 
 const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72';
 const rasterCache = new Map();
@@ -78,16 +78,17 @@ export async function buildCenteredEmojiTitleRaster(cx, y, emoji, title, {
     weight = 'bold',
 } = {}) {
     const titleStr = String(title ?? '');
-    const approxTitleW = titleStr.length * titleSize * 0.52;
+    const titleW = estimateTextWidth(titleStr, titleSize);
     const gap = 6;
-    const totalW = (emoji ? emojiSize + gap : 0) + approxTitleW;
+    const totalW = (emoji ? emojiSize + gap : 0) + titleW;
     const startX = cx - totalW / 2;
     const overlays = [];
     let prefix = '';
     if (emoji) {
-        const overlay = await emojiStickerOverlay(emoji, y - emojiSize + 2, startX, emojiSize);
+        const emojiTop = y - Math.round(emojiSize * 0.82);
+        const overlay = await emojiStickerOverlay(emoji, emojiTop, startX, emojiSize);
         if (overlay) overlays.push(overlay);
-        else prefix = await emojiSvgImage(startX + emojiSize / 2, y - emojiSize * 0.15, emoji, emojiSize);
+        else prefix = await emojiSvgImage(startX + emojiSize / 2, y - Math.round(emojiSize * 0.12), emoji, emojiSize);
     }
     const textX = startX + (emoji ? emojiSize + gap : 0);
     const fillAttr = fill ? ` fill="${fill}"` : '';

@@ -27,7 +27,7 @@ export function getFontBase64DataUri() {
 
 export const PROFESSION_CATALOG_ART = `${ASSET_ROOT}/professions/catalog.png`;
 
-/** 策划彩蛋职业：无独立 PNG，职业卡/一览用 emoji 占位 */
+/** 无独立立绘 PNG 的职业：职业卡/一览用 emoji 占位 */
 export const PROFESSION_EMOJI_ONLY = new Set(['sunflower']);
 
 export function professionUsesEmojiArt(professionId) {

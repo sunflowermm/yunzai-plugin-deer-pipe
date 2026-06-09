@@ -1,4 +1,4 @@
-/** 职业配额与玩法修正（独立于 game.js 全局常量） */
+/** 职业配额与玩法加成（独立于 game.js 全局常量） */
 
 import { resolveProfessionQuotas, formatProfessionQuotaSummary } from './profession-quotas.js';
 
@@ -110,7 +110,7 @@ export const PROFESSIONS = {
         name: '向日葵鹿',
         emoji: '🌻',
         easterEgg: true,
-        tagline: '策划彩蛋 · 向光生长：天象/催福/签运专精',
+        tagline: '向光生长：天象/催福/签运专精',
         safeBonus: 2,
         helpFailDelta: -0.05,
         deathDelta: -0.04,
@@ -120,7 +120,7 @@ export const PROFESSIONS = {
         helpBlessChance: 0.22,
         helpCurseCleanseChance: 0.20,
         lotteryLuckDelta: 0.10,
-        synergyTip: '彩蛋 · 鹿福6 · 催鹿7 · 签运+10% · 天象×1.28',
+        synergyTip: '鹿福6 · 催鹿7 · 签运+10% · 天象×1.28',
     },
 };
 

@@ -119,6 +119,40 @@ export function formatWeatherEffectsDetail(effects) {
     ].join('\n');
 }
 
+function weatherValueColor(value, theme) {
+    const s = String(value ?? '');
+    if (s.startsWith('+') && s !== '+0%' && s !== '+0') return '#38a169';
+    if (s.startsWith('-')) return '#e53e3e';
+    return theme.accent;
+}
+
+/** 天象详情卡 stat chip 行 */
+export function buildWeatherEffectStatRows(effects, theme) {
+    const safeBonus = effects.safeBonus || 0;
+    const splashDmg = effects.splashDamageBonus || 0;
+    const rows = [
+        { label: '鹿死', value: pct(effects.deathDelta) },
+        { label: '安全区', value: `${safeBonus >= 0 ? '+' : ''}${safeBonus}` },
+        { label: '偷鹿', value: pct(effects.stealDelta) },
+        { label: '偷反噬', value: pct(effects.stealBackfireDelta) },
+        { label: '帮🦌误伤', value: pct(effects.helpFailDelta) },
+        { label: '帮戒失手', value: pct(effects.helpWithdrawFailDelta) },
+        { label: '救活失手', value: pct(effects.reviveFailDelta) },
+        { label: '碰瓷', value: pct(effects.bumperWinDelta) },
+        { label: '倒贴', value: pct(effects.greedSuccessDelta) },
+        { label: '鹿鸣吉兆', value: pct(effects.howlBonusDelta) },
+        { label: '鹿鸣反噬', value: pct(effects.howlTrapDelta) },
+        { label: '群溅叠咒', value: pct(effects.splashCurseDelta) },
+        { label: '群溅伤害', value: `${splashDmg >= 0 ? '+' : ''}${splashDmg}` },
+        { label: '鹿签气运', value: pct(effects.lotteryLuckDelta) },
+        { label: '咒额外层', value: pct(effects.curseExtraChance) },
+    ];
+    return rows.map((row) => ({
+        ...row,
+        color: weatherValueColor(row.value, theme),
+    }));
+}
+
 export function formatWeatherAnnouncement(state, date = new Date()) {
     const def = WEATHER_CATALOG[state?.weatherId] || WEATHER_CATALOG.sunny;
     const period = state?.periodKey

@@ -28,7 +28,6 @@ import {
 } from './sticker-compose.js';
 import {
     buildCardDecorations,
-    buildCenteredPanel,
     buildFooterBar,
     buildMultilineText,
     buildQuotaBarStack,
@@ -39,10 +38,10 @@ import {
     DEFAULT_CARD_W,
     escapeXml,
     hashSeed,
+    quotaRowWidth,
     renderStyledCard,
-    sectionIconSlot,
+    sectionLeftIconSlot,
     textCentered,
-    truncText,
     wrapTextLines,
     TXT,
     TXT_SOFT,
@@ -54,6 +53,10 @@ const PORTRAIT_SIZE = 220;
 const PORTRAIT_PAD = 10;
 const SKILL_ICON = 44;
 const SECTION_ICON = 34;
+const SECTION_PAD = 24;
+const QUOTA_TEXT_MAX_W = CARD_W - SECTION_PAD - SECTION_ICON - 10 - 24;
+const QUOTA_LINE_H = 16;
+const QUOTA_SECTION_TITLE = '今日玩法';
 
 const CATALOG_COLS = 2;
 const CATALOG_PAD_X = 20;
@@ -74,31 +77,32 @@ async function cellArtEmojiImg(artLeft, artTop, artSize, emoji) {
     return emojiSvgImage(cx, cy, emoji, Math.round(artSize * 0.52));
 }
 
-function sectionTitleSvg(cx, y, title, theme) {
-    return textCentered(cx, y, escapeXml(title), TXT_SOFT, {
-        size: 13,
-        fill: theme.accent,
-        weight: 'bold',
-    });
+function sectionTitleSvgLeft(textX, y, title, theme) {
+    return `<text ${TXT_SOFT} x="${textX}" y="${y}" font-size="13" fill="${theme.accent}" font-weight="bold">${escapeXml(title)}</text>`;
 }
 
 async function buildLimitQuotaBlock(professionId, theme, topY) {
     const groups = listProfessionQuotaGroups(professionId);
     let y = topY;
-    let svg = textCentered(CX, y, '今日玩法配额上限', TXT_SOFT, { size: 13, fill: theme.muted });
+    let svg = textCentered(CX, y, QUOTA_SECTION_TITLE, TXT_SOFT, { size: 13, fill: theme.muted, weight: 'bold' });
     y += 24;
     const overlays = [];
     for (const g of groups) {
+        const slot = sectionLeftIconSlot(y, SECTION_ICON, SECTION_PAD);
         const icon = await loadSectionArt(g.sectionKey, SECTION_ICON);
         if (icon) {
-            const slot = sectionIconSlot(CX, y, SECTION_ICON);
             overlays.push(stickerOverlay(icon, slot.top, slot.left));
         }
-        svg += sectionTitleSvg(CX, y, g.title, theme);
-        y += 20;
+        svg += sectionTitleSvgLeft(slot.textX, y, g.title, theme);
+        y += 18;
         const line = g.rows.map((r) => `${r.label}×${r.max}`).join(' · ');
-        svg += textCentered(CX, y, truncText(line, 74), TXT_SOFT, { size: 12, fill: theme.sub });
-        y += 28;
+        const lines = wrapTextLines(line, QUOTA_TEXT_MAX_W, 12, 8);
+        svg += buildMultilineText(slot.textX, y + 12, lines, {
+            fontSize: 12,
+            lineHeight: QUOTA_LINE_H,
+            fill: theme.sub,
+        });
+        y += lines.length * QUOTA_LINE_H + 14;
     }
     return { svg, height: y - topY, overlays };
 }
@@ -106,20 +110,21 @@ async function buildLimitQuotaBlock(professionId, theme, topY) {
 async function buildUsageQuotaBlock(snapshot, theme, topY) {
     const sections = buildUsageBarSections(snapshot);
     let y = topY;
-    let svg = textCentered(CX, y, '今日配额已用 / 上限', TXT_SOFT, { size: 13, fill: theme.muted });
+    let svg = textCentered(CX, y, `${QUOTA_SECTION_TITLE} · 已用/上限`, TXT_SOFT, { size: 13, fill: theme.muted, weight: 'bold' });
     y += 24;
     const overlays = [];
     const rowGap = 24;
-    const sectionGap = 14;
+    const sectionGap = 12;
     for (const sec of sections) {
+        const slot = sectionLeftIconSlot(y, SECTION_ICON, SECTION_PAD);
         const icon = await loadSectionArt(sec.sectionKey, SECTION_ICON);
         if (icon) {
-            const slot = sectionIconSlot(CX, y, SECTION_ICON);
             overlays.push(stickerOverlay(icon, slot.top, slot.left));
         }
-        svg += sectionTitleSvg(CX, y, sec.title, theme);
+        svg += sectionTitleSvgLeft(slot.textX, y, sec.title, theme);
         y += 20;
-        svg += buildQuotaBarStack(CX, y, sec.items, theme, rowGap);
+        const barCx = slot.textX + quotaRowWidth() / 2;
+        svg += buildQuotaBarStack(barCx, y, sec.items, theme, rowGap);
         y += sec.items.length * rowGap + sectionGap;
     }
     return { svg, height: y - topY, overlays };
@@ -164,15 +169,16 @@ export async function generateProfessionCard(professionId, opts = {}) {
     const seed = hashSeed('prof-card', professionId);
 
     const headerH = 76;
-    const illuPanelH = PORTRAIT_SIZE + PORTRAIT_PAD * 2;
-    const portraitTop = headerH + 12;
-    const quotaTop = portraitTop + illuPanelH + 12;
+    const illuH = PORTRAIT_SIZE + PORTRAIT_PAD * 2;
+    const illuTop = headerH + 12;
+    const illuCy = illuTop + illuH / 2;
+    const quotaTop = illuTop + illuH + 16;
 
     const quotaBlock = (opts.showUsage && opts.snapshot)
         ? await buildUsageQuotaBlock(opts.snapshot, theme, quotaTop)
         : await buildLimitQuotaBlock(professionId, theme, quotaTop);
 
-    const skillY = quotaTop + quotaBlock.height + 16;
+    const skillY = quotaTop + quotaBlock.height + 20;
     const skillBlock = await buildSkillRow(professionId, skillY, theme);
     const footerY = skillY + skillBlock.height + 12;
     const H = footerY + 56;
@@ -188,22 +194,20 @@ export async function generateProfessionCard(professionId, opts = {}) {
     const portraitOverlays = [];
     let portraitEmojiSvg = '';
     if (!portrait) {
-        const emojiSize = Math.round(PORTRAIT_SIZE * 0.42);
-        const cy = portraitTop + illuPanelH / 2 + 8;
-        const overlay = await emojiStickerOverlay(prof.emoji, cy - emojiSize / 2, CX - emojiSize / 2, emojiSize);
+        const emojiSize = Math.round(PORTRAIT_SIZE * 0.52);
+        const overlay = await emojiStickerOverlay(prof.emoji, illuCy - emojiSize / 2, CX - emojiSize / 2, emojiSize);
         if (overlay) portraitOverlays.push(overlay);
-        else portraitEmojiSvg = await emojiSvgImage(CX, cy, prof.emoji, emojiSize);
+        else portraitEmojiSvg = await emojiSvgImage(CX, illuCy, prof.emoji, emojiSize);
     }
 
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, seed)}
         ${titleBlock.svg}
-        ${textCentered(CX, 62, truncText(prof.tagline, 42), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
+        ${textCentered(CX, 62, escapeXml(prof.tagline.length > 42 ? `${prof.tagline.slice(0, 42)}…` : prof.tagline), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
         ${buildRibbonBadge(CX, 72, '转职锁定至次日0点', 'neutral')}
-        ${portrait ? buildPortraitGlowSvg(CX, portraitTop + illuPanelH / 2, PORTRAIT_SIZE) : ''}
-        ${portrait ? '' : buildCenteredPanel(CX, portraitTop + illuPanelH / 2 - 8, PORTRAIT_SIZE + 48, illuPanelH, theme)}
-        ${portrait ? '' : portraitEmojiSvg}
+        ${portrait ? buildPortraitGlowSvg(CX, illuCy, PORTRAIT_SIZE) : ''}
+        ${portraitEmojiSvg}
         ${quotaBlock.svg}
         ${skillBlock.svg}
         ${buildFooterBar(CARD_W, footerY, flavor, theme, 52)}
@@ -217,7 +221,7 @@ export async function generateProfessionCard(professionId, opts = {}) {
     ];
     if (portrait) {
         const pad = 4;
-        overlays.push(stickerOverlay(portrait, portraitTop + PORTRAIT_PAD - pad, Math.round(CX - PORTRAIT_SIZE / 2 - pad)));
+        overlays.push(stickerOverlay(portrait, illuTop + PORTRAIT_PAD - pad, Math.round(CX - PORTRAIT_SIZE / 2 - pad)));
     }
     if (brandLogo) {
         overlays.push(stickerOverlay(brandLogo, footerY + 6, 22));
@@ -339,7 +343,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
             title: p.name,
             subtitle: p.tagline,
             meta: formatProfessionQuotaSummary(id, 'brief'),
-            badgeText: p.easterEgg ? '彩蛋' : `转职${p.name.replace(/鹿$/, '')}`,
+            badgeText: `转职${p.name.replace(/鹿$/, '')}`,
             badgeKind: p.easterEgg ? 'accent' : 'neutral',
         });
         const emojiArt = (!thumbs[i] || professionUsesEmojiArt(id)) && p.emoji

@@ -4,7 +4,8 @@ import {
     parseWeatherPeriodSlot,
 } from '../constants/weather.js';
 import { WEATHER_CMD_HINT } from '../constants/commands.js';
-import { formatWeatherEffectsDetail } from './weather.js';
+import { buildWeatherEffectStatRows } from './weather.js';
+import { buildCenteredEmojiTitleRaster } from './emoji-compose.js';
 import {
     ARENA_STAKE,
     BLESS_MAX_ROUNDS,
@@ -39,7 +40,9 @@ import {
     statGridHeight,
     buildFooterBar,
     buildCenteredPanel,
+    buildMultilineText,
     textCentered,
+    wrapTextLines,
     textCenteredEmoji,
     textEmoji,
     buildCenteredEmojiTitle,
@@ -92,30 +95,43 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
     const src = state?.source === 'admin'
         ? `鹿神赐福${state.adminBy ? ` · QQ ${state.adminBy}` : ''}`
         : '鹿林天象随机';
-    const detailLines = formatWeatherEffectsDetail(effects).split('\n');
-    const detailTop = 168;
-    let y = detailTop;
-    let grid = '';
-    for (const line of detailLines) {
-        grid += textCentered(CX, y, escapeXml(line), TXT_SOFT, { size: 14, fill: theme.line });
-        y += 24;
-    }
-    const H = Math.max(340, y + 56);
+
+    const statRows = buildWeatherEffectStatRows(effects, theme);
+    const TIP_PAD = 44;
+    const tipLines = wrapTextLines(def.tip, CARD_W - TIP_PAD * 2, 13, 2);
+    const tipTop = 96;
+    const tipBottom = tipTop + tipLines.length * 18;
+    const statsTitleY = tipBottom + 32;
+    const statsTop = statsTitleY + 26;
+    const statGapY = 44;
+    const rowCount = statGridRowCount(statRows, STAT_COLS);
+    const statsBottom = statsTop + statGridHeight(rowCount, statGapY, STAT_CHIP_H);
+    const H = statsBottom + 64;
     const flavor = pickRandom(CARD_FLAVOR.weather || CARD_FLAVOR.default);
     const metaLine = `安全区 ${effects.safeBonus >= 0 ? '+' : ''}${effects.safeBonus || 0} · 鹿死 ${pct(effects.deathDelta)}`;
+
+    const titleBlock = await buildCenteredEmojiTitleRaster(CX, 44, def.emoji, `${period} · ${def.name}`, {
+        emojiSize: 32, titleSize: 22, style: TXT, fill: theme.title, weight: 'bold',
+    });
+
+    const tipText = buildMultilineText(TIP_PAD, tipTop, tipLines, {
+        fontSize: 13,
+        lineHeight: 18,
+        fill: theme.line,
+    });
+
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildCardDecorations(CARD_W, H, theme, hashSeed('weather-detail', state?.weatherId))}
-        ${buildCenteredPanel(CX, 16, CARD_W - 32, 96, theme)}
-        ${textCenteredEmoji(CX, 48, def.emoji, { size: 40 })}
-        ${textCentered(CX, 76, escapeXml(`${period} · ${def.name}`), TXT, { size: 22, fill: theme.title, weight: 'bold' })}
-        ${textCentered(CX, 98, escapeXml(`来源：${src}`), TXT_SOFT, { size: 13, fill: theme.sub })}
-        ${textCentered(CX, 128, '玩法修正', TXT, { size: 15, fill: theme.line, weight: 'bold' })}
-        ${buildCenteredEmojiLine(CX, 150, null, def.tip, theme, 52)}
-        ${grid}
+        ${buildCenteredPanel(CX, 16, CARD_W - 32, 78, theme)}
+        ${titleBlock.svg}
+        ${textCentered(CX, 68, escapeXml(`来源：${src}`), TXT_SOFT, { size: 13, fill: theme.sub })}
+        ${tipText}
+        ${textCentered(CX, statsTitleY, '玩法', TXT, { size: 15, fill: theme.line, weight: 'bold' })}
+        ${buildStatGrid(statRows, theme, statsTop, CARD_W, { cols: STAT_COLS, gapY: statGapY })}
         ${buildFooterBar(CARD_W, H - 20, `${flavor} · ${metaLine}`, theme, 56)}
     `;
-    return renderStyledCard(CARD_W, H, inner, 'weather');
+    return renderStyledCard(CARD_W, H, inner, 'weather', titleBlock.overlays);
 }
 
 const PLAYFUL_META = {

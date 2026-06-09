@@ -40,7 +40,10 @@
 
 ## 界面预览
 
-> 以下截图为 Bot 实际出图样例（见 [`docs/images/`](docs/images/)）。部署后发送对应指令即可获得同类图片。
+> 以下截图为 Bot 实际出图样例（见 [`docs/images/`](docs/images/)）。部署后发送对应指令即可获得同类图片。  
+> 重新导出：`node plugins/yunzai-plugin-deer-pipe/scripts/export-readme-images.mjs`（在 XRK-Yunzai 根目录）
+
+### 鹿况 · 帮助 · 职业
 
 | 鹿况面板 `鹿况` | 职业一览 `鹿职业` |
 |:---:|:---:|
@@ -50,13 +53,27 @@
 |:---:|:---:|
 | <img src="./docs/images/help-1.png" alt="鹿帮助第1张" width="360"> | <img src="./docs/images/help-2.png" alt="鹿帮助第2张" width="360"> |
 
-| 天象详情 `鹿环境` | 职业专精卡（卷王鹿） |
-|:---:|:---:|
-| <img src="./docs/images/weather-rainbow.png" alt="鹿虹天象卡" width="360"> | <img src="./docs/images/profession-card-grinder.png" alt="卷王鹿职业卡" width="360"> |
+| 卷王鹿 `转职卷王` | 窃光鹿 `转职窃光` | 鹿医师 `转职医师` |
+|:---:|:---:|:---:|
+| <img src="./docs/images/profession-card-grinder.png" alt="卷王鹿职业卡" width="280"> | <img src="./docs/images/profession-card-rogue.png" alt="窃光鹿职业卡" width="280"> | <img src="./docs/images/profession-card-medic.png" alt="鹿医师职业卡" width="280"> |
 
-| 策划彩蛋 · 向日葵鹿 `转职向日葵` |
+| 向日葵鹿 `转职向日葵` |
 |:---:|
 | <img src="./docs/images/profession-card-sunflower.png" alt="向日葵鹿职业卡" width="420"> |
+
+### 天象 · 玩法卡
+
+| 鹿虹 `鹿环境` | 雷暴 | 阴霾 |
+|:---:|:---:|:---:|
+| <img src="./docs/images/weather-rainbow.png" alt="鹿虹天象卡" width="280"> | <img src="./docs/images/weather-storm.png" alt="雷暴天象卡" width="280"> | <img src="./docs/images/weather-gloom.png" alt="阴霾天象卡" width="280"> |
+
+| 晴朗 | 细雨 |
+|:---:|:---:|
+| <img src="./docs/images/weather-sunny.png" alt="晴朗天象卡" width="280"> | <img src="./docs/images/weather-drizzle.png" alt="细雨天象卡" width="280"> |
+
+| 偷鹿得手 `偷鹿@` | 叠咒 `鹿咒@` |
+|:---:|:---:|
+| <img src="./docs/images/play-steal-success.png" alt="偷鹿玩法卡" width="360"> | <img src="./docs/images/play-curse.png" alt="叠咒玩法卡" width="360"> |
 
 ---
 
@@ -197,7 +214,7 @@ flowchart TD
 | ☠️ 叠咒鹿 | `转职叠咒` | 互害咒师 | `咒缚@` | 鹿咒 7 · 冥咒 4 · 索命 4 |
 | ✨ 福鹿使 | `转职福鹿使` | 正面互助 | `广福@` | 鹿福 6 · 解福/解咒多 |
 | 🥷 窃光鹿 | `转职窃光` | 窃掠 | `夜袭@` | 偷鹿 7 · 碰瓷 5 · 诈戒 5 |
-| 🌻 向日葵鹿 | `转职向日葵` | **策划彩蛋** | `向阳@` | 天象 ×1.28 · 签运 +10% · 🌻 图 |
+| 🌻 向日葵鹿 | `转职向日葵` | 天象/签运 | `向阳@` | 天象 ×1.28 · 签运 +10% · 催福专精 |
 
 **规则**：
 
@@ -488,11 +505,11 @@ flowchart LR
 | 玩法卡 / 天象卡 | `utils/card-render.js` | Resvg |
 | 排行榜 / 🦌 友 | `resources/html/` | Puppeteer |
 
-**文档截图**：[`docs/images/`](docs/images/) 由插件渲染脚本生成，可随版本重新导出：
+**文档截图**：[`docs/images/`](docs/images/) 由渲染脚本批量导出，可随版本重新生成：
 
 ```bash
 # 在 XRK-Yunzai 根目录
-node -e "import { generateProfessionCatalogImage } from './plugins/yunzai-plugin-deer-pipe/utils/profession-render.js'; ..."
+node plugins/yunzai-plugin-deer-pipe/scripts/export-readme-images.mjs
 ```
 
 ---
