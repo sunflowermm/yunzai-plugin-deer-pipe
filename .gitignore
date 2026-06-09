@@ -1,1 +1,20 @@
-.idea
+# dependencies
+node_modules/
+
+# editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# env & logs
+.env
+.env.*
+*.log
+npm-debug.log*
