@@ -21,10 +21,11 @@
 
 ## 目录
 
+**使用说明**
+
 - [这是什么](#这是什么)
 - [安装与依赖](#安装与依赖)
 - [新手一日流程](#新手一日流程)
-- [界面预览](#界面预览)
 - [界面说明](#界面说明)
 - [八职业体系](#八职业体系)
 - [鹿林天象](#鹿林天象)
@@ -34,6 +35,12 @@
 - [数据与配置](#数据与配置)
 - [渲染与预出图](#渲染与预出图)
 - [项目结构](#项目结构)
+
+**附录（出图样例 · 贴图立绘，各图仅在此处展示一次）**
+
+- [附录 A · Bot 出图样例](#附录-a--bot-出图样例)
+- [附录 B · 贴图与立绘资源](#附录-b--贴图与立绘资源)
+
 - [鸣谢与许可](#鸣谢与许可)
 
 ---
@@ -52,8 +59,9 @@
 | **冥界** | 鹿死后冥咒、索命、托梦、还阳签；活人 `帮鹿` 主救场 |
 | **鹿王** | 每日 0:00 按 **综合平衡分** 册封昨日日榜第一 |
 
-- **指令等价**：全文 **`鹿`** 与 **`🦌`** 可互换（`constants/commands.js`）。
+- **指令等价**：全文 **`鹿`** 与 **`🦌`** 可互换（[`constants/commands.js`](constants/commands.js)）。
 - **完整玩法**：群内 **`鹿帮助`**（双页长图，与 [`help-catalog.js`](constants/help-catalog.js) 同源）。
+- **界面长什么样**：见文末 [附录 A · Bot 出图样例](#附录-a--bot-出图样例)。
 
 ---
 
@@ -73,8 +81,8 @@ cd plugins/yunzai-plugin-deer-pipe && npm install
 
 重启 Bot 生效。排行榜 / 🦌 友等 HTML 页走 **RendererLoader**（Puppeteer），模板在 `resources/html/`。
 
-- **贴图自检**：启动时 `verifyArtManifest()` 检查 `assets/` 立绘。
-- **预渲染 PNG**：仓库已含 `assets/prebuilt/`（帮助、职业、天象等静态图）；缺失时自动回退实时渲染并打日志。
+- **贴图自检**：启动时 `verifyArtManifest()` 检查 [`assets/`](assets/) 立绘与贴图（清单见 [附录 B](#附录-b--贴图与立绘资源)）。
+- **预渲染 PNG**：仓库含 [`assets/prebuilt/`](assets/prebuilt/)（帮助、职业、天象等）；缺失时自动回退实时渲染。
 
 ---
 
@@ -100,7 +108,7 @@ flowchart TD
 | 步骤 | 指令 | 得到什么 |
 |:----:|------|----------|
 | 1 | `鹿职业` | 八职业一览（联动专精 + 专属技） |
-| 2 | `鹿职业卷王` 等 | **任意时间**看静态专精卡（不必转职） |
+| 2 | `鹿职业卷王` 等 | 任意时间看 **静态专精卡**（不必转职） |
 | 3 | `转职卷王` 等 | **当日锁定**职业与配额 |
 | 4 | `鹿` | 安全区自 🦌（默认前 3 次零鹿死） |
 | 5 | `鹿况` | 天象、咒福、互助、玩法分区 |
@@ -108,41 +116,21 @@ flowchart TD
 
 ---
 
-## 界面预览
-
-> 样例图在 [`docs/images/`](docs/images/)（由预渲染脚本镜像）。部署后发送同指令即可得到同类出图。
-
-| 鹿况 `鹿况` | 职业一览 `鹿职业` |
-|:---:|:---:|
-| <img src="./docs/images/status-panel.png" alt="今日鹿况" width="360"> | <img src="./docs/images/profession-catalog.png" alt="八职业一览" width="360"> |
-
-| 鹿帮助 · 活鹿篇 | 鹿帮助 · 冥界篇 |
-|:---:|:---:|
-| <img src="./docs/images/help-1.png" alt="帮助活鹿篇" width="360"> | <img src="./docs/images/help-2.png" alt="帮助冥界篇" width="360"> |
-
-| 静态职业卡 `鹿职业卷王` | 天象 `鹿环境` | 玩法卡 `偷鹿@` |
-|:---:|:---:|:---:|
-| <img src="./docs/images/profession-card-grinder.png" alt="卷王鹿职业卡" width="240"> | <img src="./docs/images/weather-rainbow.png" alt="鹿虹天象" width="240"> | <img src="./docs/images/play-steal-success.png" alt="偷鹿玩法卡" width="240"> |
-
-*其余七职业静态卡：`鹿职业{别名}`（如 `鹿职业窃光`、`鹿职业卡医师`）。八象天象各一张预渲染卡（上/下午场）；玩法卡随对局实时生成。*
-
----
-
 ## 界面说明
 
-> 各区域长什么样见上一节预览图；此处只说明结构与指令对应关系。
+以下说明 **布局与指令**；对应截图均在 [附录 A](#附录-a--bot-出图样例) 集中展示，正文不再插图。
 
 ### 今日鹿况 · `鹿况`
 
 | 区域 | 内容 |
 |------|------|
-| 标题区 | 昵称、心情 emoji、职业与锁定 |
-| 天象条 | 天气 emoji + 换行 tip，高度自适应 |
+| 标题区 | 昵称、心情 emoji（Twemoji）、职业与锁定 |
+| 天象条 | 左侧天气 emoji + 换行 tip，面板高度自适应 |
 | 计数区 | 安全 `n/上限`、戒鹿区、高危区或鹿死丢失 |
 | 综合分 | 与 **综合榜 / 0 点鹿王** 同算法 |
-| 互助配额 | 帮鹿 / 帮戒进度条 + 分区图标 |
-| 玩法分区 | **互害恶趣**、**擂台皇城** 等，标题左对齐贴图 |
-| 底栏 | flavor + 日期 |
+| 互助配额 | 帮鹿 / 帮戒进度条；标题旁为分区贴图（见 [附录 B](#附录-b--贴图与立绘资源)） |
+| 玩法分区 | **互害恶趣**、**擂台皇城** 等，标题左对齐 |
+| 底栏 | 随机 flavor + 日期 |
 
 支持 `@某人 鹿况` 围观。
 
@@ -151,18 +139,27 @@ flowchart TD
 | 指令 | 出图类型 |
 |------|----------|
 | `鹿职业` | **一览图**；已转职时顶栏叠加今日职业与互助剩余 |
-| `鹿职业卷王` / `鹿职业卡窃光` / `看鹿职业医师` | **静态专精卡**（预渲染，配额/专属技/被动，随时可看） |
-| `鹿配额` | **个人配额面板**（含各玩法已用/上限） |
-| `转职卷王` 等 | 转职成功后出 **个人配额面板** + 文字结果 |
+| `鹿职业卷王` / `鹿职业卡窃光` / `看鹿职业医师` | **静态专精卡**（预渲染，随时可看） |
+| `鹿配额` | **个人配额面板**（各玩法已用/上限） |
+| `转职卷王` 等 | 转职成功 → 个人配额面板 + 文字结果 |
 
 ### 鹿林天象 · `鹿环境` / `天象一览`
 
-- **`鹿环境`**：当前半天场次详情卡（八象独立配色与特效）。
-- **`天象一览`**：八象图鉴 HTML 页，高亮当前象。
+- **`鹿环境`** / `天气鹿`：当前半天场次 **详情卡**（八象独立配色与特效）。
+- **`天象一览`** / `鹿林天象`：八象 **HTML 图鉴**，高亮当前象（Puppeteer 截图，非 SVG 卡）。
+
+### 月历 · `看鹿` / `鹿历`
+
+- **月历**：当月格子热力 + 鹿标；💀 格为鹿死日。
+- **年历**：12 月迷你热力总览。
 
 ### 说明书 · `鹿帮助`
 
-双页长图：活鹿篇（基础/职业/互助/恶趣/天象/生态）+ 冥界篇（死亡/特权/彩蛋）。指令行内 emoji 走 Twemoji；分区标题旁为 `stickers/sections/` 贴图。
+双页：**活鹿篇**（基础 / 职业 / 互助 / 恶趣 / 天象 / 生态）+ **冥界篇**（死亡 / 特权 / 彩蛋）。指令行内 emoji 走 Twemoji；节标题旁贴图见附录 B。
+
+### 玩法互动卡
+
+偷鹿、叠咒、帮鹿等 **对局结果卡**（含头像、统计条）为 **实时渲染**，样式见附录 A 样例。
 
 ---
 
@@ -179,11 +176,12 @@ flowchart TD
 | 🥷 窃光鹿 | `转职窃光` | `鹿职业窃光` | 窃掠 | `夜袭@` | 偷 7 · 碰瓷 5 |
 | 🌻 向日葵鹿 | `转职向日葵` | `鹿职业向日葵` | 天象/签运 | `向阳@` | 天象 ×1.28 · 签运 +10% |
 
-**规则**：首次转职后 **当日锁定**，次日 **0:00** 重置；**没转职 = 没配额**（互助、偷咒、擂台等均为 0）。专属技 **`鹿技`** 查状态，多数 **1 次/日** 且不占对应玩法配额。
+**规则**：首次转职后 **当日锁定**，次日 **0:00** 重置；**没转职 = 没配额**。专属技 **`鹿技`** 查状态，多数 **1 次/日** 且不占对应玩法配额。  
+各职业 **静态专精卡** 见 [附录 A · 八职业静态专精卡](#八职业静态专精卡)；立绘见 [附录 B](#附录-b--贴图与立绘资源)。
 
 ### 各职业玩法配额（每日上限）
 
-> 完整键名：`constants/profession-quotas.js` · `PROFESSION_QUOTA_TABLE`
+> 完整键名：[`constants/profession-quotas.js`](constants/profession-quotas.js)
 
 <details>
 <summary><b>🦌 巡游鹿</b></summary>
@@ -276,7 +274,8 @@ flowchart TD
 | 阴霾 | 🌑 | 12 | 鹿死/误伤 +10% |
 | 鹿虹 | 🌈 | 4 | 彩蛋大吉 · 全面减伤 +1 安全 |
 
-指令：`鹿环境` / `天气鹿` · `天象一览` · 特权 `鹿神赐福 [天气]`。巡游 ×1.25、向日葵 ×1.28 与天象 **叠乘**。
+指令：`鹿环境` / `天气鹿` · `天象一览` · 特权 `鹿神赐福 [天气]`。巡游 ×1.25、向日葵 ×1.28 与天象 **叠乘**。  
+八象 **详情卡** 样例见 [附录 A · 鹿林八象](#鹿林八象详情卡)（运行时按上/下午场各一张预渲染 PNG）。
 
 ---
 
@@ -324,7 +323,7 @@ flowchart TD
 |------|------|
 | `鹿` / `戒鹿` | 自 🦌 +1 / 自律 −1 |
 | `鹿况` / `@ta 鹿况` | 今日鹿况图 |
-| `看鹿` / `看鹿6` / `鹿历` / `看鹿历` | 月历 / 年历 |
+| `看鹿` / `看鹿6` / `鹿历` / `看鹿历` / `鹿历6` | 月历 / 年历 |
 | `添加鹿友@` / `我的鹿友` / `绝交鹿友@` | 🦌 友 |
 | `帮鹿@` / `帮戒鹿@` | 代 🦌 / 帮戒 |
 | `鹿配额` / `帮鹿次数` / `帮戒鹿次数` | 互助与玩法配额 |
@@ -337,8 +336,8 @@ flowchart TD
 
 | 指令 | 作用 |
 |------|------|
-| `鹿职业` | 八职业一览（已转职时顶栏带今日状态） |
-| `鹿职业卷王` / `鹿职业卡窃光` / `看鹿职业医师` | **静态专精卡**（预渲染，无需转职） |
+| `鹿职业` | 八职业一览 |
+| `鹿职业卷王` / `鹿职业卡窃光` / `看鹿职业医师` | 静态专精卡（预渲染） |
 | `转职卷王` 等八职业 | 转职并当日锁定 |
 | `鹿技` | 专属技状态 |
 | `鹿巡` / `愈鹿@` / `清规@` / `卷冲` / `咒缚@` / `广福@` / `夜袭@` / `向阳@` | 各职业专属技 |
@@ -357,7 +356,7 @@ flowchart TD
 
 </details>
 
-> 概率与次数以 **`constants/game.js`** 及 **`鹿帮助`** 图为准。
+> 概率与次数以 [`constants/game.js`](constants/game.js) 及 **`鹿帮助`** 图为准。
 
 ---
 
@@ -390,26 +389,13 @@ flowchart TD
 
 ## 渲染与预出图
 
-```mermaid
-flowchart LR
-    subgraph Pre["预渲染（提交 Git）"]
-        P["export-prebuilt-images.mjs"] --> Q["assets/prebuilt/"]
-        Q --> R["运行时直读 PNG"]
-    end
-    subgraph Live["实时渲染"]
-        A["svg-base + resvg + sharp"] --> B["鹿况 / 月历 / 玩法卡"]
-    end
-    R --> C["resolve* 优先预渲染"]
-    C -->|缺失| Live
-```
-
-| 类型 | 入口 | 预渲染路径 |
-|------|------|------------|
-| 鹿帮助 | `resolveHelpImages()` | `prebuilt/help/page-*.png` |
+| 类型 | 运行时入口 | 预渲染 / 实时 |
+|------|------------|---------------|
+| 鹿帮助 | `resolveHelpImages()` | `assets/prebuilt/help/` |
 | 职业一览 | `resolveProfessionCatalogImage()` | `prebuilt/profession/catalog.png` |
 | 静态职业卡 | `resolveProfessionCard(id)` | `prebuilt/profession/card-*.png` |
 | 天象详情 | `resolveWeatherDetailImage()` | `prebuilt/weather/{id}-am\|pm.png` |
-| 鹿况 / 月历 / 玩法卡 | 实时 | — |
+| 鹿况 / 月历 / 玩法卡 | 实时 SVG + sharp | — |
 
 **改 UI 后导出**（XRK-Yunzai 根目录）：
 
@@ -417,7 +403,7 @@ flowchart LR
 node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs
 ```
 
-产出 `assets/prebuilt/` 并镜像 `docs/images/`。调试实时出图：`DEER_PIPE_FORCE_LIVE_RENDER=1`。
+产出 `assets/prebuilt/` 并部分镜像到 `docs/images/`。调试实时出图：`DEER_PIPE_FORCE_LIVE_RENDER=1`。
 
 ---
 
@@ -425,25 +411,115 @@ node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs
 
 ```
 yunzai-plugin-deer-pipe/
-├── apps/                    # core / calendar / weather / help …
-├── constants/
-│   ├── commands.js          # 指令正则
-│   ├── prebuilt-images.js   # 预渲染路径清单
-│   ├── profession.js        # 八职业 + 别名
-│   └── help-catalog.js      # 鹿帮助文案
-├── utils/
-│   ├── prebuilt-images.js   # 运行时读 PNG / 回退渲染
-│   ├── core.js              # 鹿况 / 月历
-│   ├── profession-render.js # 职业一览 / 职业卡
-│   └── help-render.js       # 鹿帮助
+├── apps/                 # core / calendar / weather / help …
+├── constants/            # commands · profession · help-catalog · weather …
+├── utils/                # prebuilt-images · core · profession-render …
 ├── assets/
-│   ├── prebuilt/            # 预渲染 PNG（提交 Git）
-│   ├── professions/         # 立绘
-│   └── stickers/            # 分区 / 专属技图标
-├── docs/images/             # README 镜像样例
-└── scripts/
-    └── export-prebuilt-images.mjs
+│   ├── prebuilt/         # 预渲染 PNG（Bot 直读）
+│   ├── professions/      # 职业立绘
+│   └── stickers/         # 分区 / 专属技图标
+├── docs/images/          # README 部分镜像
+└── scripts/export-prebuilt-images.mjs
 ```
+
+---
+
+## 附录 A · Bot 出图样例
+
+> 以下每张图 **仅在本附录出现一次**。源文件：`assets/prebuilt/`（主）与 `docs/images/`（镜像）。  
+> 重新导出：`node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs`
+
+### 鹿况 · 职业一览 · 说明书
+
+| 今日鹿况 `鹿况` | 八职业一览 `鹿职业` |
+|:---:|:---:|
+| <img src="./docs/images/status-panel.png" alt="今日鹿况" width="360"> | <img src="./docs/images/profession-catalog.png" alt="八职业一览" width="360"> |
+
+| 鹿帮助 · 活鹿篇 `鹿帮助` | 鹿帮助 · 冥界篇 |
+|:---:|:---:|
+| <img src="./docs/images/help-1.png" alt="帮助活鹿篇" width="360"> | <img src="./docs/images/help-2.png" alt="帮助冥界篇" width="360"> |
+
+### 八职业静态专精卡
+
+指令：`鹿职业{别名}` / `鹿职业卡{别名}` / `看鹿职业{别名}`（与转职别名相同，**不必转职**）。
+
+| 巡游 `鹿职业巡游` | 鹿医师 `鹿职业医师` | 戒灵师 `鹿职业戒师` | 卷王 `鹿职业卷王` |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/prebuilt/profession/card-ranger.png" alt="巡游鹿" width="200"> | <img src="./assets/prebuilt/profession/card-medic.png" alt="鹿医师" width="200"> | <img src="./assets/prebuilt/profession/card-ascetic.png" alt="戒灵师" width="200"> | <img src="./assets/prebuilt/profession/card-grinder.png" alt="卷王鹿" width="200"> |
+
+| 叠咒 `鹿职业叠咒` | 福鹿使 `鹿职业福鹿使` | 窃光 `鹿职业窃光` | 向日葵 `鹿职业向日葵` |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/prebuilt/profession/card-curser.png" alt="叠咒鹿" width="200"> | <img src="./assets/prebuilt/profession/card-blesser.png" alt="福鹿使" width="200"> | <img src="./assets/prebuilt/profession/card-rogue.png" alt="窃光鹿" width="200"> | <img src="./assets/prebuilt/profession/card-sunflower.png" alt="向日葵鹿" width="200"> |
+
+### 鹿林八象详情卡
+
+指令：`鹿环境` / `天气鹿`。运行时按 **上午场 / 下午场** 各读一张预渲染 PNG；下图为 **上午场** 样例。
+
+| 晴朗 ☀️ | 细雨 🌧️ | 瑞雪 ❄️ | 雷暴 ⛈️ |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/prebuilt/weather/sunny-am.png" alt="晴朗" width="200"> | <img src="./assets/prebuilt/weather/drizzle-am.png" alt="细雨" width="200"> | <img src="./assets/prebuilt/weather/snow-am.png" alt="瑞雪" width="200"> | <img src="./assets/prebuilt/weather/storm-am.png" alt="雷暴" width="200"> |
+
+| 鹿雾 🌫️ | 祥风 🍃 | 阴霾 🌑 | 鹿虹 🌈 |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/prebuilt/weather/fog-am.png" alt="鹿雾" width="200"> | <img src="./assets/prebuilt/weather/breeze-am.png" alt="祥风" width="200"> | <img src="./assets/prebuilt/weather/gloom-am.png" alt="阴霾" width="200"> | <img src="./assets/prebuilt/weather/rainbow-am.png" alt="鹿虹" width="200"> |
+
+### 玩法互动卡（实时出图样例）
+
+| 偷鹿得手 `偷鹿@` | 叠咒 `鹿咒@` |
+|:---:|:---:|
+| <img src="./docs/images/play-steal-success.png" alt="偷鹿玩法卡" width="360"> | <img src="./docs/images/play-curse.png" alt="叠咒玩法卡" width="360"> |
+
+### 月历样例
+
+指令：`看鹿` / `鹿历6` 等（含用户数据，样式参考）。
+
+<img src="./assets/prebuilt/calendar/month-demo.png" alt="月历样例" width="680">
+
+---
+
+## 附录 B · 贴图与立绘资源
+
+> SVG/PNG 素材，供出图合成使用；**不在正文重复展示**。
+
+### 职业立绘 · `assets/professions/`
+
+一览顶栏横幅：`catalog.png`（见 [八职业一览](#鹿况--职业一览--说明书) 截图）。
+
+| 巡游鹿 | 鹿医师 | 戒灵师 | 卷王鹿 |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/professions/ranger.png" width="88" alt="巡游鹿"> | <img src="./assets/professions/medic.png" width="88" alt="鹿医师"> | <img src="./assets/professions/ascetic.png" width="88" alt="戒灵师"> | <img src="./assets/professions/grinder.png" width="88" alt="卷王鹿"> |
+
+| 叠咒鹿 | 福鹿使 | 窃光鹿 | 向日葵鹿 |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/professions/curser.png" width="88" alt="叠咒鹿"> | <img src="./assets/professions/blesser.png" width="88" alt="福鹿使"> | <img src="./assets/professions/rogue.png" width="88" alt="窃光鹿"> | 🌻 无独立 PNG · 出图用 emoji |
+
+### 帮助 / 鹿况分区贴图 · `assets/stickers/sections/`
+
+| 互助 `help` | 恶趣 `harm` | 擂台 `pvp` |
+|:---:|:---:|:---:|
+| <img src="./assets/stickers/sections/help.png" width="72" alt="互助"> | <img src="./assets/stickers/sections/harm.png" width="72" alt="恶趣"> | <img src="./assets/stickers/sections/pvp.png" width="72" alt="擂台"> |
+
+用于：鹿帮助节标题、鹿况玩法分区标题等。
+
+### 专属技贴图 · `assets/stickers/skills/`
+
+| 巡游 | 医师 | 戒师 | 卷王 |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/stickers/skills/ranger.png" width="64" alt="鹿巡"> | <img src="./assets/stickers/skills/medic.png" width="64" alt="愈鹿"> | <img src="./assets/stickers/skills/ascetic.png" width="64" alt="清规"> | <img src="./assets/stickers/skills/grinder.png" width="64" alt="卷冲"> |
+
+| 叠咒 | 福使 | 窃光 |
+|:---:|:---:|:---:|
+| <img src="./assets/stickers/skills/curser.png" width="64" alt="咒缚"> | <img src="./assets/stickers/skills/blesser.png" width="64" alt="广福"> | <img src="./assets/stickers/skills/rogue.png" width="64" alt="夜袭"> |
+
+向日葵 **`向阳@`** 无独立 skill 贴图，一览图内用 emoji。职业一览 **`catalog`** 横幅使用 `assets/professions/catalog.png`。
+
+### 品牌与其它
+
+| 鹿管 Logo | 勾选贴图 |
+|:---:|:---:|
+| <img src="./assets/deerpipe@100x82.png" width="100" alt="鹿管 Logo"> | <img src="./assets/check@96x100.png" width="72" alt="勾选"> |
+
+字体：`assets/Genshin.ttf`（PostScript 名 `FZBenMoYueYiTiS`，resvg 渲染用）。
 
 ---
 
