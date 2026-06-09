@@ -5,5 +5,8 @@
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "sharp": "^0.33.5"
+  },
+  "scripts": {
+    "prebuild:images": "node scripts/export-prebuilt-images.mjs"
   }
 }

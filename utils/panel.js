@@ -2,11 +2,11 @@ import { UI_MESSAGES } from '../constants/game.js';
 import { getMonthData, getUserRecord, isDayDead } from './data.js';
 import { generateImage, generateStatusImage } from './core.js';
 import { generateInteractionCard } from './card-render.js';
+import { generateUserProfessionPanel } from './profession-render.js';
 import {
-    generateProfessionCard,
-    generateProfessionCatalogImage,
-    generateUserProfessionPanel,
-} from './profession-render.js';
+    resolveProfessionCatalogImage,
+    resolveProfessionCard,
+} from './prebuilt-images.js';
 
 export async function replyStatusPanel(e, { date, name, status, isAt = false }) {
     const raw = await generateStatusImage(date, name, status);
@@ -81,7 +81,7 @@ export async function replyWeatherCard(e, { caption, imageBuffer }) {
 
 /** 职业一览图（配额/联动/专属技已渲染进图） */
 export async function replyProfessionCatalog(e, { snapshot } = {}) {
-    const raw = await generateProfessionCatalogImage({ snapshot });
+    const raw = await resolveProfessionCatalogImage({ snapshot });
     await e.reply([segment.image(raw)], true);
 }
 
@@ -96,7 +96,7 @@ export async function replyUserProfessionPanel(e, { monthData, day, text }) {
 export async function replyProfessionCard(e, { professionId, text, monthData = null, day = null }) {
     const raw = (monthData != null && day != null)
         ? await generateUserProfessionPanel(monthData, day)
-        : await generateProfessionCard(professionId);
+        : await resolveProfessionCard(professionId);
     const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
     await e.reply(parts, true);
 }

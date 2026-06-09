@@ -1,4 +1,5 @@
 import { ERROR_MESSAGES, UI_MESSAGES } from '../constants/game.js';
+import { getProfessionDef, resolveProfessionId } from '../constants/profession.js';
 import { REG, cleanCommandMsg, formatMonthLabel, parseViewMonthToken } from '../constants/commands.js';
 import {
     getHelperQuotaSnapshot,
@@ -62,6 +63,7 @@ export class DeerPipe extends plugin {
                 { reg: REG.status, fnc: 'luStatus' },
                 { reg: REG.help, fnc: 'helpLu' },
                 { reg: REG.profession, fnc: 'professionInfo' },
+                { reg: REG.professionCard, fnc: 'viewProfessionCard' },
                 { reg: REG.transferProfession, fnc: 'transferProfession' },
                 { reg: REG.helperQuota, fnc: 'helperQuotaInfo' },
                 { reg: REG.helpQuotaQuery, fnc: 'helpLuQuotaInfo' },
@@ -164,6 +166,23 @@ export class DeerPipe extends plugin {
         const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
         const snapshot = getHelperQuotaSnapshot(monthData, day);
         await replyProfessionCatalog(this.e, { snapshot });
+    }
+
+    /** 静态职业专精卡（预渲染图，任意时间可查看） */
+    async viewProfessionCard() {
+        const msg = cleanCommandMsg(this.e.msg);
+        const match = msg.match(/^(?:看)?(?:🦌|鹿)职业(?:卡)?(.+)$/);
+        const token = match?.[1]?.trim() ?? '';
+        const professionId = resolveProfessionId(token);
+        if (!professionId) {
+            await this.reply(ERROR_MESSAGES.profession_unknown(token), true);
+            return;
+        }
+        const prof = getProfessionDef(professionId);
+        await replyProfessionCard(this.e, {
+            professionId,
+            text: `${prof.emoji} ${prof.name} · 发送「转职${token}」可锁定今日职业`,
+        });
     }
 
     async helperQuotaInfo() {

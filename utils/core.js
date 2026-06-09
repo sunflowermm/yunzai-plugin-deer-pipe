@@ -55,6 +55,25 @@ const BOX_W = 100;
 const BOX_H = 100;
 const HEADER_H = 130;
 const STATS_H = 50;
+/** 月历格内鹿标高度；贴图放左下区，次数单独叠在最上层 */
+const CAL_DEER_MARK_H = 28;
+const CAL_DEER_MARK_LEFT = 8;
+const CAL_DEER_MARK_TOP = 38;
+
+function formatDayCount(count) {
+    if (count > 99) return '99+';
+    if (count < -99) return '-99+';
+    return String(count);
+}
+
+function buildDayCountLayer(count) {
+    const display = formatDayCount(count);
+    const fill = count < 0 ? '#3498db' : '#c0392b';
+    return svgTextStyled(`
+        <rect x="${BOX_W - 44}" y="${BOX_H - 36}" width="40" height="28" rx="7" fill="rgba(255,255,255,0.78)"/>
+        <text ${TXT_PLAIN} x="${BOX_W - 10}" y="${BOX_H - 14}" font-size="20" fill="${fill}" text-anchor="end" font-weight="bold">${display}</text>
+    `, BOX_W, BOX_H);
+}
 
 function getMonthCalendar(now) {
     const year = now.getFullYear();
@@ -200,7 +219,7 @@ export async function generateImage(now, name, monthData, options = {}) {
     const todayDead = isDayDead(todayEntry) || forceDeadBanner;
     const todaySnap = getDaySnap(todayEntry);
     const todayReason = getDeathReason(todayEntry);
-    const deerpipeSmall = await loadCalendarDeerMark(48);
+    const deerpipeSmall = await loadCalendarDeerMark(CAL_DEER_MARK_H);
     const compositeArray = [{
         input: svgTextPlain(`
             <defs>
@@ -262,6 +281,8 @@ export async function generateImage(now, name, monthData, options = {}) {
             const snap = getDaySnap(rawDay);
             const isHighlight = day === highlightDay;
             const reasonLabel = dead ? getDeathCellLabel(entry) : '';
+            const showDeer = !dead && count > 0 && deerpipeSmall;
+            const showCount = !dead && count !== 0;
             const bg = dead
                 ? { r: 28, g: 22, b: 30, a: 1 }
                 : heatColor(count);
@@ -279,7 +300,7 @@ export async function generateImage(now, name, monthData, options = {}) {
                         <text ${TXT_PLAIN} x="${BOX_W / 2}" y="82" font-size="14" fill="#ff9999" text-anchor="middle">失${snap}</text>
                         <text ${TXT_PLAIN} x="${BOX_W - 8}" y="18" font-size="12" fill="#ff7777" text-anchor="end">${reasonLabel}</text>
                     ` : ''}
-                    ${!dead && count !== 0 ? `<text ${TXT_PLAIN} x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" fill="${count < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${count > 99 ? '99+' : count < -99 ? '-99+' : count}</text>` : ''}
+                    ${showCount && !showDeer ? `<text ${TXT_PLAIN} x="${BOX_W - 8}" y="${BOX_H - 12}" font-size="20" fill="${count < 0 ? '#3498db' : '#c0392b'}" text-anchor="end" font-weight="bold">${formatDayCount(count)}</text>` : ''}
                     ${!dead && count > DAILY_SAFE_LIMIT ? `<text ${TXT_PLAIN} x="8" y="48" font-size="14" fill="#e67e22">危</text>` : ''}
                     ${!dead && count < 0 ? `<text ${TXT_PLAIN} x="8" y="48" font-size="14" fill="#3498db">戒</text>` : ''}
                     ${!dead && count === 0 && isHighlight ? `<text ${TXT_PLAIN} x="${BOX_W / 2}" y="68" font-size="14" fill="#bbb" text-anchor="middle">空</text>` : ''}
@@ -287,11 +308,18 @@ export async function generateImage(now, name, monthData, options = {}) {
                 top: y0,
                 left: x0,
             });
-            if (!dead && count > 0 && deerpipeSmall) {
+            if (showDeer) {
                 compositeArray.push({
                     input: deerpipeSmall,
-                    top: y0 + 30,
-                    left: x0 + 28,
+                    top: y0 + CAL_DEER_MARK_TOP,
+                    left: x0 + CAL_DEER_MARK_LEFT,
+                });
+            }
+            if (showCount && showDeer) {
+                compositeArray.push({
+                    input: buildDayCountLayer(count),
+                    top: y0,
+                    left: x0,
                 });
             }
         }

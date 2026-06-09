@@ -41,7 +41,9 @@
 ## 界面预览
 
 > 以下截图为 Bot 实际出图样例（见 [`docs/images/`](docs/images/)）。部署后发送对应指令即可获得同类图片。  
-> 重新导出：`node plugins/yunzai-plugin-deer-pipe/scripts/export-readme-images.mjs`（在 XRK-Yunzai 根目录）
+> 重新导出预渲染图（在 XRK-Yunzai 根目录）：  
+> `node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs`  
+> 产出 `assets/prebuilt/`（Bot 运行时直读）并镜像到 `docs/images/`（README 用）
 
 ### 鹿况 · 帮助 · 职业
 
@@ -513,20 +515,22 @@ flowchart LR
 | `sticker-compose.js` | 立绘 / 分区 / 鹿标加载，`scatterDeerMarkOverlays` 铺底水印 |
 | `render-pipeline.js` | Resvg 字体注入 + Sharp 多层合成 |
 
-| 出图类型 | 入口 | 要点 |
-|----------|------|------|
-| 鹿况 / 月历 | `utils/core.js` | 天象 emoji、玩法按 harm/pvp 分区 |
-| 职业一览 / 职业卡 | `utils/profession-render.js` | 格高自适应、专属技换行、鹿标铺底 |
-| 鹿帮助 | `utils/help-render.js` | 指令行 inline emoji、分区贴图 |
-| 玩法卡 / 天象卡 | `utils/card-render.js` | 八象独立配色 + 特效、tip 留白 |
-| 排行榜 / 🦌 友 | `resources/html/` | Puppeteer |
+| 出图类型 | 运行时 | 预渲染 |
+|----------|--------|--------|
+| 鹿帮助（2 页） | `resolveHelpImages()` | `assets/prebuilt/help/` |
+| 职业一览（无快照） | `resolveProfessionCatalogImage()` | `assets/prebuilt/profession/catalog.png` |
+| 转职职业卡 | `resolveProfessionCard(id)` | `assets/prebuilt/profession/card-*.png` |
+| 天象详情 `鹿环境` | `resolveWeatherDetailImage()` | `assets/prebuilt/weather/{id}-am\|pm.png` |
+| 鹿况 / 月历 / 玩法卡 | 实时渲染 | —（含用户数据） |
 
-**文档截图**：[`docs/images/`](docs/images/) 由渲染脚本批量导出，可随版本重新生成：
+**预渲染导出**（改 UI 后跑一次，提交 Git）：
 
 ```bash
 # 在 XRK-Yunzai 根目录
-node plugins/yunzai-plugin-deer-pipe/scripts/export-readme-images.mjs
+node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs
 ```
+
+产出 `assets/prebuilt/` + 镜像 `docs/images/`。Bot 默认 `render.prefer_prebuilt: true`；调试实时出图可设环境变量 `DEER_PIPE_FORCE_LIVE_RENDER=1`。
 
 ---
 

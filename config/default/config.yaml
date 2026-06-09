@@ -17,3 +17,7 @@ king_broadcast:
   interval_ms: 500
   # 与鹿王同批推送「职业已重置、可转职」文字提醒
   profession_reset: true
+
+# 出图：优先读 assets/prebuilt/ 预渲染 PNG（缺文件时自动回退实时渲染）
+render:
+  prefer_prebuilt: true

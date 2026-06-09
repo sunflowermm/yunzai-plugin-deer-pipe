@@ -3,6 +3,7 @@ import path from "path";
 import config from "./model/config.js";
 import hub from "./lib/deer-hub.js";
 import { verifyArtManifest } from "./constants/deer-assets.js";
+import { verifyPrebuiltManifest } from "./utils/prebuilt-images.js";
 
 hub.startWatch();
 if (!global.segment) {
@@ -21,6 +22,12 @@ logger.info(logger.yellow(`🦌管插件（yunzai-plugin-deer-pipe）：${versio
 const missingArt = verifyArtManifest();
 if (missingArt.length) {
     logger.warn(`[deer-pipe] 贴图缺失 ${missingArt.length} 项：${missingArt.join(' · ')}`);
+}
+
+const missingPrebuilt = verifyPrebuiltManifest();
+if (missingPrebuilt.length) {
+    logger.warn(`[deer-pipe] 预渲染 PNG 缺失 ${missingPrebuilt.length} 项（将回退实时渲染）：${missingPrebuilt.slice(0, 5).join(' · ')}${missingPrebuilt.length > 5 ? ' …' : ''}`);
+    logger.warn('[deer-pipe] 导出：node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs');
 }
 
 const files = fs.readdirSync(`./plugins/${pluginName}/apps`).filter(file => file.endsWith(".js"));
