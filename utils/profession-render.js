@@ -1,4 +1,4 @@
-import { PROFESSION_CATALOG_ART, professionUsesEmojiArt } from '../constants/deer-assets.js';
+import { PROFESSION_CATALOG_ART } from '../constants/deer-assets.js';
 import {
     PROFESSIONS,
     PROFESSION_SKILLS,
@@ -394,7 +394,7 @@ async function buildProfessionCatalogGrid(theme, topY, ids, thumbs) {
             subtitleMaxLines: 2,
             metaMaxLines: 2,
         });
-        const emojiArt = (!thumbs[i] || professionUsesEmojiArt(id)) && p.emoji
+        const emojiArt = !thumbs[i] && p.emoji
             ? await cellArtEmojiImg(cell.artLeft, cell.artTop, cell.artSize, p.emoji)
             : '';
         cellParts.push({ svg: cell.svg + emojiArt, cell, id, thumb: thumbs[i] });
@@ -483,7 +483,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
     const overlays = [...headerOverlays, ...statusOverlays, ...skillsBlock.overlays, ...deerFill];
     if (banner) overlays.push(stickerOverlay(banner, CATALOG_BANNER_TOP, 24));
     profGrid.cellParts.forEach((part) => {
-        if (!part.thumb || professionUsesEmojiArt(part.id)) return;
+        if (!part.thumb) return;
         overlays.push(stickerOverlay(part.thumb, part.cell.artTop, part.cell.artLeft));
     });
     if (brandLogo) overlays.push(stickerOverlay(brandLogo, H - 42, 22));

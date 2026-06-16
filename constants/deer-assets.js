@@ -28,18 +28,6 @@ export function getFontBase64DataUri() {
 
 export const PROFESSION_CATALOG_ART = `${ASSET_ROOT}/professions/catalog.png`;
 
-/** 无独立立绘 PNG 的职业：职业卡/一览用 emoji 占位 */
-export const PROFESSION_EMOJI_ONLY = new Set();
-
-export function professionUsesEmojiArt(professionId, skinId = SKIN_DEFAULT) {
-    if (skinId && skinId !== SKIN_DEFAULT) {
-        const rel = `professions/skins/${skinId}/${professionId}.png`;
-        if (FileUtils.existsSync(`${ASSET_ROOT}/${rel}`)) return false;
-    }
-    const base = `${ASSET_ROOT}/professions/${professionId}.png`;
-    return !FileUtils.existsSync(base);
-}
-
 export function professionArtPath(professionId, skinId = SKIN_DEFAULT) {
     if (skinId && skinId !== SKIN_DEFAULT) {
         const skinRel = `professions/skins/${skinId}/${professionId}.png`;
@@ -77,9 +65,9 @@ export const HELP_SECTION_ART = {
 function listArtRelativePaths() {
     const ids = Object.keys(PROFESSIONS);
     const paths = ['Genshin.ttf'];
-    paths.push(...ids.filter((id) => !professionUsesEmojiArt(id)).map((id) => `professions/${id}.png`));
+    paths.push(...ids.map((id) => `professions/${id}.png`));
     paths.push('professions/catalog.png');
-    paths.push(...ids.filter((id) => !professionUsesEmojiArt(id)).map((id) => `stickers/skills/${id}.png`));
+    paths.push(...ids.map((id) => `stickers/skills/${id}.png`));
     for (const skin of Object.values(PORTRAIT_SKINS)) {
         if (!skin.professions) continue;
         for (const pid of skin.professions) {
