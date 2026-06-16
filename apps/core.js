@@ -31,6 +31,7 @@ import {
     replyProfessionCard,
     replyStatusPanel,
     replyUserProfessionPanel,
+    skinCtxForSender,
 } from '../utils/panel.js';
 import {
     formatActionMessage,
@@ -47,7 +48,6 @@ import {
     resolveTargetId,
 } from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
-import { resolveSkinContext } from '../utils/skin.js';
 import { bumpFestivalPortraitProgress, appendUnlockNotices } from '../utils/portrait-unlock.js';
 
 export class DeerPipe extends plugin {
@@ -134,7 +134,7 @@ export class DeerPipe extends plugin {
         }
 
         const monthData = getMonthData(userRecord, viewDate);
-        const skinCtx = resolveSkinContext(userRecord, viewDate);
+        const skinCtx = skinCtxForSender(deerData, subject.userId, viewDate);
         const raw = await generateImage(viewDate, subject.name, monthData, {
             highlightDay: viewDate.getDate(),
             skinCtx,

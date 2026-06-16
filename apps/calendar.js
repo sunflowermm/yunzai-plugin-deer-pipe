@@ -3,7 +3,7 @@ import { cleanCommandMsg, REG } from "../constants/commands.js";
 import { resolveSubjectUser } from "../utils/plugin-common.js";
 import { loadDeerData } from "../utils/store.js";
 import { getUserRecord, hasMonthData, hasYearData, parseMonthInput } from "../utils/data.js";
-import { resolveSkinContext } from "../utils/skin.js";
+import { skinCtxForSender } from "../utils/panel.js";
 
 export class CalendarApp extends plugin {
     constructor() {
@@ -32,7 +32,7 @@ export class CalendarApp extends plugin {
             return;
         }
 
-        const skinCtx = resolveSkinContext(userRecord, now);
+        const skinCtx = skinCtxForSender(deerData, userId, now);
         const raw = await generateYearImage(now, name, userRecord, { skinCtx });
         await e.reply(["📅 你的年度🦌历：", segment.image(raw)], true);
     }
@@ -47,7 +47,7 @@ export class CalendarApp extends plugin {
             return;
         }
 
-        const skinCtx = resolveSkinContext(userRecord, now);
+        const skinCtx = skinCtxForSender(deerData, subject.userId, now);
         const raw = await generateYearImage(now, subject.name, userRecord, { skinCtx });
         await e.reply(["📅 🦌历如下：", segment.image(raw)], true);
     }
@@ -71,7 +71,7 @@ export class CalendarApp extends plugin {
         }
 
         const monthData = userRecord[`${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`];
-        const skinCtx = resolveSkinContext(userRecord, parsed);
+        const skinCtx = skinCtxForSender(deerData, userId, parsed);
         const raw = await generateImage(parsed, name, monthData, { skinCtx });
         await e.reply([`${parsed.getFullYear()}年${parsed.getMonth() + 1}月🦌历：`, segment.image(raw)], true);
     }

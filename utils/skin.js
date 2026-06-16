@@ -36,10 +36,10 @@ export function resolveSkinContext(userRecord, date = new Date(), professionId =
     migratePortraitSkinPrefs(userRecord);
     reconcileFestivalPortraitUnlocks(userRecord);
     const pref = getUserSkinPrefs(userRecord);
-    const ui = resolveUiSkinId(pref, date);
+    const ui = resolveUiSkinId(pref);
     const portrait = professionId
-        ? resolvePortraitSkinId(pref, professionId, date, userRecord)
-        : resolvePortraitSkinId(pref, 'medic', date, userRecord);
+        ? resolvePortraitSkinId(userRecord, professionId)
+        : resolvePortraitSkinId(userRecord, 'medic');
     return { ui, portrait, pref };
 }
 

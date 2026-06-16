@@ -78,7 +78,7 @@ export class DeerSkin extends plugin {
         const record = ensureUserRecord(deerData, user_id);
         setUserSkinPref(record, skinId);
         await saveDeerData(deerData);
-        const active = resolveUiSkinId(getUserSkinPrefs(record), new Date());
+        const active = resolveUiSkinId(getUserSkinPrefs(record));
         await this.reply(
             `🎨 界面主题已设为：${skinName('ui', skinId)}\n`
             + `当前生效：${skinName('ui', active)}（鹿况/月历/帮助/PK 等样式）\n`
@@ -117,7 +117,7 @@ export class DeerSkin extends plugin {
 
         setPortraitSkinForProfession(record, professionId, skinId);
         await saveDeerData(deerData);
-        const active = resolvePortraitSkinId(getUserSkinPrefs(record), professionId, new Date(), record);
+        const active = resolvePortraitSkinId(record, professionId);
         await this.reply(
             `🖼️ ${prof.emoji}${prof.name}立绘已设为：${skinName('portrait', skinId)}\n`
             + `当前该职业生效：${skinName('portrait', active)}`,
