@@ -3,23 +3,20 @@ import {
     formatUiSkinCatalog,
     formatPortraitSkinCatalog,
     parseUiSkinToken,
-    parsePortraitSkinToken,
-    SKIN_AUTO,
+    parsePortraitProfSkinCommand,
     SKIN_DEFAULT,
     UI_SKINS,
     PORTRAIT_SKINS,
     resolveUiSkinId,
     resolvePortraitSkinId,
+    setPortraitSkinForProfession,
     isFestivalActive,
-    hasAnyPortraitUnlock,
+    hasPortraitUnlock,
 } from '../constants/skins.js';
-import { getUserRecord } from '../utils/data.js';
+import { getProfessionDef } from '../constants/profession.js';
 import { loadDeerData, saveDeerData } from '../utils/store.js';
-import {
-    getUserSkinPrefs,
-    setUserSkinPref,
-    resolveSkinContext,
-} from '../utils/skin.js';
+import { getUserSkinPrefs, setUserSkinPref } from '../utils/skin.js';
+import { reconcileFestivalPortraitUnlocks } from '../utils/portrait-unlock.js';
 
 function ensureUserRecord(deerData, userId) {
     const uid = String(userId);
@@ -28,7 +25,6 @@ function ensureUserRecord(deerData, userId) {
 }
 
 function skinName(kind, id) {
-    if (id === SKIN_AUTO) return '自动（节日优先）';
     if (id === SKIN_DEFAULT) return '默认';
     const map = kind === 'portrait' ? PORTRAIT_SKINS : UI_SKINS;
     const s = map[id];
@@ -47,7 +43,7 @@ export class DeerSkin extends plugin {
                 { reg: REG.skinList, fnc: 'listSkins' },
                 { reg: REG.skinSwitch, fnc: 'switchSkin' },
                 { reg: REG.portraitSkinList, fnc: 'listPortraitSkins' },
-                { reg: REG.portraitSkinSwitch, fnc: 'switchPortraitSkin' },
+                { reg: REG.portraitProfSwitch, fnc: 'switchPortraitProf' },
             ],
         });
     }
@@ -58,7 +54,9 @@ export class DeerSkin extends plugin {
 
     async listPortraitSkins() {
         const deerData = await loadDeerData();
-        const record = getUserRecord(deerData, this.e.sender.user_id);
+        const record = ensureUserRecord(deerData, this.e.sender.user_id);
+        reconcileFestivalPortraitUnlocks(record);
+        await saveDeerData(deerData);
         await this.reply(formatPortraitSkinCatalog(record, new Date()), true);
     }
 
@@ -72,53 +70,57 @@ export class DeerSkin extends plugin {
         }
         const skinId = parseUiSkinToken(token);
         if (!skinId) {
-            await this.reply(`未识别的界面主题「${token}」\n可用：默认 / 端午 / 自动`, true);
+            await this.reply(`未识别的界面主题「${token}」\n可用：默认 / 端午`, true);
             return;
         }
         const { user_id } = this.e.sender;
         const deerData = await loadDeerData();
         const record = ensureUserRecord(deerData, user_id);
-        setUserSkinPref(record, 'ui', skinId);
+        setUserSkinPref(record, skinId);
         await saveDeerData(deerData);
         const active = resolveUiSkinId(getUserSkinPrefs(record), new Date());
         await this.reply(
             `🎨 界面主题已设为：${skinName('ui', skinId)}\n`
-            + `当前生效：${skinName('ui', active)}（鹿况/月历/帮助/PK 等样式；立绘请用「鹿立绘」）\n`
-            + '已写入档案，永久保存直至再次切换。',
+            + `当前生效：${skinName('ui', active)}（鹿况/月历/帮助/PK 等样式）\n`
+            + '立绘请用：卷王鹿端午 / 鹿医师端午 等。',
             true,
         );
     }
 
-    async switchPortraitSkin() {
-        const msg = cleanCommandMsg(this.e.msg);
-        const match = msg.match(new RegExp(`^(?:🦌|鹿)立绘(.+)$`));
-        const token = match?.[1]?.trim() ?? '';
-        if (!token) {
+    async switchPortraitProf() {
+        const msg = cleanCommandMsg(this.e.msg).replace(/\s+/g, '');
+        const match = msg.match(/^(?:🦌|鹿)?(卷王鹿|鹿医师|医师|卷王)(端午|默认|原版)$/);
+        if (!match) {
             await this.listPortraitSkins();
             return;
         }
-        const skinId = parsePortraitSkinToken(token);
-        if (!skinId) {
-            await this.reply(`未识别的立绘皮肤「${token}」\n可用：默认 / 端午 / 自动`, true);
+        const parsed = parsePortraitProfSkinCommand(match[1], match[2]);
+        if (!parsed) {
+            await this.reply('仅鹿医师、卷王鹿有端午立绘\n切换：卷王鹿端午 / 鹿医师端午 / 卷王鹿默认', true);
             return;
         }
+        const { professionId, skinId } = parsed;
+        const prof = getProfessionDef(professionId);
         const { user_id } = this.e.sender;
         const deerData = await loadDeerData();
         const record = ensureUserRecord(deerData, user_id);
-        if (skinId === 'duanwu' && !hasAnyPortraitUnlock(record, 'duanwu')) {
+        reconcileFestivalPortraitUnlocks(record);
+
+        if (skinId === 'duanwu' && !hasPortraitUnlock(record, 'duanwu', professionId)) {
             const hint = isFestivalActive('duanwu', new Date())
-                ? '端午立绘未解锁：鹿医师帮鹿 10 次 · 卷王鹿自🦌 10 次（活动期间累计）'
-                : '端午立绘未解锁且活动已结束';
+                ? `${prof.name}端午立绘未解锁（见「鹿立绘」查进度）`
+                : `${prof.name}端午立绘未解锁且活动已结束`;
+            await saveDeerData(deerData);
             await this.reply(hint, true);
             return;
         }
-        setUserSkinPref(record, 'portrait', skinId);
+
+        setPortraitSkinForProfession(record, professionId, skinId);
         await saveDeerData(deerData);
-        const ctx = resolveSkinContext(record, new Date(), 'medic');
+        const active = resolvePortraitSkinId(getUserSkinPrefs(record), professionId, new Date(), record);
         await this.reply(
-            `🖼️ 立绘皮肤已设为：${skinName('portrait', skinId)}\n`
-            + `当前鹿医师/卷王鹿生效：${skinName('portrait', ctx.portrait)}\n`
-            + '仅影响职业立绘，不改变界面主题；已永久保存直至再次切换。',
+            `🖼️ ${prof.emoji}${prof.name}立绘已设为：${skinName('portrait', skinId)}\n`
+            + `当前该职业生效：${skinName('portrait', active)}`,
             true,
         );
     }

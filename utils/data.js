@@ -1192,7 +1192,11 @@ export function migrateUserRecord(userRecord, now = new Date()) {
         year = inferYearFromMonth(userRecord.lastSignMonth, now);
     }
     const month = String(userRecord.lastSignMonth ?? (now.getMonth() + 1)).padStart(2, '0');
-    return { [`${year}-${month}`]: monthData };
+    const out = { [`${year}-${month}`]: monthData };
+    for (const [k, v] of Object.entries(userRecord)) {
+        if (isUserProfileKey(k)) out[k] = v;
+    }
+    return out;
 }
 
 export function migrateAllData(deerData, now = new Date()) {

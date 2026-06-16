@@ -2,15 +2,19 @@
  * 鹿管皮肤：界面主题（UI）与职业立绘（Portrait）两套独立体系
  *
  * - UI 皮肤：鹿况 / 月历 / 帮助 / PK 互动卡 / 天象 / 鹿王 等出图配色与装饰 PNG；
- *   用户显式切换后写入 _user_skin_ui，永久生效直至再次切换（auto 才跟节日）。
- * - 立绘皮肤：仅职业立绘与专属技图标 PNG；写入 _user_skin_portrait，与 UI 无关。
+ *   用户显式「鹿皮肤端午」等后写入 _user_skin_ui；未设置则恒为默认主题。
+ * - 立绘皮肤：按职业写入 _portrait_by_prof；与 UI 无关。
  */
 
 import { SKIN_AUTO, SKIN_DEFAULT, USER_SKIN_KEYS } from './skin-keys.js';
+import { resolveProfessionId } from './profession.js';
 
 export { SKIN_AUTO, SKIN_DEFAULT, USER_SKIN_KEYS };
 
-/** 节日窗口（公历近似，每年可扩展） */
+/** 有端午独立立绘的职业 */
+export const DUANWU_PORTRAIT_PROFESSIONS = Object.freeze(['medic', 'grinder']);
+
+/** 节日窗口（按公历月日每年循环；start/end 的 YYYY 仅作配置锚点） */
 export const FESTIVAL_WINDOWS = {
     duanwu: { start: '2026-06-01', end: '2026-06-30', label: '端午节' },
 };
@@ -95,28 +99,46 @@ function mapSkinAlias(raw) {
 export function parseUiSkinToken(raw) {
     const mapped = mapSkinAlias(raw);
     if (!mapped) return null;
-    if (mapped === SKIN_AUTO || mapped === SKIN_DEFAULT) return mapped;
+    if (mapped === SKIN_AUTO) return SKIN_DEFAULT;
+    if (mapped === SKIN_DEFAULT) return SKIN_DEFAULT;
     return UI_SKINS[mapped] ? mapped : null;
 }
 
-/** 解析立绘皮肤 token（仅 PORTRAIT_SKINS） */
-export function parsePortraitSkinToken(raw) {
-    const mapped = mapSkinAlias(raw);
-    if (!mapped) return null;
-    if (mapped === SKIN_AUTO || mapped === SKIN_DEFAULT) return mapped;
-    return PORTRAIT_SKINS[mapped] ? mapped : null;
+/** 解析「卷王鹿端午」「鹿医师默认」等 */
+export function parsePortraitProfSkinCommand(profToken, skinToken) {
+    const profId = resolveProfessionId(profToken);
+    if (!profId || !DUANWU_PORTRAIT_PROFESSIONS.includes(profId)) return null;
+    const mapped = mapSkinAlias(skinToken);
+    if (!mapped || mapped === SKIN_AUTO) return null;
+    if (mapped === SKIN_DEFAULT) return { professionId: profId, skinId: SKIN_DEFAULT };
+    if (mapped === 'duanwu') return { professionId: profId, skinId: 'duanwu' };
+    return null;
 }
 
-function parseYmd(ymd) {
-    const [y, m, d] = ymd.split('-').map(Number);
-    return new Date(y, m - 1, d);
+/** 旧版全局立绘偏好 → 按职业偏好（一次性迁移） */
+export function migratePortraitSkinPrefs(userRecord) {
+    if (!userRecord) return;
+    const legacy = userRecord[USER_SKIN_KEYS.portrait];
+    if (!legacy) return;
+    if (legacy === 'duanwu') {
+        for (const profId of DUANWU_PORTRAIT_PROFESSIONS) {
+            if (hasPortraitUnlock(userRecord, 'duanwu', profId)) {
+                setPortraitSkinForProfession(userRecord, profId, 'duanwu');
+            }
+        }
+    }
+    delete userRecord[USER_SKIN_KEYS.portrait];
 }
 
 export function isFestivalActive(festivalId, date = new Date()) {
     const win = FESTIVAL_WINDOWS[festivalId];
-    if (!win) return false;
-    const t = date.getTime();
-    return t >= parseYmd(win.start).getTime() && t <= parseYmd(win.end).getTime() + 86400000;
+    if (!win?.start || !win?.end) return false;
+    const [, sm, sd] = win.start.split('-').map(Number);
+    const [, em, ed] = win.end.split('-').map(Number);
+    const y = date.getFullYear();
+    const start = new Date(y, sm - 1, sd);
+    const end = new Date(y, em - 1, ed, 23, 59, 59, 999);
+    return date >= start && date <= end;
 }
 
 export function listActiveFestivals(date = new Date()) {
@@ -130,26 +152,43 @@ export function portraitSkinSupportsProfession(skinId, professionId) {
     return skin.professions.includes(professionId);
 }
 
-/** 界面主题：显式 pref 永久生效；auto 时节日窗口套 duanwu */
+/** 界面主题：未设置或 default 时恒为默认，不跟节日自动切换 */
 export function resolveUiSkinId(pref, date = new Date()) {
-    const raw = pref?.ui ?? SKIN_AUTO;
-    if (raw && raw !== SKIN_AUTO && UI_SKINS[raw]) return raw;
-    if (isFestivalActive('duanwu', date) && UI_SKINS.duanwu) return 'duanwu';
+    const raw = pref?.ui ?? SKIN_DEFAULT;
+    if (!raw || raw === SKIN_AUTO || raw === SKIN_DEFAULT) return SKIN_DEFAULT;
+    return UI_SKINS[raw] ? raw : SKIN_DEFAULT;
+}
+
+/** 立绘：按职业独立偏好；须已解锁才可用端午 */
+export function resolvePortraitSkinId(pref, professionId, date = new Date(), userRecord = null) {
+    const byProf = portraitPrefByProf(userRecord);
+    const chosen = byProf[professionId];
+    if (chosen === 'duanwu' && hasPortraitUnlock(userRecord, 'duanwu', professionId)) {
+        return 'duanwu';
+    }
     return SKIN_DEFAULT;
 }
 
-/** 立绘：须已解锁；auto 时仅对已解锁职业套用节日立绘 */
-export function resolvePortraitSkinId(pref, professionId, date = new Date(), userRecord = null) {
-    const raw = pref?.portrait ?? SKIN_AUTO;
-    const unlocked = (skinId) => portraitSkinSupportsProfession(skinId, professionId)
-        && hasPortraitUnlock(userRecord, skinId, professionId);
+function portraitPrefByProf(userRecord) {
+    const raw = userRecord?.[USER_SKIN_KEYS.portraitByProf];
+    return raw && typeof raw === 'object' ? raw : {};
+}
 
-    if (raw && raw !== SKIN_AUTO && PORTRAIT_SKINS[raw]) {
-        if (raw === SKIN_DEFAULT) return SKIN_DEFAULT;
-        return unlocked(raw) ? raw : SKIN_DEFAULT;
+export function setPortraitSkinForProfession(userRecord, professionId, skinId) {
+    if (!userRecord || !professionId) return SKIN_DEFAULT;
+    const id = skinId === 'duanwu' ? 'duanwu' : SKIN_DEFAULT;
+    const root = { ...portraitPrefByProf(userRecord) };
+    if (id === SKIN_DEFAULT) {
+        delete root[professionId];
+    } else {
+        root[professionId] = id;
     }
-    if (unlocked('duanwu')) return 'duanwu';
-    return SKIN_DEFAULT;
+    if (Object.keys(root).length) {
+        userRecord[USER_SKIN_KEYS.portraitByProf] = root;
+    } else {
+        delete userRecord[USER_SKIN_KEYS.portraitByProf];
+    }
+    return id;
 }
 
 function portraitUnlockMap(userRecord) {
@@ -181,21 +220,17 @@ export function userRecordWithUiSkin(uiSkinId) {
 }
 
 export function formatUiSkinCatalog(date = new Date()) {
-    const festivals = listActiveFestivals(date);
-    const festHint = festivals.length
-        ? `当前节日：${festivals.map((f) => FESTIVAL_WINDOWS[f]?.label || f).join(' · ')}（仅「自动」界面会跟节日）`
-        : '当前无节日窗口；「自动」使用默认主题';
     const uiLines = Object.values(UI_SKINS).map((s) => `${s.emoji} ${s.name}（${s.id}）— ${s.desc}`);
     return [
         '🎨 鹿管界面主题（样式皮肤 · 免费切换）',
-        festHint,
+        '未手动切换时恒为默认主题，不会自动跟节日变色。',
         '',
         '影响：鹿况 · 月历 · 帮助 · 职业卡配色 · PK/互动卡 · 天象 · 鹿王',
-        '不影响：职业立绘 PNG（请用「鹿立绘」单独切换）',
+        '不影响：职业立绘 PNG（见「鹿立绘」）',
         '',
         ...uiLines,
         '',
-        '切换后永久保存：鹿皮肤端午 / 鹿皮肤默认 / 鹿皮肤自动',
+        '切换：鹿皮肤端午 / 鹿皮肤默认',
     ].join('\n');
 }
 
@@ -229,6 +264,8 @@ export function formatPortraitSkinCatalog(userRecord = null, date = new Date()) 
         '端午解锁进度：',
         ...unlockLines,
         '',
-        '切换：鹿立绘端午 / 鹿立绘默认 / 鹿立绘自动（须先解锁对应职业）',
+        '切换（须先解锁对应职业）：',
+        '· 卷王鹿端午 / 卷王鹿默认',
+        '· 鹿医师端午 / 鹿医师默认',
     ].join('\n');
 }
