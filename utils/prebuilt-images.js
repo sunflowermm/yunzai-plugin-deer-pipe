@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
 import hub from '../lib/deer-hub.js';
 import { SKIN_DEFAULT } from '../constants/skins.js';
