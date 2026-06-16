@@ -100,6 +100,10 @@ export const REG = {
     asceticCleanseSkill: `^清规${D}`,
     grinderRush: `^(卷王冲|卷冲)$`,
     sunflowerFacingSkill: '^向阳',
+    skinList: `^${D}皮肤$`,
+    skinSwitch: `^${D}皮肤(.+)$`,
+    portraitSkinList: `^${D}立绘$`,
+    portraitSkinSwitch: `^${D}立绘(.+)$`,
 };
 
 /** 清洗指令文本（去 CQ 码、@、误粘 QQ 号） */

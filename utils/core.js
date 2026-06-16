@@ -48,6 +48,7 @@ import {
     pickRandom,
 } from '../constants/game.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
+import { mergeStatusTheme } from './skin.js';
 import { QUOTA, QUOTA_GROUPS, QUOTA_LABELS, quotaChipColor, resolveQuotaDenom } from '../constants/profession-quotas.js';
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
@@ -204,11 +205,11 @@ function buildStatusPlaySections(status, qv) {
 }
 
 /**
- * @param {object} options highlightDay=高亮日期, forceDeadBanner=强制显示鹿死横幅
+ * @param {object} options highlightDay=高亮日期, forceDeadBanner=强制显示鹿死横幅, skinCtx=皮肤上下文
  */
 export async function generateImage(now, name, monthData, options = {}) {
     now = ensureDate(now);
-    const { highlightDay = now.getDate(), forceDeadBanner = false } = options;
+    const { highlightDay = now.getDate(), forceDeadBanner = false, skinCtx = null } = options;
     const cal = getMonthCalendar(now);
     const IMG_W = 700;
     const HEADER_H_CAL = 140;
@@ -220,13 +221,20 @@ export async function generateImage(now, name, monthData, options = {}) {
     const todaySnap = getDaySnap(todayEntry);
     const todayReason = getDeathReason(todayEntry);
     const deerpipeSmall = await loadCalendarDeerMark(CAL_DEER_MARK_H);
+    const uiSkin = skinCtx?.uiSkin;
+    const calAliveBg = uiSkin?.calendar?.alive;
+    const calDeadBg = uiSkin?.calendar?.dead;
     const compositeArray = [{
         input: svgTextPlain(`
             <defs>
                 <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
                     ${todayDead
-                        ? `<stop offset="0%" style="stop-color:#2d1b1b"/><stop offset="100%" style="stop-color:#1a0a0a"/>`
-                        : `<stop offset="0%" style="stop-color:#fff8f0"/><stop offset="100%" style="stop-color:#ffe8d6"/>`}
+                        ? (calDeadBg
+                            ? `<stop offset="0%" style="stop-color:${calDeadBg[0]}"/><stop offset="100%" style="stop-color:${calDeadBg[1]}"/>`
+                            : `<stop offset="0%" style="stop-color:#2d1b1b"/><stop offset="100%" style="stop-color:#1a0a0a"/>`)
+                        : (calAliveBg
+                            ? `<stop offset="0%" style="stop-color:${calAliveBg[0]}"/><stop offset="100%" style="stop-color:${calAliveBg[1]}"/>`
+                            : `<stop offset="0%" style="stop-color:#fff8f0"/><stop offset="100%" style="stop-color:#ffe8d6"/>`)}
                 </linearGradient>
             </defs>
             <rect width="${IMG_W}" height="${IMG_H}" fill="url(#bg)"/>
@@ -418,11 +426,12 @@ export async function generateYearImage(now, name, userRecord) {
 }
 
 /** 今日鹿况渲染图 */
-export async function generateStatusImage(now, name, status) {
+export async function generateStatusImage(now, name, status, skinCtx = null) {
     now = ensureDate(now);
     const W = 740;
     const CX = W / 2;
-    const theme = statusPanelTheme(status);
+    const baseTheme = statusPanelTheme(status);
+    const theme = skinCtx?.ui ? mergeStatusTheme(baseTheme, skinCtx.ui) : baseTheme;
     const dead = status.dead;
     const profHint = status.professionRequired
         ? '🎭未转职'
@@ -537,9 +546,14 @@ export async function generateStatusImage(now, name, status) {
 
     const weatherEmojiCx = WEATHER_PAD_X + WEATHER_EMOJI_SIZE / 2;
     const weatherEmojiCy = WEATHER_TOP + WEATHER_H / 2;
+    const portraitSkinId = skinCtx?.portrait;
     const [profThumb, helpIcon, weatherEmojiSvg, ...playIcons] = await Promise.all([
         (!status.professionRequired && status.professionId)
-            ? loadProfessionArt(status.professionId, 76, { borderWidth: 2, radius: 12 })
+            ? loadProfessionArt(status.professionId, 76, {
+                borderWidth: 2,
+                radius: 12,
+                skinId: portraitSkinId && portraitSkinId !== 'default' ? portraitSkinId : undefined,
+            })
             : null,
         loadSectionArt('help', STATUS_SECTION_ICON),
         wx ? emojiSvgImage(weatherEmojiCx, weatherEmojiCy, wx.emoji, WEATHER_EMOJI_SIZE) : Promise.resolve(''),

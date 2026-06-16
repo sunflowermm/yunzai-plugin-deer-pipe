@@ -1,7 +1,8 @@
 # dependencies
 node_modules/
 
-# editor / IDE
+# editor / IDE（勿提交）
+.cursor/
 .idea/
 .vscode/
 *.swp
@@ -18,3 +19,13 @@ desktop.ini
 .env.*
 *.log
 npm-debug.log*
+
+# 本地维护工具（生图 / 预渲染导出，勿提交）
+scripts/
+
+# 抠图前 / 生图中间产物（勿提交）
+assets/_source/
+assets/_archive/
+assets/style-ref/
+
+# 提交：assets/professions/ assets/stickers/ assets/prebuilt/ docs/images/

@@ -395,13 +395,11 @@ flowchart TD
 | 天象详情 | `resolveWeatherDetailImage()` | `prebuilt/weather/{id}-am\|pm.png` |
 | 鹿况 / 月历 / 玩法卡 | 实时 SVG + sharp | — |
 
-**改 UI 后导出**（XRK-Yunzai 根目录）：
+**改 UI 后**：仓库已含 `assets/prebuilt/` 与 `docs/images/` 成品；维护者本地用 `scripts/`（gitignore，不入库）重新导出后再提交 PNG。
 
-```bash
-node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs
-```
+调试实时出图：`DEER_PIPE_FORCE_LIVE_RENDER=1`。
 
-产出 `assets/prebuilt/` 并部分镜像到 `docs/images/`。调试实时出图：`DEER_PIPE_FORCE_LIVE_RENDER=1`。
+**Git 提交**：`assets/professions/`、`assets/stickers/`、`assets/prebuilt/`、`docs/images/`。**不提交**：`.cursor/`、`scripts/`、`assets/_source/`（抠图前）、`assets/_archive/`、`assets/style-ref/`。
 
 ---
 
@@ -413,19 +411,18 @@ yunzai-plugin-deer-pipe/
 ├── constants/            # commands · profession · help-catalog · weather …
 ├── utils/                # prebuilt-images · core · profession-render …
 ├── assets/
-│   ├── prebuilt/         # 预渲染 PNG（Bot 直读）
-│   ├── professions/      # 职业立绘
-│   └── stickers/         # 分区 / 专属技图标
-├── docs/images/          # README 部分镜像
-└── scripts/export-prebuilt-images.mjs
+│   ├── prebuilt/         # 预渲染 PNG（Bot 直读，提交）
+│   ├── professions/      # 抠图后立绘（提交；源图在 _source/ 不提交）
+│   ├── _source/          # 抠图前品红底（本地，gitignore）
+│   └── stickers/         # 抠图后图标（提交）
+├── docs/images/          # README 镜像（提交）
 ```
 
 ---
 
 ## 附录 A · Bot 出图样例
 
-> 以下每张图 **仅在本附录出现一次**。源文件：`assets/prebuilt/`（主）与 `docs/images/`（镜像）。  
-> 重新导出：`node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs`
+> 以下每张图 **仅在本附录出现一次**。源文件：`assets/prebuilt/`（主）与 `docs/images/`（镜像）。
 
 ### 鹿况 · 职业一览 · 说明书
 
@@ -489,7 +486,13 @@ yunzai-plugin-deer-pipe/
 
 | 叠咒鹿 | 福鹿使 | 窃光鹿 | 向日葵鹿 |
 |:---:|:---:|:---:|:---:|
-| <img src="./assets/professions/curser.png" width="88" alt="叠咒鹿"> | <img src="./assets/professions/blesser.png" width="88" alt="福鹿使"> | <img src="./assets/professions/rogue.png" width="88" alt="窃光鹿"> | 🌻 无独立 PNG · 出图用 emoji |
+| <img src="./assets/professions/curser.png" width="88" alt="叠咒鹿"> | <img src="./assets/professions/blesser.png" width="88" alt="福鹿使"> | <img src="./assets/professions/rogue.png" width="88" alt="窃光鹿"> | <img src="./assets/professions/sunflower.png" width="88" alt="向日葵鹿"> |
+
+端午皮肤（`skins/duanwu/`，medic / grinder）：
+
+| 鹿医师·端午 | 卷王鹿·端午 |
+|:---:|:---:|
+| <img src="./assets/professions/skins/duanwu/medic.png" width="88" alt="端午鹿医师"> | <img src="./assets/professions/skins/duanwu/grinder.png" width="88" alt="端午卷王鹿"> |
 
 ### 帮助 / 鹿况分区贴图 · `assets/stickers/sections/`
 
@@ -505,11 +508,11 @@ yunzai-plugin-deer-pipe/
 |:---:|:---:|:---:|:---:|
 | <img src="./assets/stickers/skills/ranger.png" width="64" alt="鹿巡"> | <img src="./assets/stickers/skills/medic.png" width="64" alt="愈鹿"> | <img src="./assets/stickers/skills/ascetic.png" width="64" alt="清规"> | <img src="./assets/stickers/skills/grinder.png" width="64" alt="卷冲"> |
 
-| 叠咒 | 福使 | 窃光 |
-|:---:|:---:|:---:|
-| <img src="./assets/stickers/skills/curser.png" width="64" alt="咒缚"> | <img src="./assets/stickers/skills/blesser.png" width="64" alt="广福"> | <img src="./assets/stickers/skills/rogue.png" width="64" alt="夜袭"> |
+| 叠咒 | 福使 | 窃光 | 向日葵 |
+|:---:|:---:|:---:|:---:|
+| <img src="./assets/stickers/skills/curser.png" width="64" alt="咒缚"> | <img src="./assets/stickers/skills/blesser.png" width="64" alt="广福"> | <img src="./assets/stickers/skills/rogue.png" width="64" alt="夜袭"> | <img src="./assets/stickers/skills/sunflower.png" width="64" alt="向阳"> |
 
-向日葵 **`向阳@`** 无独立 skill 贴图，一览图内用 emoji。职业一览 **`catalog`** 横幅使用 `assets/professions/catalog.png`。
+职业一览顶栏横幅：`assets/professions/catalog.png`（八职业拼版，见 [八职业一览](#鹿况--职业一览--说明书) 截图）。
 
 ### 品牌与其它
 

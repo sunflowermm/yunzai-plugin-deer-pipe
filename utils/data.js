@@ -79,8 +79,8 @@ import {
 } from '../constants/game.js';
 
 import { recordHelpAction, peekHelperStats } from './help-log.js';
+import { isUserProfileKey } from './skin.js';
 import {
-    calcDayBalancedScore as calcBalancedScore,
     computeBalancedScore,
     formatBalancedBreakdown,
 } from './balanced-score.js';
@@ -1177,6 +1177,7 @@ export function migrateUserRecord(userRecord, now = new Date()) {
         const cleaned = {};
         for (const [k, v] of Object.entries(userRecord)) {
             if (isMonthKey(k) && v && typeof v === 'object') cleaned[k] = migrateMonthDays(v);
+            else if (isUserProfileKey(k)) cleaned[k] = v;
         }
         return cleaned;
     }

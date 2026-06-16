@@ -27,8 +27,8 @@ import {
     scatterDeerMarkOverlays,
     stickerOverlay,
 } from './sticker-compose.js';
+import { resolveCardTheme } from './skin.js';
 import {
-    buildCardDecorations,
     buildFooterBar,
     buildMultilineText,
     buildQuotaBarStack,
@@ -36,6 +36,7 @@ import {
     buildSectionTitle,
     buildSectionTitleRow,
     buildSideArtCell,
+    buildCardDecorations,
     CARD_THEMES,
     DEFAULT_CARD_W,
     escapeXml,
@@ -129,7 +130,7 @@ async function buildUsageQuotaBlock(snapshot, theme, topY) {
     return { svg, height: y - topY, overlays };
 }
 
-async function buildSkillRow(professionId, skillY, theme) {
+async function buildSkillRow(professionId, skillY, theme, portraitSkinId = undefined) {
     const skill = PROFESSION_SKILLS[professionId];
     if (!skill) return { svg: '', height: 0, overlays: [] };
 
@@ -147,7 +148,8 @@ async function buildSkillRow(professionId, skillY, theme) {
         subSize: 11,
         subtitleMaxLines: 4,
     });
-    const skillIcon = await loadSkillArt(professionId, SKILL_ICON);
+    const skinId = portraitSkinId && portraitSkinId !== 'default' ? portraitSkinId : undefined;
+    const skillIcon = await loadSkillArt(professionId, SKILL_ICON, skinId);
     const prof = PROFESSIONS[professionId];
     const emojiArt = !skillIcon && prof?.emoji
         ? await cellArtEmojiImg(cell.artLeft, cell.artTop, cell.artSize, prof.emoji)
@@ -161,9 +163,13 @@ async function buildSkillRow(professionId, skillY, theme) {
 
 export async function generateProfessionCard(professionId, opts = {}) {
     const prof = getProfessionDef(professionId);
-    const theme = CARD_THEMES.profession;
+    const uiSkinId = opts.skinCtx?.ui;
+    const portraitSkinId = opts.skinCtx?.portrait
+        ?? (opts.portraitSkinId);
+    const theme = uiSkinId ? resolveCardTheme(uiSkinId, 'profession') : CARD_THEMES.profession;
     const flavor = PROFESSION_ART_FLAVOR[professionId] || prof.tagline;
-    const seed = hashSeed('prof-card', professionId);
+    const seed = hashSeed('prof-card', professionId, uiSkinId, portraitSkinId);
+    const artSkinId = portraitSkinId && portraitSkinId !== 'default' ? portraitSkinId : undefined;
 
     const headerH = 76;
     const illuH = PORTRAIT_SIZE + PORTRAIT_PAD * 2;
@@ -176,12 +182,12 @@ export async function generateProfessionCard(professionId, opts = {}) {
         : await buildLimitQuotaBlock(professionId, theme, quotaTop);
 
     const skillY = quotaTop + quotaBlock.height + 20;
-    const skillBlock = await buildSkillRow(professionId, skillY, theme);
+    const skillBlock = await buildSkillRow(professionId, skillY, theme, portraitSkinId);
     const footerY = skillY + skillBlock.height + 12;
     const H = footerY + 56;
 
     const [portrait, brandLogo, titleBlock] = await Promise.all([
-        loadProfessionArt(professionId, PORTRAIT_SIZE, { borderWidth: 0, shadow: true }),
+        loadProfessionArt(professionId, PORTRAIT_SIZE, { borderWidth: 0, shadow: true, skinId: artSkinId }),
         loadBrandLogo(),
         buildCenteredEmojiTitleRaster(CX, 38, prof.emoji, `${prof.name} · 职业专精`, {
             emojiSize: 28, titleSize: 24, style: TXT, fill: theme.title,
@@ -404,7 +410,8 @@ async function buildProfessionCatalogGrid(theme, topY, ids, thumbs) {
 
 /** 职业一览：配额/联动/专属技均渲染进图 */
 export async function generateProfessionCatalogImage(opts = {}) {
-    const theme = CARD_THEMES.profession;
+    const uiSkinId = opts.skinCtx?.ui;
+    const theme = uiSkinId ? resolveCardTheme(uiSkinId, 'profession') : CARD_THEMES.profession;
     const ids = Object.keys(PROFESSIONS);
     const headerEnd = CATALOG_BANNER_TOP + CATALOG_BANNER_H;
     const hasStatus = opts.snapshot && !opts.snapshot.professionRequired;
@@ -483,10 +490,10 @@ export async function generateProfessionCatalogImage(opts = {}) {
     return renderStyledCard(CARD_W, H, inner, 'profession', overlays.filter(Boolean));
 }
 
-export async function generateUserProfessionPanel(monthData, day) {
+export async function generateUserProfessionPanel(monthData, day, opts = {}) {
     const snap = getPlayQuotaSnapshot(monthData, day);
     if (snap.professionRequired || !snap.profession?.id) {
-        return generateProfessionCatalogImage();
+        return generateProfessionCatalogImage(opts);
     }
-    return generateProfessionCard(snap.profession.id, { snapshot: snap, showUsage: true });
+    return generateProfessionCard(snap.profession.id, { snapshot: snap, showUsage: true, ...opts });
 }

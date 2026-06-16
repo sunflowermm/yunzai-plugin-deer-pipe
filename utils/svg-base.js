@@ -286,6 +286,18 @@ export const CARD_THEMES = {
         highlight: 'rgba(255,179,71,0.22)',
         barBg: 'rgba(255,255,255,0.12)',
     },
+    /** 端午粽香 UI 皮肤（鹿况/月历/职业卡叠色） */
+    duanwu: {
+        bgStops: '<stop offset="0%" style="stop-color:#1a3d28"/><stop offset="45%" style="stop-color:#0f2818"/><stop offset="100%" style="stop-color:#081a10"/>',
+        title: '#e8fff0',
+        sub: '#b8e8c8',
+        line: '#f0fff5',
+        muted: '#7ec89a',
+        accent: '#4caf50',
+        panel: 'rgba(0,0,0,0.42)',
+        highlight: 'rgba(76,175,80,0.22)',
+        barBg: 'rgba(255,255,255,0.1)',
+    },
 };
 
 /** 鹿况面板主题（由状态推导，复用 CARD_THEMES 配色） */

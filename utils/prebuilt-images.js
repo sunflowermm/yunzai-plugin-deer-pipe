@@ -12,6 +12,7 @@ import {
 import { generateHelpImages } from './help-render.js';
 import { generateProfessionCatalogImage, generateProfessionCard } from './profession-render.js';
 import { generateWeatherDetailImage } from './card-render.js';
+import { shouldBypassPrebuiltForSkin } from './skin.js';
 
 const bufferCache = new Map();
 let renderConfig;
@@ -77,16 +78,19 @@ export async function resolveHelpImages() {
 }
 
 export async function resolveProfessionCatalogImage(opts = {}) {
-    if (opts.snapshot) {
+    if (opts.snapshot || (opts.skinCtx?.ui && opts.skinCtx.ui !== 'default')) {
         return generateProfessionCatalogImage(opts);
     }
     return resolvePrebuilt(PREBUILT_REL.professionCatalog, () => generateProfessionCatalogImage(opts));
 }
 
-export async function resolveProfessionCard(professionId) {
+export async function resolveProfessionCard(professionId, opts = {}) {
+    if (opts.skinCtx && shouldBypassPrebuiltForSkin(opts.skinCtx)) {
+        return generateProfessionCard(professionId, opts);
+    }
     return resolvePrebuilt(
         PREBUILT_REL.professionCard(professionId),
-        () => generateProfessionCard(professionId),
+        () => generateProfessionCard(professionId, opts),
     );
 }
 

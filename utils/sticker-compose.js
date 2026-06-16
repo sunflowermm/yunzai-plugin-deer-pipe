@@ -101,11 +101,13 @@ export async function loadLogo(filePath, height) {
 }
 
 export async function loadProfessionArt(professionId, size, opts = {}) {
-    return loadSticker(professionArtPath(professionId), size, opts);
+    const skinId = opts.skinId;
+    const { skinId: _, ...stickerOpts } = opts;
+    return loadSticker(professionArtPath(professionId, skinId), size, stickerOpts);
 }
 
-export async function loadSkillArt(professionId, size = 44) {
-    return loadSticker(skillArtPath(professionId), size, {
+export async function loadSkillArt(professionId, size = 44, skinId = undefined) {
+    return loadSticker(skillArtPath(professionId, skinId), size, {
         borderWidth: 0,
         shadow: false,
     });
@@ -118,8 +120,8 @@ export async function loadSectionArt(sectionKey, size = 34) {
     });
 }
 
-export async function loadCatalogThumb(professionId, size) {
-    return loadProfessionArt(professionId, size, { borderWidth: 0, shadow: false });
+export async function loadCatalogThumb(professionId, size, skinId = undefined) {
+    return loadProfessionArt(professionId, size, { borderWidth: 0, shadow: false, skinId });
 }
 
 export async function loadCatalogArt(size = 68) {

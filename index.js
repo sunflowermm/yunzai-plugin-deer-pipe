@@ -27,7 +27,7 @@ if (missingArt.length) {
 const missingPrebuilt = verifyPrebuiltManifest();
 if (missingPrebuilt.length) {
     logger.warn(`[deer-pipe] 预渲染 PNG 缺失 ${missingPrebuilt.length} 项（将回退实时渲染）：${missingPrebuilt.slice(0, 5).join(' · ')}${missingPrebuilt.length > 5 ? ' …' : ''}`);
-    logger.warn('[deer-pipe] 导出：node plugins/yunzai-plugin-deer-pipe/scripts/export-prebuilt-images.mjs');
+    logger.warn('[deer-pipe] 预渲染 PNG 缺失：请拉取仓库内 assets/prebuilt/ 成品，或联系维护者更新');
 }
 
 const files = fs.readdirSync(`./plugins/${pluginName}/apps`).filter(file => file.endsWith(".js"));

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
 import { PROFESSIONS } from './profession.js';
 import { QUOTA_GROUPS } from './profession-quotas.js';
+import { PORTRAIT_SKINS, SKIN_DEFAULT } from './skins.js';
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -28,20 +29,37 @@ export function getFontBase64DataUri() {
 export const PROFESSION_CATALOG_ART = `${ASSET_ROOT}/professions/catalog.png`;
 
 /** 无独立立绘 PNG 的职业：职业卡/一览用 emoji 占位 */
-export const PROFESSION_EMOJI_ONLY = new Set(['sunflower']);
+export const PROFESSION_EMOJI_ONLY = new Set();
 
-export function professionUsesEmojiArt(professionId) {
-    return PROFESSION_EMOJI_ONLY.has(professionId);
+export function professionUsesEmojiArt(professionId, skinId = SKIN_DEFAULT) {
+    if (skinId && skinId !== SKIN_DEFAULT) {
+        const rel = `professions/skins/${skinId}/${professionId}.png`;
+        if (FileUtils.existsSync(`${ASSET_ROOT}/${rel}`)) return false;
+    }
+    const base = `${ASSET_ROOT}/professions/${professionId}.png`;
+    return !FileUtils.existsSync(base);
 }
 
-export function professionArtPath(professionId) {
-    if (professionUsesEmojiArt(professionId)) return null;
-    return `${ASSET_ROOT}/professions/${professionId}.png`;
+export function professionArtPath(professionId, skinId = SKIN_DEFAULT) {
+    if (skinId && skinId !== SKIN_DEFAULT) {
+        const skinRel = `professions/skins/${skinId}/${professionId}.png`;
+        const skinAbs = `${ASSET_ROOT}/${skinRel}`;
+        if (FileUtils.existsSync(skinAbs)) return skinAbs;
+    }
+    const base = `${ASSET_ROOT}/professions/${professionId}.png`;
+    if (FileUtils.existsSync(base)) return base;
+    return null;
 }
 
-export function skillArtPath(professionId) {
-    if (professionUsesEmojiArt(professionId)) return null;
-    return `${ASSET_ROOT}/stickers/skills/${professionId}.png`;
+export function skillArtPath(professionId, skinId = SKIN_DEFAULT) {
+    if (skinId && skinId !== SKIN_DEFAULT) {
+        const skinRel = `stickers/skills/skins/${skinId}/${professionId}.png`;
+        const skinAbs = `${ASSET_ROOT}/${skinRel}`;
+        if (FileUtils.existsSync(skinAbs)) return skinAbs;
+    }
+    const base = `${ASSET_ROOT}/stickers/skills/${professionId}.png`;
+    if (FileUtils.existsSync(base)) return base;
+    return null;
 }
 
 export function sectionArtPath(sectionKey) {
@@ -62,6 +80,13 @@ function listArtRelativePaths() {
     paths.push(...ids.filter((id) => !professionUsesEmojiArt(id)).map((id) => `professions/${id}.png`));
     paths.push('professions/catalog.png');
     paths.push(...ids.filter((id) => !professionUsesEmojiArt(id)).map((id) => `stickers/skills/${id}.png`));
+    for (const skin of Object.values(PORTRAIT_SKINS)) {
+        if (!skin.professions) continue;
+        for (const pid of skin.professions) {
+            paths.push(`professions/skins/${skin.id}/${pid}.png`);
+            paths.push(`stickers/skills/skins/${skin.id}/${pid}.png`);
+        }
+    }
     paths.push(...QUOTA_GROUPS.map((g) => `stickers/sections/${g.sectionKey}.png`));
     return paths;
 }

@@ -156,6 +156,7 @@ export class DeerPipe extends plugin {
             name: subject.name,
             status,
             isAt: subject.isAt,
+            userRecord: getUserRecord(deerData, subject.userId),
         });
     }
 
@@ -163,9 +164,11 @@ export class DeerPipe extends plugin {
         const { user_id } = this.e.sender;
         const date = new Date();
         const day = date.getDate();
-        const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
+        const deerData = await loadDeerData();
+        const userRecord = getUserRecord(deerData, user_id);
+        const monthData = getMonthData(userRecord, date);
         const snapshot = getHelperQuotaSnapshot(monthData, day);
-        await replyProfessionCatalog(this.e, { snapshot });
+        await replyProfessionCatalog(this.e, { snapshot, userRecord, date });
     }
 
     /** 静态职业专精卡（预渲染图，任意时间可查看） */
