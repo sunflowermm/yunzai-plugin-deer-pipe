@@ -19,6 +19,7 @@ export function getUserSkinPrefs(userRecord) {
 }
 
 export function setUserSkinPref(userRecord, skinId) {
+    if (!userRecord || typeof userRecord !== 'object') return SKIN_DEFAULT;
     if (!skinId || skinId === SKIN_DEFAULT) {
         delete userRecord[USER_SKIN_KEYS.ui];
         return SKIN_DEFAULT;

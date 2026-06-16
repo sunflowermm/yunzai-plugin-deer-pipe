@@ -41,8 +41,7 @@ import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
 
-import { replyInteractionResult } from '../utils/panel.js';
-import { resolveSkinContext } from '../utils/skin.js';
+import { replyInteractionResult, skinCtxForSender } from '../utils/panel.js';
 import { generateInteractionCard } from '../utils/card-render.js';
 
 import { REG } from '../constants/commands.js';
@@ -341,7 +340,7 @@ export class DeerSpecial extends plugin {
             targetId,
             duel: true,
             subtitle: `${ARENA_PK_TIMEOUT_SEC}s 内「冲」/「拒」`,
-            skinCtx: resolveSkinContext(getUserRecord(deerData, user_id), date),
+            skinCtx: skinCtxForSender(deerData, user_id, date),
         });
         await this.reply([
             pickRandom(ARENA_CHALLENGE_MESSAGES),
@@ -495,7 +494,7 @@ export class DeerSpecial extends plugin {
             targetId: king.id,
             duel: true,
             subtitle: `${IMPERIAL_PK_TIMEOUT_SEC}s 内猜「大」/「小」`,
-            skinCtx: resolveSkinContext(getUserRecord(deerData, user_id), date),
+            skinCtx: skinCtxForSender(deerData, user_id, date),
         });
         await this.reply([
             pickRandom(IMPERIAL_START_MESSAGES),

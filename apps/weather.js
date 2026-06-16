@@ -20,17 +20,14 @@ import { isDeerPrivileged } from '../utils/privilege.js';
 
 import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 
-import { getUserRecord } from '../utils/data.js';
-
 import { REG, cleanCommandMsg } from '../constants/commands.js';
 
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 import { resolveWeatherDetailImage } from '../utils/prebuilt-images.js';
-import { resolveSkinContext } from '../utils/skin.js';
 import { screenshot, toImageBuffer } from '../utils/deer-screenshot.js';
 import WeatherCatalog from '../model/weather-catalog.js';
-import { replyWeatherCard, replyInteractionResult } from '../utils/panel.js';
+import { replyWeatherCard, replyInteractionResult, skinCtxForSender } from '../utils/panel.js';
 
 export class DeerWeather extends plugin {
     constructor() {
@@ -79,9 +76,8 @@ export class DeerWeather extends plugin {
         const date = new Date();
         const { user_id } = this.e.sender;
         const deerData = await loadDeerData();
-        const userRecord = getUserRecord(deerData, user_id);
         const { state, effects } = await getWeatherContext(date);
-        const skinCtx = resolveSkinContext(userRecord, date);
+        const skinCtx = skinCtxForSender(deerData, user_id, date);
         const img = await resolveWeatherDetailImage(state, effects, date, { skinCtx });
         const caption = [
             formatWeatherBrief(state, date),
