@@ -19,6 +19,12 @@ import {
     stickerOverlay,
 } from './sticker-compose.js';
 import { compositeToPng } from './render-pipeline.js';
+import { UI_SURFACES, resolveSurfaceTheme } from './ui/theme.js';
+import { buildHelpPageBackgroundSvg, helpPageTitleColors } from './ui/components.js';
+import {
+    buildChromeSvgFragment,
+    statusHeaderOffset,
+} from './ui/skin-assets.js';
 
 const IMG_W = 720;
 const PAD = 20;
@@ -65,38 +71,42 @@ async function loadSectionIcon(sectionKey) {
     return loadSectionArt(artKey, SECTION_ICON);
 }
 
-async function buildPageContent(pageDef, imgH, pageIndex, totalPages) {
+async function buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, theme, colors, headerShift = 0) {
     const sections = pageDef.sectionKeys.map((key) => ({ key, ...HELP_SECTIONS[key] })).filter((s) => s.title);
     let y = HEADER_H + PAD;
     const blocks = [];
+    const yTag = 34 + headerShift;
+    const yTitle = 62 + headerShift;
+    const ySub = 88 + headerShift;
+    const yFoot = 118 + headerShift;
     blocks.push(`
-        ${textCentered(IMG_W / 2, 34, escapeXml(HELP_TAGLINE), TXT, { size: 28, fill: '#ff6b35', weight: 'bold' })}
-        ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.title, 20), 62, pageDef.title, { style: TXT, fontSize: 20, fill: '#5c3d2e', weight: 'bold' })}
-        ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.subtitle, 15), 88, pageDef.subtitle, { style: TXT_SOFT, fontSize: 15, fill: '#8b5a3c' })}
-        ${textCentered(IMG_W / 2, 118, truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52), TXT_SOFT, { size: 13, fill: '#a07050' })}
+        ${textCentered(IMG_W / 2, yTag, escapeXml(HELP_TAGLINE), TXT, { size: 28, fill: colors.tagline, weight: 'bold' })}
+        ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.title, 20), yTitle, pageDef.title, { style: TXT, fontSize: 20, fill: colors.title, weight: 'bold' })}
+        ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.subtitle, 15), ySub, pageDef.subtitle, { style: TXT_SOFT, fontSize: 15, fill: colors.subtitle })}
+        ${textCentered(IMG_W / 2, yFoot, truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52), TXT_SOFT, { size: 13, fill: colors.muted })}
     `);
     for (const sec of sections) {
         y += LINE_H;
         const titleX = HELP_SECTION_ART[sec.key] ? PAD + SECTION_ICON + 8 : PAD + 28;
         if (!HELP_SECTION_ART[sec.key]) {
             blocks.push(await buildInlineEmojiText(PAD, y, `${sec.emoji} ${sec.title}`, {
-                style: TXT, fontSize: 20, fill: '#5c3d2e', weight: 'bold',
+                style: TXT, fontSize: 20, fill: colors.title, weight: 'bold',
             }));
         } else {
-            blocks.push(`<text ${TXT} x="${titleX}" y="${y}" font-size="20" fill="#5c3d2e" font-weight="bold">${escapeXml(sec.title)}</text>`);
+            blocks.push(`<text ${TXT} x="${titleX}" y="${y}" font-size="20" fill="${colors.title}" font-weight="bold">${escapeXml(sec.title)}</text>`);
         }
         y += 6;
         for (const item of sec.items) {
             y += ITEM_PAD;
             const tag = item.tag ? ` [${item.tag}]` : '';
             blocks.push(await buildInlineEmojiText(CMD_X, y + 16, `${truncCmd(item.cmd)}${tag}`, {
-                style: TXT_PLAIN, fontSize: 15, fill: '#3d2914', weight: 'bold',
+                style: TXT_PLAIN, fontSize: 15, fill: colors.cmd, weight: 'bold',
             }));
             blocks.push(await buildInlineEmojiText(CMD_X, y + 34, truncDesc(item.desc), {
-                style: TXT_PLAIN, fontSize: 14, fill: '#6b4a32',
+                style: TXT_PLAIN, fontSize: 14, fill: colors.desc,
             }));
             blocks.push(await buildInlineEmojiText(CMD_X, y + 50, `└ ${truncText(item.quota, 54)}`, {
-                style: TXT_PLAIN, fontSize: 12, fill: '#a07050',
+                style: TXT_PLAIN, fontSize: 12, fill: colors.muted,
             }));
             y += ITEM_H;
         }
@@ -104,19 +114,15 @@ async function buildPageContent(pageDef, imgH, pageIndex, totalPages) {
     }
 
     const foot = `${HELP_FOOTER} · ${pageIndex + 1}/${totalPages}`;
-    blocks.push(textCentered(IMG_W / 2, imgH - 28, escapeXml(foot), TXT_SOFT, { size: 13, fill: '#b8956a' }));
+    blocks.push(textCentered(IMG_W / 2, imgH - 28, escapeXml(foot), TXT_SOFT, { size: 13, fill: colors.muted }));
+    const chromeSvg = await buildChromeSvgFragment(uiSkinId, IMG_W);
     const body = `
-        <rect width="${IMG_W}" height="${imgH}" fill="url(#bg${pageIndex})" rx="16"/>
-        <rect x="8" y="8" width="${IMG_W - 16}" height="${imgH - 16}" fill="none" stroke="#ff9a56" stroke-width="3" rx="14" stroke-dasharray="8 6"/>
+        ${buildHelpPageBackgroundSvg(IMG_W, imgH, theme)}
+        ${chromeSvg}
+        <rect x="8" y="8" width="${IMG_W - 16}" height="${imgH - 16}" fill="none" stroke="${theme.accent}" stroke-width="3" rx="14" stroke-dasharray="8 6"/>
         ${blocks.join('\n')}
     `;
-    return svgTextStyled(body, IMG_W, imgH, `
-        <linearGradient id="bg${pageIndex}" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#fff5eb"/>
-            <stop offset="50%" style="stop-color:#ffe4cc"/>
-            <stop offset="100%" style="stop-color:#ffd4b8"/>
-        </linearGradient>
-    `);
+    return svgTextStyled(body, IMG_W, imgH, `<linearGradient id="helpBg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>`);
 }
 
 function estimateTitleHalf(text, fontSize) {
@@ -127,8 +133,9 @@ function estimateTitleHalf(text, fontSize) {
     return (estimateTextWidth(plain, fontSize) + emojiW) / 2;
 }
 
-async function composePage(pageDef, pageIndex, totalPages) {
+async function composePage(pageDef, pageIndex, totalPages, uiSkinId, theme, colors) {
     const imgH = estimatePageHeight(pageDef);
+    const headerShift = statusHeaderOffset(uiSkinId);
     const contentEndY = imgH - 72;
     const [deerBig, deerSmall, brandLogo, ...sectionIcons] = await Promise.all([
         loadBrandLogo(pageIndex === 0 ? 40 : 32),
@@ -140,26 +147,26 @@ async function composePage(pageDef, pageIndex, totalPages) {
     const sideDeer = [
         ...(await scatterDeerMarkOverlays(52, contentEndY - HEADER_H, HEADER_H, IMG_W - 60, {
             count: 4,
-            seed: hashSeed('help-side-r', pageIndex),
+            seed: hashSeed('help-side-r', pageIndex, uiSkinId),
             markHeight: 40,
             opacity: 0.12,
         })),
         ...(await scatterDeerMarkOverlays(48, contentEndY - HEADER_H, HEADER_H + 40, 4, {
             count: 3,
-            seed: hashSeed('help-side-l', pageIndex),
+            seed: hashSeed('help-side-l', pageIndex, uiSkinId),
             markHeight: 36,
             opacity: 0.1,
         })),
     ];
     const bottomDeer = await scatterDeerMarkOverlays(IMG_W - 80, 56, contentEndY, 40, {
         count: 5,
-        seed: hashSeed('help-bottom', pageIndex),
+        seed: hashSeed('help-bottom', pageIndex, uiSkinId),
         markHeight: 40,
         opacity: 0.18,
     });
 
     const layers = [
-        { input: await buildPageContent(pageDef, imgH, pageIndex, totalPages), top: 0, left: 0 },
+        { input: await buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, theme, colors, headerShift), top: 0, left: 0 },
         ...sideDeer,
         ...bottomDeer,
     ];
@@ -182,12 +189,15 @@ async function composePage(pageDef, pageIndex, totalPages) {
     return compositeToPng(IMG_W, imgH, layers, { r: 255, g: 245, b: 235, alpha: 1 });
 }
 
-/** 生成双页鹿帮助图 */
-export async function generateHelpImages() {
+/** 生成双页鹿帮助图 @param {{ skinCtx?: object }} [opts] */
+export async function generateHelpImages(opts = {}) {
+    const uiSkinId = opts.skinCtx?.ui || 'default';
+    const theme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.HELP);
+    const colors = helpPageTitleColors(theme);
     const total = HELP_PAGES.length;
     const buffers = [];
     for (let i = 0; i < total; i += 1) {
-        buffers.push(await composePage(HELP_PAGES[i], i, total));
+        buffers.push(await composePage(HELP_PAGES[i], i, total, uiSkinId, theme, colors));
     }
     return buffers;
 }

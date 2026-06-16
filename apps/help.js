@@ -1,6 +1,9 @@
 import { REG } from '../constants/commands.js';
 import { resolveHelpImages } from '../utils/prebuilt-images.js';
 import { HELP_TAGLINE } from '../constants/help-catalog.js';
+import { loadDeerData } from '../utils/store.js';
+import { getUserRecord } from '../utils/data.js';
+import { resolveSkinContext } from '../utils/skin.js';
 
 export class DeerHelp extends plugin {
     constructor() {
@@ -17,7 +20,10 @@ export class DeerHelp extends plugin {
     }
 
     async deerHelp() {
-        const images = await resolveHelpImages();
+        const deerData = await loadDeerData();
+        const userRecord = getUserRecord(deerData, this.e.sender.user_id);
+        const skinCtx = resolveSkinContext(userRecord, new Date());
+        const images = await resolveHelpImages({ skinCtx });
         const parts = [
             `${HELP_TAGLINE}\n共 2 张图：活鹿篇（玩法/天象/生态）+ 冥界篇（对线/死亡/特权/彩蛋）\n提示：所有「鹿」与「🦌」可互换`,
         ];

@@ -27,17 +27,16 @@ import {
     scatterDeerMarkOverlays,
     stickerOverlay,
 } from './sticker-compose.js';
-import { resolveCardTheme } from './skin.js';
+import { resolveSurfaceTheme, resolveDecorationProfile, UI_SURFACES } from './ui/theme.js';
+import { buildSkinCardDecorations } from './ui/components.js';
+import { buildChromeSvgFragment, statusHeaderOffset } from './ui/skin-assets.js';
 import {
     buildFooterBar,
     buildMultilineText,
     buildQuotaBarStack,
     buildRibbonBadge,
     buildSectionTitle,
-    buildSectionTitleRow,
     buildSideArtCell,
-    buildCardDecorations,
-    CARD_THEMES,
     DEFAULT_CARD_W,
     escapeXml,
     hashSeed,
@@ -163,15 +162,17 @@ async function buildSkillRow(professionId, skillY, theme, portraitSkinId = undef
 
 export async function generateProfessionCard(professionId, opts = {}) {
     const prof = getProfessionDef(professionId);
-    const uiSkinId = opts.skinCtx?.ui;
+    const uiSkinId = opts.skinCtx?.ui || 'default';
     const portraitSkinId = opts.skinCtx?.portrait
         ?? (opts.portraitSkinId);
-    const theme = uiSkinId ? resolveCardTheme(uiSkinId, 'profession') : CARD_THEMES.profession;
+    const theme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.PROFESSION);
+    const decoProfile = resolveDecorationProfile(uiSkinId);
     const flavor = PROFESSION_ART_FLAVOR[professionId] || prof.tagline;
     const seed = hashSeed('prof-card', professionId, uiSkinId, portraitSkinId);
     const artSkinId = portraitSkinId && portraitSkinId !== 'default' ? portraitSkinId : undefined;
 
-    const headerH = 76;
+    const headerShift = statusHeaderOffset(uiSkinId);
+    const headerH = 76 + headerShift;
     const illuH = PORTRAIT_SIZE + PORTRAIT_PAD * 2;
     const illuTop = headerH + 12;
     const illuCy = illuTop + illuH / 2;
@@ -186,12 +187,18 @@ export async function generateProfessionCard(professionId, opts = {}) {
     const footerY = skillY + skillBlock.height + 12;
     const H = footerY + 56;
 
-    const [portrait, brandLogo, titleBlock] = await Promise.all([
+    const headerShift = statusHeaderOffset(uiSkinId);
+    const titleY = 40 + headerShift;
+    const tagY = 62 + headerShift;
+    const badgeY = 72 + headerShift;
+
+    const [portrait, brandLogo, titleBlock, chromeSvg] = await Promise.all([
         loadProfessionArt(professionId, PORTRAIT_SIZE, { borderWidth: 0, shadow: true, skinId: artSkinId }),
         loadBrandLogo(),
-        buildCenteredEmojiTitleRaster(CX, 38, prof.emoji, `${prof.name} · 职业专精`, {
+        buildCenteredEmojiTitleRaster(CX, titleY, prof.emoji, `${prof.name} · 职业专精`, {
             emojiSize: 28, titleSize: 24, style: TXT, fill: theme.title,
         }),
+        buildChromeSvgFragment(uiSkinId, CARD_W),
     ]);
 
     const portraitOverlays = [];
@@ -205,10 +212,11 @@ export async function generateProfessionCard(professionId, opts = {}) {
 
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
-        ${buildCardDecorations(CARD_W, H, theme, seed)}
+        ${chromeSvg}
+        ${buildSkinCardDecorations(CARD_W, H, theme, seed, decoProfile)}
         ${titleBlock.svg}
-        ${textCentered(CX, 62, escapeXml(prof.tagline.length > 42 ? `${prof.tagline.slice(0, 42)}…` : prof.tagline), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
-        ${buildRibbonBadge(CX, 72, '转职锁定至次日0点', 'neutral')}
+        ${textCentered(CX, tagY, escapeXml(prof.tagline.length > 42 ? `${prof.tagline.slice(0, 42)}…` : prof.tagline), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
+        ${buildRibbonBadge(CX, badgeY, '转职锁定至次日0点', 'neutral')}
         ${portrait ? buildPortraitGlowSvg(CX, illuCy, PORTRAIT_SIZE) : ''}
         ${portraitEmojiSvg}
         ${quotaBlock.svg}
@@ -229,7 +237,7 @@ export async function generateProfessionCard(professionId, opts = {}) {
     if (brandLogo) {
         overlays.push(stickerOverlay(brandLogo, footerY + 6, 22));
     }
-    return renderStyledCard(CARD_W, H, inner, 'profession', overlays.filter(Boolean));
+    return renderStyledCard(CARD_W, H, inner, 'profession', overlays.filter(Boolean), theme);
 }
 
 const SYNERGY_TEXT_MAX_W = CATALOG_CELL_W - 34;
@@ -410,16 +418,19 @@ async function buildProfessionCatalogGrid(theme, topY, ids, thumbs) {
 
 /** 职业一览：配额/联动/专属技均渲染进图 */
 export async function generateProfessionCatalogImage(opts = {}) {
-    const uiSkinId = opts.skinCtx?.ui;
-    const theme = uiSkinId ? resolveCardTheme(uiSkinId, 'profession') : CARD_THEMES.profession;
+    const uiSkinId = opts.skinCtx?.ui || 'default';
+    const theme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.PROFESSION_CATALOG);
+    const decoProfile = resolveDecorationProfile(uiSkinId);
     const ids = Object.keys(PROFESSIONS);
     const headerEnd = CATALOG_BANNER_TOP + CATALOG_BANNER_H;
     const hasStatus = opts.snapshot && !opts.snapshot.professionRequired;
     const synergyTop = headerEnd + (hasStatus ? 54 : 36);
 
-    const [banner, brandLogo, ...thumbs] = await Promise.all([
+    const headerShift = statusHeaderOffset(uiSkinId);
+    const [banner, brandLogo, chromeSvg, ...thumbs] = await Promise.all([
         loadBanner(PROFESSION_CATALOG_ART, CARD_W - 48, CATALOG_BANNER_H),
         loadBrandLogo(),
+        buildChromeSvgFragment(uiSkinId, CARD_W),
         ...ids.map((id) => loadCatalogThumb(id, CATALOG_THUMB)),
     ]);
 
@@ -434,7 +445,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
     const headerOverlays = [];
     let headerSvg = '';
     if (!banner) {
-        const title = await buildCenteredEmojiTitleRaster(CX, 40, '🦌', '鹿林八职业', {
+        const title = await buildCenteredEmojiTitleRaster(CX, 40 + headerShift, '🦌', '鹿林八职业', {
             emojiSize: 26, titleSize: 24, style: TXT, fill: theme.title,
         });
         headerSvg = title.svg;
@@ -460,7 +471,8 @@ export async function generateProfessionCatalogImage(opts = {}) {
 
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
-        ${buildCardDecorations(CARD_W, H, theme, hashSeed('prof-catalog'))}
+        ${chromeSvg}
+        ${buildSkinCardDecorations(CARD_W, H, theme, hashSeed('prof-catalog', uiSkinId), decoProfile)}
         ${headerSvg}
         ${statusSvg || textCentered(CX, headerEnd + 14, '转职+职业名 · 当日锁定 · 次日0点重置', TXT_SOFT, { size: 13, fill: theme.muted })}
         ${synergyBlock.svg}
@@ -487,7 +499,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
         overlays.push(stickerOverlay(part.thumb, part.cell.artTop, part.cell.artLeft));
     });
     if (brandLogo) overlays.push(stickerOverlay(brandLogo, H - 42, 22));
-    return renderStyledCard(CARD_W, H, inner, 'profession', overlays.filter(Boolean));
+    return renderStyledCard(CARD_W, H, inner, 'profession', overlays.filter(Boolean), theme);
 }
 
 export async function generateUserProfessionPanel(monthData, day, opts = {}) {

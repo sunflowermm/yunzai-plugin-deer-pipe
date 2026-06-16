@@ -5,6 +5,7 @@ import { FileUtils } from '../../../lib/utils/file-utils.js';
 import { PROFESSIONS } from './profession.js';
 import { QUOTA_GROUPS } from './profession-quotas.js';
 import { PORTRAIT_SKINS, SKIN_DEFAULT } from './skins.js';
+import { UI_SKIN_PACKS, UI_SKIN_COMPONENT_KEYS } from './ui-skin-registry.js';
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -76,6 +77,13 @@ function listArtRelativePaths() {
         }
     }
     paths.push(...QUOTA_GROUPS.map((g) => `stickers/sections/${g.sectionKey}.png`));
+    for (const pack of Object.values(UI_SKIN_PACKS)) {
+        if (!pack.components) continue;
+        for (const key of UI_SKIN_COMPONENT_KEYS) {
+            const rel = pack.components[key];
+            if (rel) paths.push(rel);
+        }
+    }
     return paths;
 }
 

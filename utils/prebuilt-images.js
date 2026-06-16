@@ -60,8 +60,11 @@ async function resolvePrebuilt(relPath, renderFn) {
 }
 
 /** @returns {Promise<Buffer[]>} */
-export async function resolveHelpImages() {
-    if (!shouldUsePrebuilt()) return generateHelpImages();
+export async function resolveHelpImages(opts = {}) {
+    if (opts.skinCtx && shouldBypassPrebuiltForSkin(opts.skinCtx)) {
+        return generateHelpImages(opts);
+    }
+    if (!shouldUsePrebuilt()) return generateHelpImages(opts);
     const pages = [];
     let missing = false;
     for (let i = 0; i < HELP_PAGES.length; i += 1) {
@@ -74,7 +77,7 @@ export async function resolveHelpImages() {
         pages.push(buf);
     }
     if (!missing && pages.length === HELP_PAGES.length) return pages;
-    return generateHelpImages();
+    return generateHelpImages(opts);
 }
 
 export async function resolveProfessionCatalogImage(opts = {}) {

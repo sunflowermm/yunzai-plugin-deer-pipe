@@ -32,11 +32,6 @@ export const UI_SKINS = {
         emoji: '🫔',
         festival: 'duanwu',
         desc: '青粽荷叶 · 龙舟水色 · 鹿况/月历端午主题',
-        themeKey: 'duanwu',
-        calendar: {
-            alive: ['#e8f8ec', '#d4f0dc'],
-            dead: ['#1a2820', '#0f1a14'],
-        },
     },
 };
 
@@ -111,6 +106,12 @@ export function resolveUiSkinId(pref, date = new Date()) {
     return SKIN_DEFAULT;
 }
 
+/** 显式指定 UI 皮肤（不走 auto/节日），供预览与「强制默认」 */
+export function userRecordWithUiSkin(uiSkinId) {
+    const id = UI_SKINS[uiSkinId]?.id ?? SKIN_DEFAULT;
+    return { [USER_SKIN_KEYS.ui]: id };
+}
+
 export function resolvePortraitSkinId(pref, professionId, date = new Date()) {
     const raw = pref?.portrait ?? SKIN_AUTO;
     if (raw && raw !== SKIN_AUTO && PORTRAIT_SKINS[raw]) {
@@ -137,8 +138,10 @@ export function formatSkinCatalog(date = new Date()) {
         '🎨 鹿管皮肤一览',
         festHint,
         '',
-        '【界面主题】鹿况 / 月历 / 职业卡配色',
+        '【界面主题】鹿况 / 月历 / 职业卡 / 帮助 配色 + 可选 UI 组件 PNG',
         ...uiLines,
+        '',
+        'UI 组件：顶栏丝带 · 顶角装饰 · 月历水印（default / duanwu → assets/skins/*/ui/）',
         '',
         '【立绘皮肤】职业立绘 PNG',
         ...portraitLines,

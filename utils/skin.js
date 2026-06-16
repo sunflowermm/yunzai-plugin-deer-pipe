@@ -7,10 +7,11 @@ import {
     PORTRAIT_SKINS,
     resolveUiSkinId,
     resolvePortraitSkinId,
+    userRecordWithUiSkin,
     portraitSkinSupportsProfession,
 } from '../constants/skins.js';
 import { professionArtPath, skillArtPath } from '../constants/deer-assets.js';
-import { CARD_THEMES } from './svg-base.js';
+import { UI_SURFACES, resolveSurfaceTheme } from './ui/theme.js';
 
 export function getUserSkinPrefs(userRecord) {
     if (!userRecord || typeof userRecord !== 'object') {
@@ -48,32 +49,6 @@ export function resolveSkinContext(userRecord, date = new Date(), professionId =
     };
 }
 
-export function resolveCardTheme(uiSkinId, baseKey = 'profession') {
-    const ui = UI_SKINS[uiSkinId];
-    const themeKey = ui?.themeKey;
-    if (themeKey && CARD_THEMES[themeKey]) {
-        return { ...CARD_THEMES[baseKey], ...CARD_THEMES[themeKey] };
-    }
-    return CARD_THEMES[baseKey] || CARD_THEMES.profession;
-}
-
-export function mergeStatusTheme(statusTheme, uiSkinId) {
-    const ui = UI_SKINS[uiSkinId];
-    const overlay = ui?.themeKey && CARD_THEMES[ui.themeKey];
-    if (!overlay) return statusTheme;
-    return {
-        ...statusTheme,
-        bgStops: overlay.bgStops ?? statusTheme.bgStops,
-        title: overlay.title ?? statusTheme.title,
-        sub: overlay.sub ?? statusTheme.sub,
-        line: overlay.line ?? statusTheme.line,
-        muted: overlay.muted ?? statusTheme.muted,
-        accent: overlay.accent ?? statusTheme.accent,
-        panel: overlay.panel ?? statusTheme.panel,
-        highlight: overlay.highlight ?? statusTheme.highlight,
-    };
-}
-
 export function portraitArtExists(skinId, professionId) {
     const path = professionArtPath(professionId, skinId);
     return path && FileUtils.existsSync(path);
@@ -93,4 +68,4 @@ export function isUserProfileKey(key) {
     return key === USER_SKIN_KEYS.ui || key === USER_SKIN_KEYS.portrait;
 }
 
-export { portraitSkinSupportsProfession, USER_SKIN_KEYS };
+export { portraitSkinSupportsProfession, USER_SKIN_KEYS, UI_SURFACES, resolveSurfaceTheme, userRecordWithUiSkin };

@@ -9,6 +9,7 @@
   "scripts": {
     "art": "node scripts/art-pipeline/index.mjs",
     "art:fresh": "node scripts/art-pipeline/index.mjs fresh",
-    "prebuild:images": "node scripts/export-prebuilt-images.mjs"
+    "prebuild:images": "node scripts/export-prebuilt-images.mjs",
+    "preview:ui-skins": "node scripts/preview-ui-skins.mjs"
   }
 }

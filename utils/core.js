@@ -1,5 +1,5 @@
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
-import { escapeXml, truncText, svgTextStyled, svgTextPlain, buildCardDecorations, hashSeed, cardSvgExtraDefs, textCentered, textCenteredEmoji, buildFooterBar, buildCenteredPanel, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, buildSectionTitleRow, buildMultilineText, wrapTextLines, statusPanelTheme, TXT, TXT_SOFT, TXT_PLAIN, TXT_EMOJI } from './svg-base.js';
+import { escapeXml, truncText, svgTextStyled, svgTextPlain, hashSeed, cardSvgExtraDefs, textCentered, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, wrapTextLines, TXT, TXT_SOFT, TXT_PLAIN, TXT_EMOJI } from './svg-base.js';
 import { loadCalendarDeerMark, loadProfessionArt, loadSectionArt, stickerOverlay } from './sticker-compose.js';
 import { compositeToPng, rasterizeDeerSvg } from './render-pipeline.js';
 import { emojiSvgImage } from './emoji-compose.js';
@@ -48,7 +48,25 @@ import {
     pickRandom,
 } from '../constants/game.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
-import { mergeStatusTheme } from './skin.js';
+import { resolveSurfaceTheme, UI_SURFACES } from './ui/theme.js';
+import {
+    buildStatusHeader,
+    buildStatusPanelShell,
+    buildStatusStatBlock,
+    buildWeatherPanel,
+    buildPanelFooter,
+    buildSectionHeader,
+    buildCalendarBackgroundSvg,
+} from './ui/components.js';
+import {
+    resolveCalendarPalette,
+    resolveCalendarWeekHeader,
+} from './ui/theme.js';
+import {
+    buildChromeSvgFragment,
+    composeCalendarWatermark,
+    statusHeaderOffset,
+} from './ui/skin-assets.js';
 import { QUOTA, QUOTA_GROUPS, QUOTA_LABELS, quotaChipColor, resolveQuotaDenom } from '../constants/profession-quotas.js';
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
@@ -221,24 +239,16 @@ export async function generateImage(now, name, monthData, options = {}) {
     const todaySnap = getDaySnap(todayEntry);
     const todayReason = getDeathReason(todayEntry);
     const deerpipeSmall = await loadCalendarDeerMark(CAL_DEER_MARK_H);
-    const uiSkin = skinCtx?.uiSkin;
-    const calAliveBg = uiSkin?.calendar?.alive;
-    const calDeadBg = uiSkin?.calendar?.dead;
+    const uiSkinId = skinCtx?.ui || 'default';
+    const calPair = resolveCalendarPalette(uiSkinId, { dead: todayDead });
+    const weekHeaderFill = resolveCalendarWeekHeader(uiSkinId);
+    const calGradientStops = `<stop offset="0%" style="stop-color:${calPair[0]}"/><stop offset="100%" style="stop-color:${calPair[1]}"/>`;
     const compositeArray = [{
-        input: svgTextPlain(`
-            <defs>
-                <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    ${todayDead
-                        ? (calDeadBg
-                            ? `<stop offset="0%" style="stop-color:${calDeadBg[0]}"/><stop offset="100%" style="stop-color:${calDeadBg[1]}"/>`
-                            : `<stop offset="0%" style="stop-color:#2d1b1b"/><stop offset="100%" style="stop-color:#1a0a0a"/>`)
-                        : (calAliveBg
-                            ? `<stop offset="0%" style="stop-color:${calAliveBg[0]}"/><stop offset="100%" style="stop-color:${calAliveBg[1]}"/>`
-                            : `<stop offset="0%" style="stop-color:#fff8f0"/><stop offset="100%" style="stop-color:#ffe8d6"/>`)}
-                </linearGradient>
-            </defs>
-            <rect width="${IMG_W}" height="${IMG_H}" fill="url(#bg)"/>
-        `, IMG_W, IMG_H),
+        input: svgTextPlain(
+            buildCalendarBackgroundSvg({ width: IMG_W, height: IMG_H, gradientStops: calGradientStops }),
+            IMG_W,
+            IMG_H,
+        ),
         top: 0,
         left: 0,
     }];
@@ -268,7 +278,7 @@ export async function generateImage(now, name, monthData, options = {}) {
     for (let i = 0; i < 7; i++) {
         compositeArray.push({
             input: svgTextStyled(`
-                <rect x="0" y="0" width="${BOX_W}" height="${BOX_H}" fill="#f0e6dc" rx="6"/>
+                <rect x="0" y="0" width="${BOX_W}" height="${BOX_H}" fill="${weekHeaderFill}" rx="6"/>
                 <text ${TXT_PLAIN} x="${BOX_W / 2}" y="62" font-size="22" fill="#8b6914" text-anchor="middle" font-weight="bold">${WEEK_LABELS[i]}</text>
             `, BOX_W, BOX_H),
             top: weekY,
@@ -332,6 +342,9 @@ export async function generateImage(now, name, monthData, options = {}) {
             }
         }
     }
+
+    const calWatermark = await composeCalendarWatermark(uiSkinId, IMG_W, IMG_H);
+    if (calWatermark) compositeArray.push(calWatermark);
 
     return compositeToPng(IMG_W, IMG_H, compositeArray, { r: 255, g: 248, b: 240, alpha: 1 });
 }
@@ -430,8 +443,8 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
     now = ensureDate(now);
     const W = 740;
     const CX = W / 2;
-    const baseTheme = statusPanelTheme(status);
-    const theme = skinCtx?.ui ? mergeStatusTheme(baseTheme, skinCtx.ui) : baseTheme;
+    const uiSkinId = skinCtx?.ui || 'default';
+    const theme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.STATUS, { status });
     const dead = status.dead;
     const profHint = status.professionRequired
         ? '🎭未转职'
@@ -463,7 +476,8 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         ? `${periodLabel}${wx.name}${status.weather?.source === 'admin' ? '·赐福' : ''} · ${wx.tip}`
         : '天象：加载中…';
 
-    const WEATHER_TOP = 108;
+    const headerY0 = 44 + statusHeaderOffset(uiSkinId);
+    const WEATHER_TOP = headerY0 + 64;
     const PANEL_W = W - 32;
     const WEATHER_PAD_X = 28;
     const WEATHER_EMOJI_SIZE = 30;
@@ -505,7 +519,7 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
     let playSvg = '';
     const playHeaders = [];
     for (const sec of playSections) {
-        const header = buildSectionTitleRow(playY, sec.title, theme, {
+        const header = buildSectionHeader(playY, sec.title, theme, {
             padLeft: STATUS_SECTION_PAD, iconSize: STATUS_SECTION_ICON, fontSize: 14, fill: theme.muted,
         });
         playHeaders.push({ header, sectionKey: sec.sectionKey });
@@ -540,14 +554,18 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
     const decoSeed = hashSeed(name, now.toDateString(), status.count, dead);
     const dateMeta = `${now.getMonth() + 1}/${now.getDate()} · deer-pipe`;
 
-    const helpHeader = buildSectionTitleRow(QUOTA_TITLE_Y, '互助配额', theme, {
+    const helpHeader = buildSectionHeader(QUOTA_TITLE_Y, '互助配额', theme, {
         padLeft: STATUS_SECTION_PAD, iconSize: STATUS_SECTION_ICON, fontSize: 14, fill: theme.muted,
     });
 
     const weatherEmojiCx = WEATHER_PAD_X + WEATHER_EMOJI_SIZE / 2;
     const weatherEmojiCy = WEATHER_TOP + WEATHER_H / 2;
     const portraitSkinId = skinCtx?.portrait;
-    const [profThumb, helpIcon, weatherEmojiSvg, ...playIcons] = await Promise.all([
+    const balancedLine = (status.balancedScore != null && !status.professionRequired)
+        ? textCentered(CX, STAT_TOP + 114, `综合 ${status.balancedScore} 分 · ${escapeXml(truncText(status.balancedBreakdown || '', 40))}`, TXT_SOFT, { size: 13, fill: '#c9782a' })
+        : '';
+
+    const [profThumb, helpIcon, weatherEmojiSvg, chromeSvg, ...playIcons] = await Promise.all([
         (!status.professionRequired && status.professionId)
             ? loadProfessionArt(status.professionId, 76, {
                 borderWidth: 2,
@@ -557,35 +575,53 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
             : null,
         loadSectionArt('help', STATUS_SECTION_ICON),
         wx ? emojiSvgImage(weatherEmojiCx, weatherEmojiCy, wx.emoji, WEATHER_EMOJI_SIZE) : Promise.resolve(''),
+        buildChromeSvgFragment(uiSkinId, W),
         ...playHeaders.map(({ sectionKey }) => loadSectionArt(sectionKey, STATUS_SECTION_ICON)),
     ]);
 
-    const svg = `
-        <rect width="${W}" height="${H}" rx="16" fill="url(#sbg)"/>
-        ${buildCardDecorations(W, H, theme, decoSeed)}
-        ${textCentered(CX, 44, '今日鹿况', TXT, { size: 28, fill: theme.title, weight: 'bold' })}
-        ${textCentered(CX, 72, truncName(name, 18), TXT, { size: 20, fill: theme.sub })}
-        ${textCentered(CX, 94, escapeXml(tagline), TXT_SOFT, { size: 13, fill: theme.muted, italic: true })}
-        ${buildCenteredPanel(CX, WEATHER_TOP, PANEL_W, WEATHER_H, theme)}
-        ${weatherEmojiSvg}
-        ${buildMultilineText(WEATHER_TEXT_X, WEATHER_TOP + 22, weatherLines, { fontSize: 13, lineHeight: 17, fill: theme.line })}
-        ${textCenteredEmoji(CX, STAT_TOP + 28, moodEmoji, { size: 36 })}
-        ${textCentered(CX, STAT_TOP + 68, escapeXml(countText), TXT, { size: 30, fill: theme.title, weight: 'bold' })}
-        ${textCentered(CX, STAT_TOP + 94, `尝试 ${status.attempts} 次`, TXT_SOFT, { size: 15, fill: theme.sub })}
-        ${status.balancedScore != null && !status.professionRequired ? textCentered(CX, STAT_TOP + 114, `综合 ${status.balancedScore} 分 · ${escapeXml(truncText(status.balancedBreakdown || '', 40))}`, TXT_SOFT, { size: 13, fill: '#c9782a' }) : ''}
-        ${textCentered(CX, STAT_TOP + (status.balancedScore != null && !status.professionRequired ? 134 : 114), truncText(riskLine, 52), TXT_SOFT, { size: 14, fill: theme.line })}
-        ${textCentered(CX, STAT_TOP + (status.balancedScore != null && !status.professionRequired ? 158 : 138), escapeXml(auraLine), TXT_SOFT, { size: 14, fill: auraFill })}
+    const innerSvg = `
+        ${buildStatusHeader({ cx: CX, theme, name, tagline, y0: headerY0 })}
+        ${buildWeatherPanel({
+            width: W,
+            top: WEATHER_TOP,
+            height: WEATHER_H,
+            theme,
+            weatherLines,
+            weatherEmojiSvg,
+            textX: WEATHER_TEXT_X,
+        })}
+        ${buildStatusStatBlock({
+            cx: CX,
+            statTop: STAT_TOP,
+            theme: { ...theme, auraFill },
+            moodEmoji,
+            countText,
+            attemptsLine: `尝试 ${status.attempts} 次`,
+            riskLine,
+            auraLine,
+            balancedLine,
+        })}
         ${helpHeader.svg}
         ${quotaSvg}
         ${playSvg}
-        ${buildFooterBar(W, flavorY, `${flavorLine} · ${dateMeta}`, theme, 56)}
+        ${buildPanelFooter(W, flavorY, `${flavorLine} · ${dateMeta}`, theme, 56)}
     `;
+
+    const svg = buildStatusPanelShell({
+        width: W,
+        height: H,
+        theme,
+        uiSkinId,
+        seed: decoSeed,
+        chromeSvg,
+        innerSvg,
+    });
     const layers = [{
         input: rasterizeDeerSvg(svgTextStyled(svg, W, H, `<linearGradient id="sbg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`)),
         top: 0,
         left: 0,
     }];
-    const thumbOverlay = profThumb ? stickerOverlay(profThumb, 28, W - 100) : null;
+    const thumbOverlay = profThumb ? stickerOverlay(profThumb, STAT_TOP + 8, 24) : null;
     if (thumbOverlay) layers.push(thumbOverlay);
     if (helpIcon) layers.push(stickerOverlay(helpIcon, helpHeader.slot.top, helpHeader.slot.left));
     playHeaders.forEach(({ header }, i) => {
