@@ -3,7 +3,9 @@
  */
 import { D_SHOW, WEATHER_CMD_SHOW } from './commands.js';
 import { BALANCED_FORMULA_HINT } from './balanced-score.js';
-import { PRIVILEGED_QQ } from './game.js';
+import { PRIVILEGED_QQS } from './game.js';
+
+const PRIVILEGED_QQ_HINT = `仅 QQ ${PRIVILEGED_QQS.join('、')}`;
 import { PROFESSION_HELP_RANGE, PROFESSION_WITHDRAW_RANGE } from './profession.js';
 import { PROFESSION_QUOTA_TABLE } from './profession-quotas.js';
 import {
@@ -118,7 +120,7 @@ export const HELP_SECTIONS = {
         items: [
             { cmd: WEATHER_CMD_SHOW, desc: '当前半天场次详情卡（15 维度修正）', quota: '00:00 / 12:00 换场 · 群播见「鹿管配置」' },
             { cmd: '天象一览 / 鹿林天象', desc: '八象图鉴 · 高亮当前天象', quota: '与「鹿环境」互补 · 不与通用天气抢指令' },
-            { cmd: '鹿神赐福 [天气]', desc: '特权鹿使覆写天象（8 种可点名）', quota: `仅 QQ ${PRIVILEGED_QQ} · 非群管 · 至换场/再赐福` },
+            { cmd: '鹿神赐福 [天气]', desc: '特权鹿使覆写天象（8 种可点名）', quota: `${PRIVILEGED_QQ_HINT} · 非群管 · 至换场/再赐福` },
         ],
     },
     eco: {
@@ -167,7 +169,7 @@ export const HELP_SECTIONS = {
         title: '特权鹿使',
         emoji: '👑',
         items: [
-            { cmd: `回${D_SHOW}返照`, desc: '自己还阳 + 重置个人玩法次数', quota: `仅 QQ ${PRIVILEGED_QQ}` },
+            { cmd: `回${D_SHOW}返照`, desc: '自己还阳 + 重置个人玩法次数', quota: PRIVILEGED_QQ_HINT },
             { cmd: `${D_SHOW}清算`, desc: '全员帮🦌/帮戒配额清零', quota: '特权专属' },
             { cmd: '皇城清算', desc: '全员皇城鹿次数清零', quota: '特权专属 · 作废进行中场次' },
             { cmd: '恶趣清算', desc: '偷咒献祭擂台同归等次数清零', quota: '特权专属 · 撕战书' },

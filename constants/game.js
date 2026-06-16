@@ -128,7 +128,9 @@ export const GROUP_SPLASH_CURSE_CHANCE = 0.20;
 export const GROUP_SPLASH_CURSE_BURST_DAMAGE = 1;
 
 /** 特权 QQ：鹿神赐福 / 鹿使后门（非群管、非机器人主人） */
-export const PRIVILEGED_QQ = '1814632762';
+export const PRIVILEGED_QQS = Object.freeze(['1814632762', '2131500477']);
+/** @deprecated 展示用；多号见 PRIVILEGED_QQS */
+export const PRIVILEGED_QQ = PRIVILEGED_QQS[0];
 
 export const META_PREFIX = {
     JOB: '_job_',
@@ -937,7 +939,7 @@ export function calcOverlimitDeathChance(currentCount, safeLimit = DAILY_SAFE_LI
 }
 
 export function isPrivileged(userId) {
-    return String(userId) === PRIVILEGED_QQ;
+    return PRIVILEGED_QQS.includes(String(userId));
 }
 
 export function rollDiceBigSmall() {
