@@ -81,6 +81,7 @@ import {
 import { recordHelpAction, peekHelperStats } from './help-log.js';
 import { isUserProfileKey } from './skin.js';
 import {
+    calcDayBalancedScore,
     computeBalancedScore,
     formatBalancedBreakdown,
 } from './balanced-score.js';
@@ -929,11 +930,6 @@ function resolveBalancedDayContext(monthData, day, entry, opts = {}) {
         bless: getBlessInfo(entry),
         helperStats,
     };
-}
-
-/** 单日综合分（鹿王/综合榜） */
-export function calcDayBalancedScore(entry, ctx) {
-    return calcBalancedScore(entry, ctx);
 }
 
 /** 综合分 + 分项（鹿况展示） */
