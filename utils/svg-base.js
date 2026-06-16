@@ -734,7 +734,7 @@ export async function fetchCircleAvatar(userId, size = 68, ringColor = null) {
     }
 }
 
-export async function renderStyledCard(width, height, innerSvg, themeKey = 'mischief', overlays = [], themeOverride = null, underlays = []) {
+export async function renderStyledCard(width, height, innerSvg, themeKey = 'mischief', overlays = [], themeOverride = null) {
     const theme = themeOverride || CARD_THEMES[themeKey] || CARD_THEMES.mischief;
     const w = px(width);
     const h = px(height);
@@ -745,5 +745,5 @@ export async function renderStyledCard(width, height, innerSvg, themeKey = 'misc
         `<linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`,
     );
     const svgLayer = rasterizeDeerSvg(svg);
-    return compositeToPng(w, h, [...underlays, { input: svgLayer, top: 0, left: 0 }, ...overlays]);
+    return compositeToPng(w, h, [{ input: svgLayer, top: 0, left: 0 }, ...overlays]);
 }

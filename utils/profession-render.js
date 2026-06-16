@@ -30,7 +30,7 @@ import {
 import { resolveSurfaceTheme, resolveDecorationProfile, UI_SURFACES } from './ui/theme.js';
 import { buildSkinCardDecorations } from './ui/components.js';
 import { statusHeaderOffset } from './ui/skin-assets.js';
-import { renderSkinnedCard } from './ui/shell.js';
+import { renderSkinnedCard, renderSkinnedCardStacked } from './ui/shell.js';
 import {
     buildFooterBar,
     buildMultilineText,
@@ -471,9 +471,12 @@ export async function generateProfessionCatalogImage(opts = {}) {
         statusOverlays.push(...statusTitle.overlays);
     }
 
-    const inner = `
+    const catalogSeed = hashSeed('prof-catalog', uiSkinId);
+    const backgroundSvg = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
-        ${buildSkinCardDecorations(CARD_W, H, theme, hashSeed('prof-catalog', uiSkinId), decoProfile)}
+        ${buildSkinCardDecorations(CARD_W, H, theme, catalogSeed, decoProfile)}
+    `;
+    const contentSvg = `
         ${headerSvg}
         ${statusSvg || textCentered(CX, headerEnd + 14, '转职+职业名 · 当日锁定 · 次日0点重置', TXT_SOFT, { size: 13, fill: theme.muted })}
         ${synergyBlock.svg}
@@ -500,18 +503,17 @@ export async function generateProfessionCatalogImage(opts = {}) {
         overlays.push(stickerOverlay(part.thumb, part.cell.artTop, part.cell.artLeft));
     });
     if (brandLogo) overlays.push(stickerOverlay(brandLogo, H - 42, 22));
-    const catalogSeed = hashSeed('prof-catalog', uiSkinId);
-    return renderSkinnedCard({
+
+    return renderSkinnedCardStacked({
         width: CARD_W,
         height: H,
-        innerSvg: inner,
+        backgroundSvg,
+        contentSvg,
         uiSkinId,
-        surface: UI_SURFACES.PROFESSION_CATALOG,
         theme,
         themeKey: 'profession',
         overlays: overlays.filter(Boolean),
         opts: {
-            presentationUnderContent: true,
             stickerSeed: catalogSeed,
             stickerProfile: { occupiedRects: deerFill.placedRects },
         },

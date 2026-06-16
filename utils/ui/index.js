@@ -42,4 +42,5 @@ export {
     resolvePlayResultTheme,
     buildSurfaceDecorations,
     renderSkinnedCard,
+    renderSkinnedCardStacked,
 } from './shell.js';
