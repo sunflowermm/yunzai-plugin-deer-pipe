@@ -1,7 +1,6 @@
 import { pickRandom } from '../constants/game.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
 import {
-    buildCardDecorations,
     buildCenteredEmojiTitle,
     buildCenteredPanel,
     buildFooterBar,
@@ -12,7 +11,6 @@ import {
     fetchCircleAvatar,
     hashSeed,
     labelValueGridRowCount,
-    renderStyledCard,
     statGridHeight,
     textCentered,
     textCenteredEmoji,
@@ -21,6 +19,9 @@ import {
     TXT_SOFT,
     DEFAULT_CARD_W,
 } from './svg-base.js';
+import { UI_SURFACES, resolveSurfaceTheme } from './ui/theme.js';
+import { buildSurfaceDecorations, renderSkinnedCard } from './ui/shell.js';
+import { resolveSkinContext } from './skin.js';
 
 const CARD_W = DEFAULT_CARD_W;
 const CX = CARD_W / 2;
@@ -81,8 +82,10 @@ export async function generateDailyKingImage({
     rankTop = [],
     dateLabel = '',
     groupLabel = '',
+    skinCtx = null,
 }) {
-    const kingTheme = CARD_THEMES.king;
+    const uiSkinId = skinCtx?.ui || resolveSkinContext(null, date).ui;
+    const kingTheme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.KING);
     const avatarSize = 96;
     const avatar = await fetchCircleAvatar(kingId, avatarSize, '#ffd700');
     const statRows = [
@@ -103,11 +106,11 @@ export async function generateDailyKingImage({
     const flavor = pickRandom(CARD_FLAVOR.king || CARD_FLAVOR.default);
     const titleLine = dateLabel || `${date.getMonth() + 1}月${date.getDate()}日`;
     const subtitle = groupLabel ? truncText(groupLabel, 28) : '综合日榜第一 · 今日鹿王';
-    const decoSeed = hashSeed(kingId, dateLabel, count);
+    const decoSeed = hashSeed(kingId, dateLabel, count, uiSkinId);
 
     const inner = `
         ${buildKingRegalia(CARD_W, H, kingTheme, decoSeed)}
-        ${buildCardDecorations(CARD_W, H, kingTheme, decoSeed)}
+        ${buildSurfaceDecorations(CARD_W, H, kingTheme, uiSkinId, decoSeed)}
         <rect x="0" y="0" width="${CARD_W}" height="${H}" fill="url(#kingVeil)" rx="16"/>
         ${buildCenteredEmojiTitle(CX, 40, '👑', '日度鹿王 · 加冕典礼', { emojiSize: 28, titleSize: 26, style: TXT, fill: kingTheme.title })}
         ${textCentered(CX, 68, escapeXml(titleLine), TXT_SOFT, { size: 15, fill: kingTheme.sub, italic: true })}
@@ -121,5 +124,14 @@ export async function generateDailyKingImage({
     `;
 
     const overlays = avatar ? [{ input: avatar, top: 132, left: CX - avatarSize / 2 }] : [];
-    return renderStyledCard(CARD_W, H, inner, 'king', overlays);
+    return renderSkinnedCard({
+        width: CARD_W,
+        height: H,
+        innerSvg: inner,
+        uiSkinId,
+        surface: UI_SURFACES.KING,
+        theme: kingTheme,
+        themeKey: 'king',
+        overlays,
+    });
 }

@@ -159,6 +159,26 @@ flowchart TD
 
 偷鹿、叠咒、帮鹿等 **对局结果卡**（含头像、统计条）为 **实时渲染**，样式见附录 A 样例。
 
+### 界面主题与立绘皮肤
+
+**界面主题（样式）** 与 **立绘皮肤** 完全独立，切换互不影响；显式切换后 **永久写入档案**。
+
+| 类型 | 指令 | 规则 |
+|------|------|------|
+| **界面主题** | `鹿皮肤` / `鹿皮肤端午` / `默认` / `自动` | **免费切换** · 影响鹿况、月历、帮助、PK 卡、天象等 UI |
+| **立绘皮肤** | `鹿立绘` / `鹿立绘端午` / `默认` / `自动` | 仅影响职业专精立绘与相关缩略图 |
+
+**端午立绘（活动）**（2026-06-01～06-30）：
+
+| 立绘 | 解锁条件 | 说明 |
+|------|----------|------|
+| 🔥 卷王鹿·端午 | 活动期间 **自🦌 累计 10 次** | 达标自动赠送，操作成功时提示 |
+| 💊 鹿医师·端午 | 活动期间 **帮鹿 累计 10 次** | 同上 |
+
+活动结束后 **不可再解锁**；已获得的立绘 **永久保留**。界面端午主题仍可通过 `鹿皮肤端午` 免费使用（或 `自动` 跟节日窗口）。
+
+附录 A 主截图展示 **端午界面主题**；默认主题对照见 [附录 A · 主题对照](#主题对照默认--端午)。
+
 ---
 
 ## 八职业体系
@@ -325,6 +345,8 @@ flowchart TD
 | `添加鹿友@` / `我的鹿友` / `绝交鹿友@` | 🦌 友 |
 | `帮鹿@` / `帮戒鹿@` | 代 🦌 / 帮戒 |
 | `鹿配额` / `帮鹿次数` / `帮戒鹿次数` | 互助与玩法配额 |
+| `鹿皮肤` / `鹿皮肤端午` | 界面主题（免费切换 · 永久保存） |
+| `鹿立绘` / `鹿立绘端午` | 立绘皮肤（须解锁 · 与界面独立） |
 | `解鹿咒@` / `鹿福@` / `解鹿福@` / `借鹿@` | 咒福互解 / 借鹿 |
 
 </details>
@@ -389,13 +411,20 @@ flowchart TD
 
 | 类型 | 运行时入口 | 预渲染 / 实时 |
 |------|------------|---------------|
-| 鹿帮助 | `resolveHelpImages()` | `assets/prebuilt/help/` |
-| 职业一览 | `resolveProfessionCatalogImage()` | `prebuilt/profession/catalog.png` |
-| 静态职业卡 | `resolveProfessionCard(id)` | `prebuilt/profession/card-*.png` |
-| 天象详情 | `resolveWeatherDetailImage()` | `prebuilt/weather/{id}-am\|pm.png` |
+| 鹿帮助 | `resolveHelpImages()` | `prebuilt/help/{ui}/page-*.png` |
+| 职业一览 | `resolveProfessionCatalogImage()` | `prebuilt/profession/{ui}/catalog.png` |
+| 静态职业卡 | `resolveProfessionCard(id)` | `prebuilt/profession/{ui}/card-*.png` |
+| 天象详情 | `resolveWeatherDetailImage()` | `prebuilt/weather/{ui}/{id}-am\|pm.png` |
 | 鹿况 / 月历 / 玩法卡 | 实时 SVG + sharp | — |
 
-**改 UI 后**：仓库已含 `assets/prebuilt/` 与 `docs/images/` 成品；维护者本地用 `scripts/`（gitignore，不入库）重新导出后再提交 PNG。
+**改 UI 后**（XRK-Yunzai 根目录）：
+
+```bash
+node plugins/yunzai-plugin-deer-pipe/scripts/export-images.mjs
+# 或 npm run prebuild:images
+```
+
+一次生成并提交 **`assets/prebuilt/`**（Bot 运行时直读）与 **`docs/images/`**（README / GitHub 附图）。仅改 Bot 预渲染：`npm run prebuild:runtime`；仅改 README 截图：`npm run export:docs-images`。
 
 调试实时出图：`DEER_PIPE_FORCE_LIVE_RENDER=1`。
 
@@ -411,28 +440,38 @@ yunzai-plugin-deer-pipe/
 ├── constants/            # commands · profession · help-catalog · weather …
 ├── utils/                # prebuilt-images · core · profession-render …
 ├── assets/
-│   ├── prebuilt/         # 预渲染 PNG（Bot 直读，提交）
+│   ├── prebuilt/         # 运行时预渲染 PNG（提交）
 │   ├── professions/      # 抠图后立绘（提交；源图在 _source/ 不提交）
 │   ├── _source/          # 抠图前品红底（本地，gitignore）
 │   └── stickers/         # 抠图后图标（提交）
-├── docs/images/          # README 镜像（提交）
+├── docs/images/          # README 附图（提交，GitHub 展示）
 ```
 
 ---
 
 ## 附录 A · Bot 出图样例
 
-> 以下每张图 **仅在本附录出现一次**。源文件：`assets/prebuilt/`（主）与 `docs/images/`（镜像）。
+> 以下每张图 **仅在本附录出现一次**。`assets/prebuilt/` 为 Bot 运行时预渲染；`docs/images/` 为 README 固定样例（鹿况、月历、玩法卡等带演示数据，**须提交仓库** GitHub 才能显示）。
+> **主截图**为 **端午界面主题**；默认主题见 [主题对照](#主题对照默认--端午)。
 
-### 鹿况 · 职业一览 · 说明书
+### 鹿况 · 职业一览 · 说明书（端午主题）
 
 | 今日鹿况 `鹿况` | 八职业一览 `鹿职业` |
 |:---:|:---:|
-| <img src="./docs/images/status-panel.png" alt="今日鹿况" width="360"> | <img src="./docs/images/profession-catalog.png" alt="八职业一览" width="360"> |
+| <img src="./docs/images/status-duanwu.png" alt="今日鹿况·端午主题" width="360"> | <img src="./docs/images/catalog-duanwu.png" alt="八职业一览·端午主题" width="360"> |
 
 | 鹿帮助 · 活鹿篇 `鹿帮助` | 鹿帮助 · 冥界篇 |
 |:---:|:---:|
-| <img src="./docs/images/help-1.png" alt="帮助活鹿篇" width="360"> | <img src="./docs/images/help-2.png" alt="帮助冥界篇" width="360"> |
+| <img src="./docs/images/help-duanwu-1.png" alt="帮助活鹿篇·端午主题" width="360"> | <img src="./docs/images/help-duanwu-2.png" alt="帮助冥界篇·端午主题" width="360"> |
+
+### 主题对照（默认 ↔ 端午）
+
+界面主题 **免费切换**；文件名：`docs/images/{类型}-{default|duanwu}.png`。
+
+| 鹿况 | 月历 | 帮助活鹿篇 |
+|:---:|:---:|:---:|
+| <img src="./docs/images/status-default.png" alt="鹿况·默认" width="200"> | <img src="./docs/images/calendar-default.png" alt="月历·默认" width="200"> | <img src="./docs/images/help-default-1.png" alt="帮助·默认" width="200"> |
+| <img src="./docs/images/status-duanwu.png" alt="鹿况·端午" width="200"> | <img src="./docs/images/calendar-duanwu.png" alt="月历·端午" width="200"> | <img src="./docs/images/help-duanwu-1.png" alt="帮助·端午" width="200"> |
 
 ### 八职业静态专精卡
 
@@ -440,11 +479,11 @@ yunzai-plugin-deer-pipe/
 
 | 巡游 `鹿职业巡游` | 鹿医师 `鹿职业医师` | 戒灵师 `鹿职业戒师` | 卷王 `鹿职业卷王` |
 |:---:|:---:|:---:|:---:|
-| <img src="./assets/prebuilt/profession/card-ranger.png" alt="巡游鹿" width="200"> | <img src="./assets/prebuilt/profession/card-medic.png" alt="鹿医师" width="200"> | <img src="./assets/prebuilt/profession/card-ascetic.png" alt="戒灵师" width="200"> | <img src="./assets/prebuilt/profession/card-grinder.png" alt="卷王鹿" width="200"> |
+| <img src="./assets/prebuilt/profession/default/card-ranger.png" alt="巡游鹿" width="200"> | <img src="./assets/prebuilt/profession/default/card-medic.png" alt="鹿医师" width="200"> | <img src="./assets/prebuilt/profession/default/card-ascetic.png" alt="戒灵师" width="200"> | <img src="./assets/prebuilt/profession/default/card-grinder.png" alt="卷王鹿" width="200"> |
 
 | 叠咒 `鹿职业叠咒` | 福鹿使 `鹿职业福鹿使` | 窃光 `鹿职业窃光` | 向日葵 `鹿职业向日葵` |
 |:---:|:---:|:---:|:---:|
-| <img src="./assets/prebuilt/profession/card-curser.png" alt="叠咒鹿" width="200"> | <img src="./assets/prebuilt/profession/card-blesser.png" alt="福鹿使" width="200"> | <img src="./assets/prebuilt/profession/card-rogue.png" alt="窃光鹿" width="200"> | <img src="./assets/prebuilt/profession/card-sunflower.png" alt="向日葵鹿" width="200"> |
+| <img src="./assets/prebuilt/profession/default/card-curser.png" alt="叠咒鹿" width="200"> | <img src="./assets/prebuilt/profession/default/card-blesser.png" alt="福鹿使" width="200"> | <img src="./assets/prebuilt/profession/default/card-rogue.png" alt="窃光鹿" width="200"> | <img src="./assets/prebuilt/profession/default/card-sunflower.png" alt="向日葵鹿" width="200"> |
 
 ### 鹿林八象详情卡
 
@@ -452,11 +491,11 @@ yunzai-plugin-deer-pipe/
 
 | 晴朗 ☀️ | 细雨 🌧️ | 瑞雪 ❄️ | 雷暴 ⛈️ |
 |:---:|:---:|:---:|:---:|
-| <img src="./assets/prebuilt/weather/sunny-am.png" alt="晴朗" width="200"> | <img src="./assets/prebuilt/weather/drizzle-am.png" alt="细雨" width="200"> | <img src="./assets/prebuilt/weather/snow-am.png" alt="瑞雪" width="200"> | <img src="./assets/prebuilt/weather/storm-am.png" alt="雷暴" width="200"> |
+| <img src="./assets/prebuilt/weather/default/sunny-am.png" alt="晴朗" width="200"> | <img src="./assets/prebuilt/weather/default/drizzle-am.png" alt="细雨" width="200"> | <img src="./assets/prebuilt/weather/default/snow-am.png" alt="瑞雪" width="200"> | <img src="./assets/prebuilt/weather/default/storm-am.png" alt="雷暴" width="200"> |
 
 | 鹿雾 🌫️ | 祥风 🍃 | 阴霾 🌑 | 鹿虹 🌈 |
 |:---:|:---:|:---:|:---:|
-| <img src="./assets/prebuilt/weather/fog-am.png" alt="鹿雾" width="200"> | <img src="./assets/prebuilt/weather/breeze-am.png" alt="祥风" width="200"> | <img src="./assets/prebuilt/weather/gloom-am.png" alt="阴霾" width="200"> | <img src="./assets/prebuilt/weather/rainbow-am.png" alt="鹿虹" width="200"> |
+| <img src="./assets/prebuilt/weather/default/fog-am.png" alt="鹿雾" width="200"> | <img src="./assets/prebuilt/weather/default/breeze-am.png" alt="祥风" width="200"> | <img src="./assets/prebuilt/weather/default/gloom-am.png" alt="阴霾" width="200"> | <img src="./assets/prebuilt/weather/default/rainbow-am.png" alt="鹿虹" width="200"> |
 
 ### 玩法互动卡（实时出图样例）
 
@@ -466,9 +505,9 @@ yunzai-plugin-deer-pipe/
 
 ### 月历样例
 
-指令：`看鹿` / `鹿历6` 等（含用户数据，样式参考）。
+指令：`看鹿` / `鹿历6` 等（含用户数据，样式参考 · 端午主题）。
 
-<img src="./assets/prebuilt/calendar/month-demo.png" alt="月历样例" width="680">
+<img src="./docs/images/calendar-duanwu.png" alt="月历样例·端午" width="680">
 
 ---
 
@@ -488,7 +527,14 @@ yunzai-plugin-deer-pipe/
 |:---:|:---:|:---:|:---:|
 | <img src="./assets/professions/curser.png" width="88" alt="叠咒鹿"> | <img src="./assets/professions/blesser.png" width="88" alt="福鹿使"> | <img src="./assets/professions/rogue.png" width="88" alt="窃光鹿"> | <img src="./assets/professions/sunflower.png" width="88" alt="向日葵鹿"> |
 
-端午皮肤（`skins/duanwu/`，medic / grinder）：
+端午立绘（`skins/duanwu/`，medic / grinder）— **活动解锁**，非界面主题：
+
+| 解锁 | 条件（端午活动期间） |
+|------|------------------------|
+| 卷王鹿·端午 | 自🦌 **累计 10 次** 自动赠送 |
+| 鹿医师·端午 | 帮鹿 **累计 10 次** 自动赠送 |
+
+活动结束后不可再解锁；已解锁永久保留。切换：`鹿立绘端午`（须已解锁对应职业）。
 
 | 鹿医师·端午 | 卷王鹿·端午 |
 |:---:|:---:|

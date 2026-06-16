@@ -30,7 +30,7 @@ export function resolveSurfaceTheme(uiSkinId, surface, opts = {}) {
     }
 
     const cfg = surfaceConfig(pack, surface);
-    const baseKey = cfg.baseKey || 'mischief';
+    const baseKey = opts.baseKey || cfg.baseKey || 'mischief';
     const base = CARD_THEMES[baseKey] || CARD_THEMES.mischief;
     return mergeTheme(base, cfg.themeOverlay || pack.themeOverlay);
 }

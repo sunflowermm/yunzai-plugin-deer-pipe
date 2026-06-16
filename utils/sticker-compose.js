@@ -161,41 +161,90 @@ export async function loadFadedDeerMark(height, opacity = 0.22) {
 }
 
 /**
- * 在矩形区域内散布鹿标贴图（填充空白）
- * @returns {Promise<Array<{input: Buffer, top: number, left: number}>>}
+ * 在矩形区域内随机散布半透明鹿标（与皮肤贴图共用避让逻辑）
+ * @returns {Promise<{ overlays: Array<{input: Buffer, top: number, left: number}>, placedRects: Array<{left,top,width,height}> }>}
  */
-export async function scatterDeerMarkOverlays(regionW, regionH, regionTop, regionLeft, {
-    count = 8,
-    seed = 1,
-    markHeight = 52,
-    opacity = 0.2,
-} = {}) {
-    const mark = await loadFadedDeerMark(markHeight, opacity);
-    if (!mark || regionW < markHeight || regionH < markHeight) return [];
-    const meta = await sharp(mark).metadata();
-    const mw = meta.width || markHeight;
-    const mh = meta.height || markHeight;
+export async function scatterDeerMarkOverlays(regionW, regionH, regionTop, regionLeft, opts = {}) {
+    const count = opts.count ?? 8;
+    const seed = opts.seed ?? 1;
+    const baseHeight = opts.markHeight ?? 52;
+    const opacity = opts.opacity ?? 0.2;
+    const variation = opts.sizeVariation ?? 0.32;
+    const minGap = opts.minGap ?? 10;
+    const pad = opts.excludePad ?? 6;
+    const maxAttempts = opts.maxAttempts ?? count * 80;
+
+    if (regionW < baseHeight || regionH < baseHeight) {
+        return { overlays: [], placedRects: [] };
+    }
+
     let s = seed >>> 0;
     const rng = () => {
         s = Math.imul(s ^ (s >>> 15), 1 | s);
         return ((s ^ (s >>> 14)) >>> 0) / 4294967296;
     };
+
+    const expandRect = (rect, gap) => ({
+        left: rect.left - gap,
+        top: rect.top - gap,
+        width: rect.width + gap * 2,
+        height: rect.height + gap * 2,
+    });
+    const rectsOverlap = (a, b) => a.left < b.left + b.width
+        && a.left + a.width > b.left
+        && a.top < b.top + b.height
+        && a.top + a.height > b.top;
+    const overlapsAny = (rect, rects) => rects.some((r) => rectsOverlap(rect, r));
+
+    const exclude = [
+        ...(opts.excludeRects ?? []),
+        ...(opts.occupiedRects ?? []),
+    ].map((r) => expandRect(r, pad));
+
+    const placed = [];
     const overlays = [];
-    const cols = Math.max(2, Math.floor(regionW / (mw + 24)));
-    const rows = Math.max(1, Math.ceil(count / cols));
-    for (let i = 0; i < count; i += 1) {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        const cellW = regionW / cols;
-        const cellH = regionH / rows;
-        const jitterX = (rng() - 0.5) * Math.min(20, cellW * 0.2);
-        const jitterY = (rng() - 0.5) * Math.min(16, cellH * 0.2);
-        const left = px(regionLeft + col * cellW + (cellW - mw) / 2 + jitterX);
-        const top = px(regionTop + row * cellH + (cellH - mh) / 2 + jitterY);
-        const o = stickerOverlay(mark, top, left);
+
+    for (let n = 0; n < count; n += 1) {
+        const scale = 1 - variation * 0.5 + rng() * variation;
+        const markHeight = Math.max(28, Math.round(baseHeight * scale));
+        const mark = await loadFadedDeerMark(markHeight, opacity);
+        if (!mark) continue;
+        const meta = await sharp(mark).metadata();
+        const mw = meta.width || markHeight;
+        const mh = meta.height || markHeight;
+        if (mw > regionW - 4 || mh > regionH - 4) continue;
+
+        let accepted = null;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            const left = px(regionLeft + 2 + rng() * (regionW - mw - 4));
+            const top = px(regionTop + 2 + rng() * (regionH - mh - 4));
+            const candidate = { left, top, width: mw, height: mh };
+            if (overlapsAny(candidate, exclude)) continue;
+            if (placed.some((p) => rectsOverlap(candidate, expandRect(p, minGap)))) continue;
+            accepted = { left, top, width: mw, height: mh, mark };
+            break;
+        }
+        if (!accepted) continue;
+
+        placed.push({ left: accepted.left, top: accepted.top, width: mw, height: mh });
+        const o = stickerOverlay(accepted.mark, accepted.top, accepted.left);
         if (o) overlays.push(o);
     }
-    return overlays;
+
+    const placedRects = placed.map(({ left, top, width, height }) => ({ left, top, width, height }));
+    return { overlays, placedRects };
+}
+
+/** 整卡散布鹿标（帮助页等全幅背景） */
+export async function scatterDeerMarkForCard(width, height, seed, opts = {}) {
+    const marginTop = opts.marginTop ?? 12;
+    const marginBottom = opts.marginBottom ?? 12;
+    const marginLeft = opts.marginLeft ?? 8;
+    const marginRight = opts.marginRight ?? 8;
+    const regionW = width - marginLeft - marginRight;
+    const regionH = height - marginTop - marginBottom;
+    if (regionW < 48 || regionH < 48) return { overlays: [], placedRects: [] };
+    return scatterDeerMarkOverlays(regionW, regionH, marginTop, marginLeft, { seed, ...opts });
 }
 
 export function buildPortraitGlowSvg(cx, cy, size, color = 'rgba(255,179,71,0.35)') {

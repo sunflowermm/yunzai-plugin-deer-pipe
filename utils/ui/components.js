@@ -50,16 +50,10 @@ export function buildSkinCardDecorations(w, h, theme, seed = 1, profile = {}) {
     `;
 }
 
-/** 卡片背景渐变 defs + 装饰 */
-export function buildCardShellDefs(theme) {
-    return `<linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">${theme.bgStops}</linearGradient>${cardSvgExtraDefs(theme)}`;
-}
-
-export function buildStatusPanelShell({ width, height, theme, uiSkinId, seed, innerSvg, chromeSvg = '' }) {
+export function buildStatusPanelShell({ width, height, theme, uiSkinId, seed, innerSvg }) {
     const profile = resolveDecorationProfile(uiSkinId);
     return `
         <rect width="${width}" height="${height}" rx="16" fill="url(#sbg)"/>
-        ${chromeSvg}
         ${buildSkinCardDecorations(width, height, theme, seed, profile)}
         ${innerSvg}
     `;

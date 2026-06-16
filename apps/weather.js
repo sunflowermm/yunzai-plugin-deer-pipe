@@ -25,6 +25,7 @@ import { REG, cleanCommandMsg } from '../constants/commands.js';
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 import { resolveWeatherDetailImage } from '../utils/prebuilt-images.js';
+import { resolveSkinContext } from '../utils/skin.js';
 import { screenshot, toImageBuffer } from '../utils/deer-screenshot.js';
 import WeatherCatalog from '../model/weather-catalog.js';
 import { replyWeatherCard, replyInteractionResult } from '../utils/panel.js';
@@ -75,7 +76,8 @@ export class DeerWeather extends plugin {
     async weatherToday() {
         const date = new Date();
         const { state, effects } = await getWeatherContext(date);
-        const img = await resolveWeatherDetailImage(state, effects, date);
+        const skinCtx = resolveSkinContext(null, date);
+        const img = await resolveWeatherDetailImage(state, effects, date, { skinCtx });
         const caption = [
             formatWeatherBrief(state, date),
             pickRandom(WEATHER_CATALOG[state.weatherId]?.announce || []) || '',

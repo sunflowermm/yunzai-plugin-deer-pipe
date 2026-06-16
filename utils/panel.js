@@ -63,6 +63,9 @@ export async function replyInteractionResult(e, {
         extraLines,
         duel,
         subtitle,
+        skinCtx: userId && deerData && date
+            ? skinCtxForUser(getUserRecord(deerData, userId), date)
+            : resolveSkinContext(null, date),
     });
     const parts = [segment.image(card)];
     if (text) parts.unshift(text);
@@ -82,9 +85,6 @@ export async function replyInteractionResult(e, {
 
     await e.reply(parts, true);
 }
-
-/** @deprecated 请用 replyInteractionResult */
-export const replyPlayfulResult = replyInteractionResult;
 
 export async function replyWeatherCard(e, { caption, imageBuffer }) {
     const parts = caption ? [caption, segment.image(imageBuffer)] : [segment.image(imageBuffer)];

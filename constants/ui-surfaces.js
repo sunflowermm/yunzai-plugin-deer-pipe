@@ -9,6 +9,7 @@ export const UI_SURFACES = Object.freeze({
     HELP: 'help',
     PLAY: 'play',
     WEATHER: 'weather',
+    KING: 'king',
 });
 
 /** @typedef {typeof UI_SURFACES[keyof typeof UI_SURFACES]} UiSurface */

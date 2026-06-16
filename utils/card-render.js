@@ -27,11 +27,9 @@ import { resolveQuotaDenom } from '../constants/profession-quotas.js';
 import {
     escapeXml,
     truncText,
-    renderStyledCard,
     CARD_THEMES,
     fetchCircleAvatar,
     hashSeed,
-    buildCardDecorations,
     buildVsBadge,
     buildRibbonBadge,
     buildDuelSpark,
@@ -50,6 +48,13 @@ import {
     TXT,
     TXT_SOFT,
 } from './svg-base.js';
+import { UI_SURFACES } from './ui/theme.js';
+import {
+    buildSurfaceDecorations,
+    mergeUiSkinTheme,
+    renderSkinnedCard,
+    resolvePlayResultTheme,
+} from './ui/shell.js';
 
 const CARD_W = DEFAULT_CARD_W;
 const CX = CARD_W / 2;
@@ -113,9 +118,11 @@ function weatherCardFx(w, h, weatherId, theme, seed) {
 }
 
 /** 当前半天场次天象详情卡 */
-export async function generateWeatherDetailImage(state, effects, date = new Date()) {
+export async function generateWeatherDetailImage(state, effects, date = new Date(), opts = {}) {
+    const uiSkinId = opts.skinCtx?.ui || 'default';
     const weatherId = state?.weatherId || 'sunny';
-    const theme = resolveWeatherCardTheme(weatherId);
+    const baseTheme = resolveWeatherCardTheme(weatherId);
+    const theme = mergeUiSkinTheme(uiSkinId, baseTheme);
     const def = WEATHER_CATALOG[weatherId] || WEATHER_CATALOG.sunny;
     const period = state?.periodKey
         ? parseWeatherPeriodSlot(state.periodKey)
@@ -155,7 +162,7 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
 
     const inner = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
-        ${buildCardDecorations(CARD_W, H, theme, decoSeed)}
+        ${buildSurfaceDecorations(CARD_W, H, theme, uiSkinId, decoSeed)}
         ${weatherCardFx(CARD_W, H, weatherId, theme, decoSeed)}
         ${buildCenteredPanel(CX, 16, CARD_W - 32, headerPanelH, theme)}
         ${titleBlock.svg}
@@ -167,7 +174,16 @@ export async function generateWeatherDetailImage(state, effects, date = new Date
         ${buildStatGrid(statRows, theme, statsTop, CARD_W, { cols: STAT_COLS, gapY: statGapY })}
         ${buildFooterBar(CARD_W, H - 20, `${flavor} · ${metaLine}`, theme, 56)}
     `;
-    return renderStyledCard(CARD_W, H, inner, 'weather', [], theme);
+    return renderSkinnedCard({
+        width: CARD_W,
+        height: H,
+        innerSvg: inner,
+        uiSkinId,
+        surface: UI_SURFACES.WEATHER,
+        theme,
+        themeKey: 'weather',
+        overlays: [...titleBlock.overlays],
+    });
 }
 
 const PLAYFUL_META = {
@@ -539,9 +555,11 @@ export async function generateInteractionCard({
     extraLines = [],
     duel = false,
     subtitle = '',
+    skinCtx = null,
 }) {
+    const uiSkinId = skinCtx?.ui || 'default';
     const meta = resolvePlayfulMeta(result?.type);
-    const theme = CARD_THEMES[meta.theme] || CARD_THEMES.mischief;
+    const theme = resolvePlayResultTheme(uiSkinId, meta.theme);
     const rows = buildPlayfulStatRows(result, { helperName, targetName });
     const isDuel = (duel || DUEL_TYPES.has(result?.type)) && helperId && targetId;
     const winnerSide = isDuel ? resolveDuelWinner(result) : null;
@@ -569,12 +587,22 @@ export async function generateInteractionCard({
         : buildSimpleHeaderSvg({ meta, theme, outcomeBadge });
     const inner = `
         <rect width="${CARD_W}" height="${cardH}" rx="16" fill="url(#cardBg)"/>
-        ${buildCardDecorations(CARD_W, cardH, theme, hashSeed(result?.type, helperId, targetId, headline))}
+        ${buildSurfaceDecorations(CARD_W, cardH, theme, uiSkinId, hashSeed(result?.type, helperId, targetId, headline))}
         ${header}
         ${statGrid}
         ${extraBlock}
         ${buildFooterBar(CARD_W, footerY, flavor, theme, 48)}
     `;
-    const overlays = isDuel ? await buildAvatarOverlays(helperId, targetId, winnerSide) : [];
-    return renderStyledCard(CARD_W, cardH, inner, meta.theme, overlays);
+    const contentOverlays = isDuel ? await buildAvatarOverlays(helperId, targetId, winnerSide) : [];
+    return renderSkinnedCard({
+        width: CARD_W,
+        height: cardH,
+        innerSvg: inner,
+        uiSkinId,
+        surface: UI_SURFACES.PLAY,
+        baseKey: meta.theme,
+        theme,
+        themeKey: meta.theme,
+        overlays: contentOverlays,
+    });
 }

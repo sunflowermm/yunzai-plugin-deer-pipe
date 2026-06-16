@@ -47,6 +47,8 @@ import {
     resolveTargetId,
 } from '../utils/plugin-common.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
+import { resolveSkinContext } from '../utils/skin.js';
+import { bumpFestivalPortraitProgress, appendUnlockNotices } from '../utils/portrait-unlock.js';
 
 export class DeerPipe extends plugin {
     constructor() {
@@ -93,8 +95,9 @@ export class DeerPipe extends plugin {
             await this.reply(formatErrorMessage(result), true);
             return;
         }
+        const unlocks = bumpFestivalPortraitProgress(getUserRecord(deerData, user_id), date, 'lu');
         await saveDeerData(deerData);
-        const text = formatActionMessage(result);
+        const text = appendUnlockNotices(formatActionMessage(result), unlocks);
         await replyDeerPanel(this.e, {
             date, name: card || nickname, userId: user_id, deerData, text, dayOverride: day,
         });
@@ -131,8 +134,10 @@ export class DeerPipe extends plugin {
         }
 
         const monthData = getMonthData(userRecord, viewDate);
+        const skinCtx = resolveSkinContext(userRecord, viewDate);
         const raw = await generateImage(viewDate, subject.name, monthData, {
             highlightDay: viewDate.getDate(),
+            skinCtx,
         });
         await this.reply([UI_MESSAGES.view_panel, segment.image(raw)], true);
     }
@@ -182,8 +187,11 @@ export class DeerPipe extends plugin {
             return;
         }
         const prof = getProfessionDef(professionId);
+        const deerData = await loadDeerData();
+        const userRecord = getUserRecord(deerData, this.e.sender.user_id);
         await replyProfessionCard(this.e, {
             professionId,
+            userRecord,
             text: `${prof.emoji} ${prof.name} · 发送「转职${token}」可锁定今日职业`,
         });
     }
@@ -192,8 +200,10 @@ export class DeerPipe extends plugin {
         const { user_id } = this.e.sender;
         const date = new Date();
         const day = date.getDate();
-        const monthData = getMonthData(getUserRecord(await loadDeerData(), user_id), date);
-        await replyUserProfessionPanel(this.e, { monthData, day });
+        const deerData = await loadDeerData();
+        const userRecord = getUserRecord(deerData, user_id);
+        const monthData = getMonthData(userRecord, date);
+        await replyUserProfessionPanel(this.e, { monthData, day, userRecord, date });
     }
 
     async helpLuQuotaInfo() {
@@ -240,9 +250,15 @@ export class DeerPipe extends plugin {
                 text,
                 monthData,
                 day,
+                userRecord: getUserRecord(deerData, user_id),
             });
         } else {
-            await replyUserProfessionPanel(this.e, { monthData, day, text });
+            await replyUserProfessionPanel(this.e, {
+                monthData,
+                day,
+                text,
+                userRecord: getUserRecord(deerData, user_id),
+            });
         }
     }
 
@@ -269,12 +285,13 @@ export class DeerPipe extends plugin {
             await this.reply(formatErrorMessage(result), true);
             return;
         }
+        const unlocks = bumpFestivalPortraitProgress(getUserRecord(deerData, user_id), date, 'help_lu');
         await saveDeerData(deerData);
         const targetName = await getMemberName(this.e, targetId);
-        const text = formatActionMessage(result, {
+        const text = appendUnlockNotices(formatActionMessage(result, {
             helperName: card || nickname,
             targetName,
-        });
+        }), unlocks);
         await replyInteractionResult(this.e, {
             date,
             name: targetName,

@@ -1,13 +1,17 @@
 import { REG, cleanCommandMsg } from '../constants/commands.js';
 import {
-    formatSkinCatalog,
-    parseSkinToken,
+    formatUiSkinCatalog,
+    formatPortraitSkinCatalog,
+    parseUiSkinToken,
+    parsePortraitSkinToken,
     SKIN_AUTO,
     SKIN_DEFAULT,
     UI_SKINS,
     PORTRAIT_SKINS,
     resolveUiSkinId,
     resolvePortraitSkinId,
+    isFestivalActive,
+    hasAnyPortraitUnlock,
 } from '../constants/skins.js';
 import { getUserRecord } from '../utils/data.js';
 import { loadDeerData, saveDeerData } from '../utils/store.js';
@@ -35,7 +39,7 @@ export class DeerSkin extends plugin {
     constructor() {
         super({
             name: '🦌皮肤',
-            dsc: '鹿管 UI / 立绘皮肤切换',
+            dsc: '鹿管界面主题 / 立绘皮肤（独立切换）',
             event: 'message',
             priority: 5000,
             bypassThrottle: true,
@@ -49,11 +53,13 @@ export class DeerSkin extends plugin {
     }
 
     async listSkins() {
-        await this.reply(formatSkinCatalog(new Date()), true);
+        await this.reply(formatUiSkinCatalog(new Date()), true);
     }
 
     async listPortraitSkins() {
-        await this.reply(formatSkinCatalog(new Date()), true);
+        const deerData = await loadDeerData();
+        const record = getUserRecord(deerData, this.e.sender.user_id);
+        await this.reply(formatPortraitSkinCatalog(record, new Date()), true);
     }
 
     async switchSkin() {
@@ -64,13 +70,9 @@ export class DeerSkin extends plugin {
             await this.listSkins();
             return;
         }
-        const skinId = parseSkinToken(token);
+        const skinId = parseUiSkinToken(token);
         if (!skinId) {
-            await this.reply(`未识别的皮肤「${token}」\n可用：默认 / 端午 / 自动`, true);
-            return;
-        }
-        if (skinId !== SKIN_AUTO && skinId !== SKIN_DEFAULT && !UI_SKINS[skinId]) {
-            await this.reply(`界面皮肤不存在：${skinId}`, true);
+            await this.reply(`未识别的界面主题「${token}」\n可用：默认 / 端午 / 自动`, true);
             return;
         }
         const { user_id } = this.e.sender;
@@ -80,7 +82,9 @@ export class DeerSkin extends plugin {
         await saveDeerData(deerData);
         const active = resolveUiSkinId(getUserSkinPrefs(record), new Date());
         await this.reply(
-            `🎨 界面皮肤已设为：${skinName('ui', skinId)}\n当前生效：${skinName('ui', active)}（鹿况/月历/职业卡配色）`,
+            `🎨 界面主题已设为：${skinName('ui', skinId)}\n`
+            + `当前生效：${skinName('ui', active)}（鹿况/月历/帮助/PK 等样式；立绘请用「鹿立绘」）\n`
+            + '已写入档案，永久保存直至再次切换。',
             true,
         );
     }
@@ -90,29 +94,31 @@ export class DeerSkin extends plugin {
         const match = msg.match(new RegExp(`^(?:🦌|鹿)立绘(.+)$`));
         const token = match?.[1]?.trim() ?? '';
         if (!token) {
-            await this.reply(
-                '立绘皮肤：鹿立绘端午 / 鹿立绘默认 / 鹿立绘自动\n端午限定：鹿医师 · 卷王鹿',
-                true,
-            );
+            await this.listPortraitSkins();
             return;
         }
-        const skinId = parseSkinToken(token);
+        const skinId = parsePortraitSkinToken(token);
         if (!skinId) {
-            await this.reply(`未识别的立绘「${token}」\n可用：默认 / 端午 / 自动`, true);
-            return;
-        }
-        if (skinId !== SKIN_AUTO && skinId !== SKIN_DEFAULT && !PORTRAIT_SKINS[skinId]) {
-            await this.reply(`立绘皮肤不存在：${skinId}`, true);
+            await this.reply(`未识别的立绘皮肤「${token}」\n可用：默认 / 端午 / 自动`, true);
             return;
         }
         const { user_id } = this.e.sender;
         const deerData = await loadDeerData();
         const record = ensureUserRecord(deerData, user_id);
+        if (skinId === 'duanwu' && !hasAnyPortraitUnlock(record, 'duanwu')) {
+            const hint = isFestivalActive('duanwu', new Date())
+                ? '端午立绘未解锁：鹿医师帮鹿 10 次 · 卷王鹿自🦌 10 次（活动期间累计）'
+                : '端午立绘未解锁且活动已结束';
+            await this.reply(hint, true);
+            return;
+        }
         setUserSkinPref(record, 'portrait', skinId);
         await saveDeerData(deerData);
         const ctx = resolveSkinContext(record, new Date(), 'medic');
         await this.reply(
-            `🖼️ 立绘皮肤已设为：${skinName('portrait', skinId)}\n当前鹿医师/卷王生效：${skinName('portrait', ctx.portrait)}`,
+            `🖼️ 立绘皮肤已设为：${skinName('portrait', skinId)}\n`
+            + `当前鹿医师/卷王鹿生效：${skinName('portrait', ctx.portrait)}\n`
+            + '仅影响职业立绘，不改变界面主题；已永久保存直至再次切换。',
             true,
         );
     }

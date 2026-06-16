@@ -131,6 +131,16 @@ export const HELP_SECTIONS = {
             { cmd: '机制·全局联动', desc: '偷/帮/碰瓷/倒贴/鸣/溅/签/救活/叠咒概率均吃天象', quota: `鹿况图与「${WEATHER_CMD_SHOW}」可看实时修正` },
         ],
     },
+    skin: {
+        title: '界面主题与立绘',
+        emoji: '🎨',
+        items: [
+            { cmd: `${D_SHOW}皮肤`, desc: '列出界面主题（样式皮肤 · 免费切换）', quota: '鹿况/月历/帮助/PK 等配色 · 与立绘独立' },
+            { cmd: `${D_SHOW}皮肤端午 / 默认 / 自动`, desc: '切换界面主题 · 永久保存', quota: '「自动」仅界面跟端午窗口 · 不影响立绘' },
+            { cmd: `${D_SHOW}立绘`, desc: '列出立绘皮肤与端午解锁进度', quota: '仅职业专精立绘/缩略图 · 与界面主题独立' },
+            { cmd: `${D_SHOW}立绘端午 / 默认 / 自动`, desc: '切换立绘皮肤 · 须先解锁对应职业', quota: '端午：鹿医师帮鹿 10 次 · 卷王鹿自🦌 10 次 · 活动结束不可再解锁' },
+        ],
+    },
     pvp: {
         title: '对线大招',
         emoji: '⚔️',
@@ -192,7 +202,7 @@ export const HELP_PAGES = [
         key: 'live',
         title: '活鹿篇 · 玩法与天象',
         subtitle: '发送「鹿帮助」· 第 1/2 张 · 鹿与🦌等价',
-        sectionKeys: ['base', 'profession', 'friends', 'playful', 'weather', 'eco'],
+        sectionKeys: ['base', 'profession', 'friends', 'playful', 'weather', 'eco', 'skin'],
     },
     {
         key: 'beyond',

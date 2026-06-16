@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
 import { escapeXml, truncText, svgTextStyled, svgTextPlain, hashSeed, cardSvgExtraDefs, textCentered, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, wrapTextLines, TXT, TXT_SOFT, TXT_PLAIN, TXT_EMOJI } from './svg-base.js';
 import { loadCalendarDeerMark, loadProfessionArt, loadSectionArt, stickerOverlay } from './sticker-compose.js';
@@ -63,10 +64,11 @@ import {
     resolveCalendarWeekHeader,
 } from './ui/theme.js';
 import {
-    buildChromeSvgFragment,
+    appendUiPresentationLayers,
     composeCalendarWatermark,
     statusHeaderOffset,
 } from './ui/skin-assets.js';
+import { overlayPlacedRect } from './ui/skin-stickers.js';
 import { QUOTA, QUOTA_GROUPS, QUOTA_LABELS, quotaChipColor, resolveQuotaDenom } from '../constants/profession-quotas.js';
 
 const WEEK_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
@@ -239,6 +241,16 @@ export async function generateImage(now, name, monthData, options = {}) {
     const todaySnap = getDaySnap(todayEntry);
     const todayReason = getDeathReason(todayEntry);
     const deerpipeSmall = await loadCalendarDeerMark(CAL_DEER_MARK_H);
+    let deerMarkW = 34;
+    let deerMarkH = CAL_DEER_MARK_H;
+    if (deerpipeSmall) {
+        try {
+            const dm = await sharp(deerpipeSmall).metadata();
+            deerMarkW = dm.width || deerMarkW;
+            deerMarkH = dm.height || deerMarkH;
+        } catch { /* keep defaults */ }
+    }
+    const deerOccupiedRects = [];
     const uiSkinId = skinCtx?.ui || 'default';
     const calPair = resolveCalendarPalette(uiSkinId, { dead: todayDead });
     const weekHeaderFill = resolveCalendarWeekHeader(uiSkinId);
@@ -327,6 +339,12 @@ export async function generateImage(now, name, monthData, options = {}) {
                 left: x0,
             });
             if (showDeer) {
+                deerOccupiedRects.push({
+                    left: x0 + CAL_DEER_MARK_LEFT - 4,
+                    top: y0 + CAL_DEER_MARK_TOP - 4,
+                    width: deerMarkW + 8,
+                    height: deerMarkH + 8,
+                });
                 compositeArray.push({
                     input: deerpipeSmall,
                     top: y0 + CAL_DEER_MARK_TOP,
@@ -346,14 +364,33 @@ export async function generateImage(now, name, monthData, options = {}) {
     const calWatermark = await composeCalendarWatermark(uiSkinId, IMG_W, IMG_H);
     if (calWatermark) compositeArray.push(calWatermark);
 
-    return compositeToPng(IMG_W, IMG_H, compositeArray, { r: 255, g: 248, b: 240, alpha: 1 });
+    return compositeToPng(IMG_W, IMG_H, await appendUiPresentationLayers(compositeArray, uiSkinId, IMG_W, IMG_H, {
+        chromeInsertAfter: 1,
+        stickerSeed: hashSeed('cal', uiSkinId, highlightDay),
+        stickerProfile: {
+            placement: 'edge',
+            marginTop: 4,
+            marginBottom: 6,
+            excludeRects: [
+                { left: 84, top: 0, width: IMG_W - 168, height: HEADER_H_CAL },
+                { left: 0, top: HEADER_H_CAL, width: IMG_W, height: IMG_H - HEADER_H_CAL },
+            ],
+            occupiedRects: deerOccupiedRects,
+            edgeGutter: 0.1,
+            count: 8,
+        },
+    }), { r: 255, g: 248, b: 240, alpha: 1 });
 }
 
 /**
  * 生成年度🦌历（12 月热力概览）
+ * @param {object} [options] skinCtx
  */
-export async function generateYearImage(now, name, userRecord) {
+export async function generateYearImage(now, name, userRecord, options = {}) {
     now = ensureDate(now);
+    const uiSkinId = options.skinCtx?.ui || 'default';
+    const yearTheme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.CALENDAR_YEAR);
+    const calPair = resolveCalendarPalette(uiSkinId, { dead: true });
     const year = now.getFullYear();
     const yearMonths = getYearMonths(userRecord, year);
     const stats = calcYearStats(userRecord, year, now);
@@ -369,9 +406,8 @@ export async function generateYearImage(now, name, userRecord) {
         input: svgTextPlain(`
             <defs>
                 <linearGradient id="ybg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#1a1a2e"/>
-                    <stop offset="50%" style="stop-color:#16213e"/>
-                    <stop offset="100%" style="stop-color:#0f3460"/>
+                    <stop offset="0%" style="stop-color:${calPair[0]}"/>
+                    <stop offset="100%" style="stop-color:${calPair[1]}"/>
                 </linearGradient>
             </defs>
             <rect width="${IMG_W}" height="${IMG_H}" fill="url(#ybg)" rx="12"/>
@@ -381,9 +417,9 @@ export async function generateYearImage(now, name, userRecord) {
     }];
     compositeArray.push({
         input: svgTextStyled(`
-            <text ${TXT} x="${IMG_W / 2}" y="40" font-size="30" fill="#ffd700" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
-            <text ${TXT} x="${IMG_W / 2}" y="72" font-size="22" fill="#e8e8e8" text-anchor="middle">${truncName(name, 20)}</text>
-            <text ${TXT_SOFT} x="${IMG_W / 2}" y="102" font-size="16" fill="#aaa" text-anchor="middle">
+            <text ${TXT} x="${IMG_W / 2}" y="40" font-size="30" fill="${yearTheme.title || '#ffd700'}" text-anchor="middle" font-weight="bold">🦌 ${year} 年鹿历 🦌</text>
+            <text ${TXT} x="${IMG_W / 2}" y="72" font-size="22" fill="${yearTheme.sub || '#e8e8e8'}" text-anchor="middle">${truncName(name, 20)}</text>
+            <text ${TXT_SOFT} x="${IMG_W / 2}" y="102" font-size="16" fill="${yearTheme.muted || '#aaa'}" text-anchor="middle">
                 全年净值 ${stats.total} · ${stats.activeDays} 活跃日 · 💀${stats.deathDays || 0}天 · 最猛 ${stats.maxMonth}月(${stats.maxMonthCount})
             </text>
         `, IMG_W, TITLE_H),
@@ -435,7 +471,25 @@ export async function generateYearImage(now, name, userRecord) {
         });
     }
 
-    return compositeToPng(IMG_W, IMG_H, compositeArray, { r: 26, g: 26, b: 46, alpha: 1 });
+    const calWatermark = await composeCalendarWatermark(uiSkinId, IMG_W, IMG_H);
+    if (calWatermark) compositeArray.push(calWatermark);
+
+    return compositeToPng(IMG_W, IMG_H, await appendUiPresentationLayers(compositeArray, uiSkinId, IMG_W, IMG_H, {
+        chromeInsertAfter: 1,
+        stickerSeed: hashSeed('year', uiSkinId, year),
+        stickerProfile: {
+            placement: 'edge',
+            marginTop: 4,
+            marginBottom: PAD,
+            excludeRects: [
+                { left: 68, top: 0, width: IMG_W - 136, height: TITLE_H },
+                { left: PAD, top: TITLE_H, width: IMG_W - PAD * 2, height: IMG_H - TITLE_H - PAD },
+            ],
+            edgeGutter: 0.1,
+            count: 8,
+            size: 34,
+        },
+    }), { r: 26, g: 26, b: 46, alpha: 1 });
 }
 
 /** 今日鹿况渲染图 */
@@ -565,7 +619,7 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         ? textCentered(CX, STAT_TOP + 114, `综合 ${status.balancedScore} 分 · ${escapeXml(truncText(status.balancedBreakdown || '', 40))}`, TXT_SOFT, { size: 13, fill: '#c9782a' })
         : '';
 
-    const [profThumb, helpIcon, weatherEmojiSvg, chromeSvg, ...playIcons] = await Promise.all([
+    const [profThumb, helpIcon, weatherEmojiSvg, ...playIcons] = await Promise.all([
         (!status.professionRequired && status.professionId)
             ? loadProfessionArt(status.professionId, 76, {
                 borderWidth: 2,
@@ -575,7 +629,6 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
             : null,
         loadSectionArt('help', STATUS_SECTION_ICON),
         wx ? emojiSvgImage(weatherEmojiCx, weatherEmojiCy, wx.emoji, WEATHER_EMOJI_SIZE) : Promise.resolve(''),
-        buildChromeSvgFragment(uiSkinId, W),
         ...playHeaders.map(({ sectionKey }) => loadSectionArt(sectionKey, STATUS_SECTION_ICON)),
     ]);
 
@@ -613,7 +666,6 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         theme,
         uiSkinId,
         seed: decoSeed,
-        chromeSvg,
         innerSvg,
     });
     const layers = [{
@@ -628,5 +680,13 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         const icon = playIcons[i];
         if (icon) layers.push(stickerOverlay(icon, header.slot.top, header.slot.left));
     });
-    return compositeToPng(W, H, layers);
+    const occupiedRects = [];
+    if (thumbOverlay) {
+        const r = await overlayPlacedRect(thumbOverlay, 10);
+        if (r) occupiedRects.push(r);
+    }
+    return compositeToPng(W, H, await appendUiPresentationLayers(layers, uiSkinId, W, H, {
+        stickerSeed: decoSeed,
+        stickerProfile: { occupiedRects },
+    }));
 }

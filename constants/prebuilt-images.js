@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { PROFESSIONS } from './profession.js';
 import { WEATHER_IDS } from './weather.js';
 import { HELP_PAGES } from './help-catalog.js';
+import { SKIN_DEFAULT } from './skins.js';
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -11,48 +12,63 @@ export const PREBUILT_ROOT = path.join(PLUGIN_ROOT, 'assets', 'prebuilt');
 
 export const WEATHER_PREBUILT_SLOTS = Object.freeze(['am', 'pm']);
 
+/** 运行时预渲染与 README 样例图共用的 UI 主题 id */
+export const PREBUILT_UI_SKIN_IDS = Object.freeze(['default', 'duanwu']);
+
 export const PREBUILT_REL = {
-    helpPage: (index) => `help/page-${index + 1}.png`,
-    professionCatalog: 'profession/catalog.png',
-    professionCard: (professionId) => `profession/card-${professionId}.png`,
-    weatherDetail: (weatherId, slot = 'am') => `weather/${weatherId}-${slot}.png`,
-    calendarMonthDemo: 'calendar/month-demo.png',
+    helpPage: (uiId, index) => `help/${uiId}/page-${index + 1}.png`,
+    professionCatalog: (uiId) => `profession/${uiId}/catalog.png`,
+    professionCard: (uiId, professionId) => `profession/${uiId}/card-${professionId}.png`,
+    weatherDetail: (uiId, weatherId, slot = 'am') => `weather/${uiId}/${weatherId}-${slot}.png`,
     manifest: 'manifest.json',
 };
 
-/** README 文档镜像：prebuilt 相对路径 → docs/images 文件名 */
-export const README_IMAGE_MIRROR = Object.freeze({
-    [PREBUILT_REL.helpPage(0)]: 'help-1.png',
-    [PREBUILT_REL.helpPage(1)]: 'help-2.png',
-    [PREBUILT_REL.professionCatalog]: 'profession-catalog.png',
-    'profession/card-grinder.png': 'profession-card-grinder.png',
-    'profession/card-sunflower.png': 'profession-card-sunflower.png',
-    'profession/card-rogue.png': 'profession-card-rogue.png',
-    'profession/card-medic.png': 'profession-card-medic.png',
-    'weather/rainbow-am.png': 'weather-rainbow.png',
-    'weather/storm-am.png': 'weather-storm.png',
-    'weather/gloom-am.png': 'weather-gloom.png',
-    'weather/sunny-am.png': 'weather-sunny.png',
-    'weather/drizzle-am.png': 'weather-drizzle.png',
-});
+/** docs/images 文件名（README / GitHub 附图，提交仓库） */
+export const DOCS_IMAGE = {
+    status: (uiId) => `status-${uiId}.png`,
+    calendar: (uiId) => `calendar-${uiId}.png`,
+    year: (uiId) => `year-${uiId}.png`,
+    catalog: (uiId) => `catalog-${uiId}.png`,
+    helpPage: (uiId, index) => `help-${uiId}-${index + 1}.png`,
+    playSteal: 'play-steal-success.png',
+    playCurse: 'play-curse.png',
+};
 
-/** @returns {{ rel: string, kind: string }[]} */
-export function listPrebuiltExportTargets() {
-    const targets = [];
-    for (let i = 0; i < HELP_PAGES.length; i += 1) {
-        targets.push({ rel: PREBUILT_REL.helpPage(i), kind: 'help' });
-    }
-    targets.push({ rel: PREBUILT_REL.professionCatalog, kind: 'profession-catalog' });
-    for (const id of Object.keys(PROFESSIONS)) {
-        targets.push({ rel: PREBUILT_REL.professionCard(id), kind: 'profession-card' });
-    }
-    for (const weatherId of WEATHER_IDS) {
-        for (const slot of WEATHER_PREBUILT_SLOTS) {
-            targets.push({ rel: PREBUILT_REL.weatherDetail(weatherId, slot), kind: 'weather' });
+/** @returns {string[]} docs/images 下应保留的文件名 */
+export function listDocsImageFiles() {
+    const files = [DOCS_IMAGE.playSteal, DOCS_IMAGE.playCurse];
+    for (const uiId of PREBUILT_UI_SKIN_IDS) {
+        files.push(
+            DOCS_IMAGE.status(uiId),
+            DOCS_IMAGE.calendar(uiId),
+            DOCS_IMAGE.year(uiId),
+            DOCS_IMAGE.catalog(uiId),
+        );
+        for (let i = 0; i < HELP_PAGES.length; i += 1) {
+            files.push(DOCS_IMAGE.helpPage(uiId, i));
         }
     }
-    targets.push({ rel: PREBUILT_REL.calendarMonthDemo, kind: 'calendar-demo' });
-    return targets;
+    return files;
+}
+
+/** @returns {string[]} 运行时预渲染相对路径（鹿况/月历等带用户数据的不预渲染） */
+export function listPrebuiltRelPaths() {
+    const paths = [];
+    for (const uiId of PREBUILT_UI_SKIN_IDS) {
+        for (let i = 0; i < HELP_PAGES.length; i += 1) {
+            paths.push(PREBUILT_REL.helpPage(uiId, i));
+        }
+        paths.push(PREBUILT_REL.professionCatalog(uiId));
+        for (const id of Object.keys(PROFESSIONS)) {
+            paths.push(PREBUILT_REL.professionCard(uiId, id));
+        }
+        for (const weatherId of WEATHER_IDS) {
+            for (const slot of WEATHER_PREBUILT_SLOTS) {
+                paths.push(PREBUILT_REL.weatherDetail(uiId, weatherId, slot));
+            }
+        }
+    }
+    return paths;
 }
 
 export function prebuiltAbsPath(relPath) {
@@ -62,4 +78,11 @@ export function prebuiltAbsPath(relPath) {
 /** 当前半天 → 预渲染 weather 文件名后缀 */
 export function weatherPrebuiltSlot(date = new Date()) {
     return date.getHours() < 12 ? 'am' : 'pm';
+}
+
+/** 从 skinCtx 解析 UI 主题 id（预渲染路径用） */
+export function prebuiltUiSkinId(opts = {}) {
+    const ui = opts.skinCtx?.ui;
+    if (ui && PREBUILT_UI_SKIN_IDS.includes(ui)) return ui;
+    return SKIN_DEFAULT;
 }

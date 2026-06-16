@@ -286,17 +286,18 @@ export const CARD_THEMES = {
         highlight: 'rgba(255,179,71,0.22)',
         barBg: 'rgba(255,255,255,0.12)',
     },
-    /** 端午粽香 UI 皮肤（鹿况/月历/职业卡叠色） */
+    /** 端午粽香 UI 皮肤（鹿况/月历/职业卡叠色 · 深林绿 + 粽金点缀） */
     duanwu: {
-        bgStops: '<stop offset="0%" style="stop-color:#1a3d28"/><stop offset="45%" style="stop-color:#0f2818"/><stop offset="100%" style="stop-color:#081a10"/>',
-        title: '#e8fff0',
-        sub: '#b8e8c8',
-        line: '#f0fff5',
-        muted: '#7ec89a',
-        accent: '#4caf50',
-        panel: 'rgba(0,0,0,0.42)',
-        highlight: 'rgba(76,175,80,0.22)',
-        barBg: 'rgba(255,255,255,0.1)',
+        bgStops: '<stop offset="0%" style="stop-color:#1a4a32"/><stop offset="42%" style="stop-color:#123322"/><stop offset="100%" style="stop-color:#081a12"/>',
+        title: '#f4fff8',
+        sub: '#c8e8d4',
+        line: '#ecfff2',
+        muted: '#8fbf9f',
+        accent: '#d4a84b',
+        panel: 'rgba(8,28,18,0.52)',
+        highlight: 'rgba(212,168,75,0.22)',
+        barBg: 'rgba(255,255,255,0.09)',
+        auraFill: '#a8ddb8',
     },
 };
 

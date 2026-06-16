@@ -1,7 +1,7 @@
 /**
  * UI 皮肤包注册表：配色、装饰参数、可选 PNG 组件路径
+ * - 仅界面样式；职业立绘由 constants/skins.js PORTRAIT_SKINS + assets/professions/skins/ 独立管理
  * - themeOverlay 键对应 svg-base CARD_THEMES 中的叠色主题
- * - components 相对 assets/ 的路径，缺失时回退纯 SVG
  */
 
 import { SKIN_DEFAULT } from './skins.js';
@@ -34,11 +34,12 @@ export const UI_SKIN_PACKS = {
             [UI_SURFACES.WEATHER]: { baseKey: 'weather' },
             [UI_SURFACES.CALENDAR]: { baseKey: 'mischief' },
             [UI_SURFACES.CALENDAR_YEAR]: { baseKey: 'mischief' },
+            [UI_SURFACES.KING]: { baseKey: 'king' },
         },
         calendar: {
             alive: ['#fff8f0', '#ffe8d6'],
             dead: ['#2d1b1b', '#1a0a0a'],
-            weekHeader: '#f0e6dc',
+            weekHeader: '#f5e6d8',
         },
         decorations: {
             dotCount: 14,
@@ -46,14 +47,31 @@ export const UI_SKIN_PACKS = {
             cornerRadius: 16,
         },
         chrome: {
-            ribbonHeight: 24,
-            cornerSize: 32,
-            headerTextShift: 28,
+            ribbonMaxHeight: 60,
+            ribbonScale: 1.6,
+            ribbonPairPull: 40,
+            ribbonHalfInset: 4,
+            cornerWidth: 136,
+            cornerPad: 2,
+            cornerPairPull: 22,
+            headerTextShift: 42,
+        },
+        sticker: {
+            placement: 'full',
+            count: 12,
+            size: 42,
+            sizeVariation: 0.35,
+            opacity: 0.2,
+            marginTop: 52,
+            marginBottom: 28,
+            minGap: 8,
+            excludePad: 6,
         },
         components: {
             headerRibbon: 'skins/default/ui/header-ribbon.png',
             frameCorner: 'skins/default/ui/frame-corner.png',
             calendarWatermark: 'skins/default/ui/calendar-watermark.png',
+            skinSticker: 'skins/default/ui/sticker-heart.png',
         },
     },
     duanwu: {
@@ -68,11 +86,12 @@ export const UI_SKIN_PACKS = {
             [UI_SURFACES.WEATHER]: { baseKey: 'weather', themeOverlay: 'duanwu' },
             [UI_SURFACES.CALENDAR]: { baseKey: 'mischief', themeOverlay: 'duanwu' },
             [UI_SURFACES.CALENDAR_YEAR]: { baseKey: 'mischief', themeOverlay: 'duanwu' },
+            [UI_SURFACES.KING]: { baseKey: 'king', themeOverlay: 'duanwu' },
         },
         calendar: {
-            alive: ['#e8f8ec', '#d4f0dc'],
-            dead: ['#1a2820', '#0f1a14'],
-            weekHeader: '#c8e8d4',
+            alive: ['#eef8f0', '#d4ecd8'],
+            dead: ['#142820', '#0a1812'],
+            weekHeader: '#c5e0cc',
         },
         decorations: {
             dotCount: 22,
@@ -80,14 +99,32 @@ export const UI_SKIN_PACKS = {
             cornerRadius: 20,
         },
         chrome: {
-            ribbonHeight: 24,
-            cornerSize: 32,
-            headerTextShift: 28,
+            ribbonMaxHeight: 52,
+            ribbonScale: 1,
+            ribbonTopOffset: 20,
+            ribbonPairFactor: 0.14,
+            ribbonHalfInset: 2,
+            cornerWidth: 84,
+            cornerPad: 2,
+            cornerPairPull: 20,
+            headerTextShift: 40,
+        },
+        sticker: {
+            placement: 'full',
+            count: 18,
+            size: 38,
+            sizeVariation: 0.4,
+            opacity: 0.21,
+            marginTop: 44,
+            marginBottom: 24,
+            minGap: 6,
+            excludePad: 6,
         },
         components: {
             headerRibbon: 'skins/duanwu/ui/header-ribbon.png',
             frameCorner: 'skins/duanwu/ui/frame-corner.png',
             calendarWatermark: 'skins/duanwu/ui/calendar-watermark.png',
+            skinSticker: 'skins/duanwu/ui/sticker-zongzi.png',
         },
     },
 };
@@ -96,6 +133,7 @@ export const UI_SKIN_COMPONENT_KEYS = Object.freeze([
     'headerRibbon',
     'frameCorner',
     'calendarWatermark',
+    'skinSticker',
 ]);
 
 export function getUiSkinPack(skinId) {

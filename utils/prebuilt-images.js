@@ -3,16 +3,18 @@ import { readFileSync } from 'node:fs';
 import YAML from 'yaml';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
 import { PLUGIN_PATH } from '../constants/deer-assets.js';
+import { SKIN_DEFAULT } from '../constants/skins.js';
 import { HELP_PAGES } from '../constants/help-catalog.js';
 import {
     PREBUILT_REL,
     prebuiltAbsPath,
+    prebuiltUiSkinId,
     weatherPrebuiltSlot,
 } from '../constants/prebuilt-images.js';
 import { generateHelpImages } from './help-render.js';
 import { generateProfessionCatalogImage, generateProfessionCard } from './profession-render.js';
 import { generateWeatherDetailImage } from './card-render.js';
-import { shouldBypassPrebuiltForSkin } from './skin.js';
+import { shouldBypassPrebuiltForPortraitSkin } from './skin.js';
 
 const bufferCache = new Map();
 let renderConfig;
@@ -51,9 +53,15 @@ export function loadPrebuiltImage(relPath) {
     return buf;
 }
 
-async function resolvePrebuilt(relPath, renderFn) {
+function loadPrebuiltForUi(uiSkinId, relPath) {
+    let buf = loadPrebuiltImage(relPath);
+    if (buf || uiSkinId === SKIN_DEFAULT) return buf;
+    return loadPrebuiltImage(relPath.replace(`/${uiSkinId}/`, `/${SKIN_DEFAULT}/`));
+}
+
+async function resolvePrebuiltSkin(uiSkinId, relPath, renderFn) {
     if (shouldUsePrebuilt()) {
-        const cached = loadPrebuiltImage(relPath);
+        const cached = loadPrebuiltForUi(uiSkinId, relPath);
         if (cached) return cached;
     }
     return renderFn();
@@ -61,15 +69,12 @@ async function resolvePrebuilt(relPath, renderFn) {
 
 /** @returns {Promise<Buffer[]>} */
 export async function resolveHelpImages(opts = {}) {
-    if (opts.skinCtx && shouldBypassPrebuiltForSkin(opts.skinCtx)) {
-        return generateHelpImages(opts);
-    }
+    const uiSkinId = prebuiltUiSkinId(opts);
     if (!shouldUsePrebuilt()) return generateHelpImages(opts);
     const pages = [];
     let missing = false;
     for (let i = 0; i < HELP_PAGES.length; i += 1) {
-        const rel = PREBUILT_REL.helpPage(i);
-        const buf = loadPrebuiltImage(rel);
+        const buf = loadPrebuiltForUi(uiSkinId, PREBUILT_REL.helpPage(uiSkinId, i));
         if (!buf) {
             missing = true;
             break;
@@ -81,18 +86,25 @@ export async function resolveHelpImages(opts = {}) {
 }
 
 export async function resolveProfessionCatalogImage(opts = {}) {
-    if (opts.snapshot || (opts.skinCtx?.ui && opts.skinCtx.ui !== 'default')) {
+    if (opts.snapshot) {
         return generateProfessionCatalogImage(opts);
     }
-    return resolvePrebuilt(PREBUILT_REL.professionCatalog, () => generateProfessionCatalogImage(opts));
+    const uiSkinId = prebuiltUiSkinId(opts);
+    return resolvePrebuiltSkin(
+        uiSkinId,
+        PREBUILT_REL.professionCatalog(uiSkinId),
+        () => generateProfessionCatalogImage(opts),
+    );
 }
 
 export async function resolveProfessionCard(professionId, opts = {}) {
-    if (opts.skinCtx && shouldBypassPrebuiltForSkin(opts.skinCtx)) {
+    if (opts.skinCtx && shouldBypassPrebuiltForPortraitSkin(opts.skinCtx)) {
         return generateProfessionCard(professionId, opts);
     }
-    return resolvePrebuilt(
-        PREBUILT_REL.professionCard(professionId),
+    const uiSkinId = prebuiltUiSkinId(opts);
+    return resolvePrebuiltSkin(
+        uiSkinId,
+        PREBUILT_REL.professionCard(uiSkinId, professionId),
         () => generateProfessionCard(professionId, opts),
     );
 }
@@ -100,14 +112,16 @@ export async function resolveProfessionCard(professionId, opts = {}) {
 /**
  * 天象详情卡：admin 赐福、缺预渲染文件时走实时渲染
  */
-export async function resolveWeatherDetailImage(state, effects, date = new Date()) {
+export async function resolveWeatherDetailImage(state, effects, date = new Date(), opts = {}) {
     const weatherId = state?.weatherId || 'sunny';
+    const uiSkinId = prebuiltUiSkinId(opts);
+    const render = () => generateWeatherDetailImage(state, effects, date, opts);
     if (state?.source === 'admin') {
-        return generateWeatherDetailImage(state, effects, date);
+        return render();
     }
     const slot = weatherPrebuiltSlot(date);
-    const rel = PREBUILT_REL.weatherDetail(weatherId, slot);
-    return resolvePrebuilt(rel, () => generateWeatherDetailImage(state, effects, date));
+    const rel = PREBUILT_REL.weatherDetail(uiSkinId, weatherId, slot);
+    return resolvePrebuiltSkin(uiSkinId, rel, render);
 }
 
 /** @returns {string[]} 缺失的预渲染相对路径 */

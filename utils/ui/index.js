@@ -8,7 +8,6 @@ export {
 
 export {
     buildSkinCardDecorations,
-    buildCardShellDefs,
     buildStatusPanelShell,
     buildStatusHeader,
     buildWeatherPanel,
@@ -26,6 +25,21 @@ export {
     uiSkinComponentExists,
     statusHeaderOffset,
     loadUiSkinComponent,
-    buildChromeSvgFragment,
+    composeChromeOverlays,
+    appendUiPresentationLayers,
     composeCalendarWatermark,
 } from './skin-assets.js';
+
+export {
+    resolveSkinStickerProfile,
+    loadSkinSticker,
+    scatterSkinStickers,
+    scatterSkinStickersForCard,
+} from './skin-stickers.js';
+
+export {
+    mergeUiSkinTheme,
+    resolvePlayResultTheme,
+    buildSurfaceDecorations,
+    renderSkinnedCard,
+} from './shell.js';

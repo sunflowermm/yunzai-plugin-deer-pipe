@@ -12,19 +12,19 @@ import {
 import { pickRandom } from '../constants/game.js';
 import { buildInlineEmojiText } from './emoji-compose.js';
 import {
-    loadBrandLogo,
     loadCatalogArt,
     loadSectionArt,
-    scatterDeerMarkOverlays,
+    scatterDeerMarkForCard,
     stickerOverlay,
 } from './sticker-compose.js';
 import { compositeToPng } from './render-pipeline.js';
 import { UI_SURFACES, resolveSurfaceTheme } from './ui/theme.js';
 import { buildHelpPageBackgroundSvg, helpPageTitleColors } from './ui/components.js';
 import {
-    buildChromeSvgFragment,
+    appendUiPresentationLayers,
     statusHeaderOffset,
 } from './ui/skin-assets.js';
+import { overlayPlacedRect, resolveSkinStickerProfile } from './ui/skin-stickers.js';
 
 const IMG_W = 720;
 const PAD = 20;
@@ -115,10 +115,8 @@ async function buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, 
 
     const foot = `${HELP_FOOTER} · ${pageIndex + 1}/${totalPages}`;
     blocks.push(textCentered(IMG_W / 2, imgH - 28, escapeXml(foot), TXT_SOFT, { size: 13, fill: colors.muted }));
-    const chromeSvg = await buildChromeSvgFragment(uiSkinId, IMG_W);
     const body = `
         ${buildHelpPageBackgroundSvg(IMG_W, imgH, theme)}
-        ${chromeSvg}
         <rect x="8" y="8" width="${IMG_W - 16}" height="${imgH - 16}" fill="none" stroke="${theme.accent}" stroke-width="3" rx="14" stroke-dasharray="8 6"/>
         ${blocks.join('\n')}
     `;
@@ -137,42 +135,29 @@ async function composePage(pageDef, pageIndex, totalPages, uiSkinId, theme, colo
     const imgH = estimatePageHeight(pageDef);
     const headerShift = statusHeaderOffset(uiSkinId);
     const contentEndY = imgH - 72;
-    const [deerBig, deerSmall, brandLogo, ...sectionIcons] = await Promise.all([
-        loadBrandLogo(pageIndex === 0 ? 40 : 32),
-        loadBrandLogo(26),
-        loadBrandLogo(22),
-        ...pageDef.sectionKeys.map((key) => loadSectionIcon(key)),
-    ]);
+    const contentExclude = {
+        left: PAD - 6,
+        top: HEADER_H,
+        width: IMG_W - 2 * PAD + 12,
+        height: Math.max(0, contentEndY - HEADER_H + 16),
+    };
+    const deerSeed = hashSeed('help-deer', pageIndex, uiSkinId);
+    const sectionIcons = await Promise.all(pageDef.sectionKeys.map((key) => loadSectionIcon(key)));
 
-    const sideDeer = [
-        ...(await scatterDeerMarkOverlays(52, contentEndY - HEADER_H, HEADER_H, IMG_W - 60, {
-            count: 4,
-            seed: hashSeed('help-side-r', pageIndex, uiSkinId),
-            markHeight: 40,
-            opacity: 0.12,
-        })),
-        ...(await scatterDeerMarkOverlays(48, contentEndY - HEADER_H, HEADER_H + 40, 4, {
-            count: 3,
-            seed: hashSeed('help-side-l', pageIndex, uiSkinId),
-            markHeight: 36,
-            opacity: 0.1,
-        })),
-    ];
-    const bottomDeer = await scatterDeerMarkOverlays(IMG_W - 80, 56, contentEndY, 40, {
-        count: 5,
-        seed: hashSeed('help-bottom', pageIndex, uiSkinId),
-        markHeight: 40,
-        opacity: 0.18,
+    const deerFill = await scatterDeerMarkForCard(IMG_W, imgH, deerSeed, {
+        count: 14,
+        markHeight: 42,
+        opacity: 0.17,
+        sizeVariation: 0.38,
+        minGap: 8,
+        excludeRects: [contentExclude],
     });
 
     const layers = [
         { input: await buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, theme, colors, headerShift), top: 0, left: 0 },
-        ...sideDeer,
-        ...bottomDeer,
+        ...deerFill.overlays,
     ];
-    if (deerBig) layers.push({ input: deerBig, top: 12, left: IMG_W - (pageIndex === 0 ? 96 : 88) });
-    if (deerSmall) layers.push({ input: deerSmall, top: imgH - 88, left: PAD + 4 });
-    if (brandLogo) layers.push({ input: brandLogo, top: 14, left: PAD + 4 });
+    const occupiedRects = [...deerFill.placedRects];
 
     let y = HEADER_H + PAD;
     for (let i = 0; i < pageDef.sectionKeys.length; i += 1) {
@@ -180,13 +165,35 @@ async function composePage(pageDef, pageIndex, totalPages, uiSkinId, theme, colo
         const icon = sectionIcons[i];
         if (icon) {
             const overlay = stickerOverlay(icon, y - SECTION_ICON + 4, PAD);
-            if (overlay) layers.push(overlay);
+            if (overlay) {
+                layers.push(overlay);
+                const r = await overlayPlacedRect(overlay, 6);
+                if (r) occupiedRects.push(r);
+            }
         }
         const sec = HELP_SECTIONS[pageDef.sectionKeys[i]];
         y += 6 + sec.items.length * itemBlockHeight() + SECTION_GAP;
     }
 
-    return compositeToPng(IMG_W, imgH, layers, { r: 255, g: 245, b: 235, alpha: 1 });
+    const stickerBase = resolveSkinStickerProfile(uiSkinId);
+
+    return compositeToPng(IMG_W, imgH, await appendUiPresentationLayers(layers, uiSkinId, IMG_W, imgH, {
+        stickerSeed: hashSeed('help-page', pageIndex, uiSkinId),
+        stickerProfile: {
+            placement: 'full',
+            marginTop: 8,
+            marginBottom: 8,
+            marginLeft: 6,
+            marginRight: 6,
+            excludeRects: [contentExclude],
+            occupiedRects,
+            count: stickerBase.count ?? 14,
+            opacity: stickerBase.opacity ?? 0.18,
+            size: stickerBase.size,
+            sizeVariation: stickerBase.sizeVariation,
+            minGap: stickerBase.minGap ?? 6,
+        },
+    }), { r: 255, g: 245, b: 235, alpha: 1 });
 }
 
 /** 生成双页鹿帮助图 @param {{ skinCtx?: object }} [opts] */
