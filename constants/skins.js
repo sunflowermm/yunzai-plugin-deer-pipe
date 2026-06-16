@@ -201,12 +201,6 @@ export function hasPortraitUnlock(userRecord, skinId, professionId) {
     return !!portraitUnlockMap(userRecord)?.[skinId]?.[professionId];
 }
 
-export function hasAnyPortraitUnlock(userRecord, skinId) {
-    const profs = portraitUnlockMap(userRecord)?.[skinId];
-    if (!profs || typeof profs !== 'object') return false;
-    return Object.values(profs).some(Boolean);
-}
-
 export function getFestivalSkinProgress(userRecord, festivalId = 'duanwu') {
     const all = userRecord?.[USER_SKIN_KEYS.festSkinProg];
     const prog = all?.[festivalId];

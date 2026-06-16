@@ -341,7 +341,7 @@ export class DeerSpecial extends plugin {
             targetId,
             duel: true,
             subtitle: `${ARENA_PK_TIMEOUT_SEC}s 内「冲」/「拒」`,
-            skinCtx: resolveSkinContext(null, new Date()),
+            skinCtx: resolveSkinContext(getUserRecord(deerData, user_id), date),
         });
         await this.reply([
             pickRandom(ARENA_CHALLENGE_MESSAGES),
@@ -495,7 +495,7 @@ export class DeerSpecial extends plugin {
             targetId: king.id,
             duel: true,
             subtitle: `${IMPERIAL_PK_TIMEOUT_SEC}s 内猜「大」/「小」`,
-            skinCtx: resolveSkinContext(null, new Date()),
+            skinCtx: resolveSkinContext(getUserRecord(deerData, user_id), date),
         });
         await this.reply([
             pickRandom(IMPERIAL_START_MESSAGES),

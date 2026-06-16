@@ -20,6 +20,8 @@ import { isDeerPrivileged } from '../utils/privilege.js';
 
 import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
 
+import { getUserRecord } from '../utils/data.js';
+
 import { REG, cleanCommandMsg } from '../constants/commands.js';
 
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
@@ -75,8 +77,11 @@ export class DeerWeather extends plugin {
 
     async weatherToday() {
         const date = new Date();
+        const { user_id } = this.e.sender;
+        const deerData = await loadDeerData();
+        const userRecord = getUserRecord(deerData, user_id);
         const { state, effects } = await getWeatherContext(date);
-        const skinCtx = resolveSkinContext(null, date);
+        const skinCtx = resolveSkinContext(userRecord, date);
         const img = await resolveWeatherDetailImage(state, effects, date, { skinCtx });
         const caption = [
             formatWeatherBrief(state, date),
