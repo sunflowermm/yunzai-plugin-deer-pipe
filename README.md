@@ -407,7 +407,7 @@ flowchart TD
 | `Yz:deer_pipe:king_archive` | 鹿王存档 |
 
 **控制台** → `鹿管配置`：天象/鹿王群播、特权 QQ 等。  
-**出图** → `config/default/config.yaml` · `render.prefer_prebuilt`（默认 true）。
+**出图** → 控制台「鹿管配置」→ **优先预渲染图**（默认开）；或编辑 `data/deer_pipe/config.yaml` 的 `render.prefer_prebuilt`。调试实时出图：`DEER_PIPE_FORCE_LIVE_RENDER=1`。
 
 ---
 

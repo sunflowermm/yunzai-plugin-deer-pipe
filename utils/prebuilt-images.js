@@ -1,8 +1,5 @@
-import path from 'node:path';
-import { readFileSync } from 'node:fs';
-import YAML from 'yaml';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
-import { PLUGIN_PATH } from '../constants/deer-assets.js';
+import hub from '../lib/deer-hub.js';
 import { SKIN_DEFAULT } from '../constants/skins.js';
 import { HELP_PAGES } from '../constants/help-catalog.js';
 import {
@@ -17,24 +14,11 @@ import { generateWeatherDetailImage } from './card-render.js';
 import { shouldBypassPrebuiltForPortraitSkin } from './skin.js';
 
 const bufferCache = new Map();
-let renderConfig;
-
-function readRenderConfig() {
-    if (renderConfig) return renderConfig;
-    try {
-        const cfgPath = path.join(PLUGIN_PATH, 'config', 'default', 'config.yaml');
-        const raw = FileUtils.readFileSync(cfgPath, 'utf8');
-        renderConfig = YAML.parse(raw)?.render ?? {};
-    } catch {
-        renderConfig = {};
-    }
-    return renderConfig;
-}
 
 /** 是否优先读预渲染 PNG（缺文件时自动回退实时渲染） */
 export function shouldUsePrebuilt() {
     if (process.env.DEER_PIPE_FORCE_LIVE_RENDER === '1') return false;
-    return readRenderConfig().prefer_prebuilt !== false;
+    return hub.getRenderConfig().prefer_prebuilt !== false;
 }
 
 export function clearPrebuiltCache() {

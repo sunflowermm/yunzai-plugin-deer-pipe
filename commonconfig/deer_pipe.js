@@ -13,7 +13,7 @@ export default class DeerPipeConfig extends ConfigBase {
         super({
             name: 'deer_pipe',
             displayName: '鹿管配置',
-            description: '天象群播报目标、鹿神赐福群播等',
+            description: '天象群播报目标、鹿神赐福群播、出图预渲染等',
             filePath: '',
             fileType: 'yaml',
         });
@@ -21,7 +21,7 @@ export default class DeerPipeConfig extends ConfigBase {
             config: {
                 name: 'config',
                 displayName: '主配置',
-                description: '天象定时播报与鹿神赐福群播目标',
+                description: '天象定时播报、鹿神赐福群播与出图选项',
                 filePath: getDeerPath('config'),
                 fileType: 'yaml',
                 schema: {
@@ -107,6 +107,21 @@ export default class DeerPipeConfig extends ConfigBase {
                                     type: 'boolean',
                                     label: '0点职业重置提醒',
                                     description: '与鹿王同批群播，提醒可重新转职',
+                                    default: true,
+                                    component: 'Switch',
+                                },
+                            },
+                        },
+                        render: {
+                            type: 'object',
+                            label: '出图',
+                            description: '帮助/职业/天象等静态图的预渲染与实时渲染',
+                            component: 'SubForm',
+                            fields: {
+                                prefer_prebuilt: {
+                                    type: 'boolean',
+                                    label: '优先预渲染图',
+                                    description: '开启时读 assets/prebuilt/；关闭则始终实时 SVG 出图（缺预渲染文件时也会自动回退）',
                                     default: true,
                                     component: 'Switch',
                                 },
