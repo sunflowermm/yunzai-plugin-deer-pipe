@@ -511,6 +511,7 @@ export async function generateProfessionCatalogImage(opts = {}) {
         themeKey: 'profession',
         overlays: overlays.filter(Boolean),
         opts: {
+            presentationUnderContent: true,
             stickerSeed: catalogSeed,
             stickerProfile: { occupiedRects: deerFill.placedRects },
         },

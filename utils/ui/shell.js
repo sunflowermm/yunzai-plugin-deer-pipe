@@ -4,7 +4,7 @@
 import { getUiSkinPack } from '../../constants/ui-skin-registry.js';
 import { CARD_THEMES, renderStyledCard } from '../svg-base.js';
 import { buildSkinCardDecorations } from './components.js';
-import { appendUiPresentationLayers } from './skin-assets.js';
+import { appendUiPresentationLayers, buildPresentationUnderlays } from './skin-assets.js';
 import { resolveDecorationProfile, resolveSurfaceTheme } from './theme.js';
 
 function mergeTheme(base, overlayKey) {
@@ -35,8 +35,11 @@ export function buildSurfaceDecorations(width, height, theme, uiSkinId, seed) {
 }
 
 /**
- * 标准卡片出图：SVG 内容 + 皮肤贴图/chrome（单图卡 chrome 仍置顶，见月历 chromeInsertAfter）
- */export async function renderSkinnedCard({
+ * 标准卡片出图：SVG 内容 + 皮肤贴图/chrome
+ * - 默认：内容 SVG → 业务贴图 → 散布贴图 → chrome（玩法卡等）
+ * - presentationUnderContent：chrome/散布贴图 → 内容 SVG → 业务贴图（职业一览 catalog）
+ */
+export async function renderSkinnedCard({
     width,
     height,
     innerSvg,
@@ -51,9 +54,17 @@ export function buildSurfaceDecorations(width, height, theme, uiSkinId, seed) {
     const resolvedTheme = theme || (surface
         ? resolveSurfaceTheme(uiSkinId, surface, baseKey ? { baseKey } : opts)
         : CARD_THEMES[themeKey] || CARD_THEMES.mischief);
+
+    if (opts.presentationUnderContent) {
+        const underlays = await buildPresentationUnderlays(uiSkinId, width, height, opts);
+        return renderStyledCard(width, height, innerSvg, themeKey, overlays, resolvedTheme, underlays);
+    }
+
     const mergedOverlays = await appendUiPresentationLayers(overlays, uiSkinId, width, height, {
         stickerSeed: opts.stickerSeed,
         stickerProfile: opts.stickerProfile,
+        chromeInsertAfter: opts.chromeInsertAfter,
+        stickers: opts.stickers,
     });
     return renderStyledCard(width, height, innerSvg, themeKey, mergedOverlays, resolvedTheme);
 }

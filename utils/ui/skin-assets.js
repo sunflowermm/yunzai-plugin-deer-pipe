@@ -263,6 +263,17 @@ export async function composeChromeOverlays(uiSkinId, width, height = 0) {
     return layers;
 }
 
+/** chrome + 散布贴图（叠在底图之下，供职业一览等「内容置顶」surface 使用） */
+export async function buildPresentationUnderlays(uiSkinId, width, height = 0, opts = {}) {
+    const chrome = await composeChromeOverlays(uiSkinId, width, height);
+    let stickers = [];
+    if (opts.stickers !== false && height > 0) {
+        const stickerSeed = opts.stickerSeed ?? hashSeed('ui-present', uiSkinId, width, height);
+        stickers = await scatterSkinStickersForCard(uiSkinId, width, height, stickerSeed, opts.stickerProfile);
+    }
+    return [...chrome, ...stickers];
+}
+
 /** 内容层之上叠贴图；chrome 默认插在背景层之后（不挡标题字） */
 export async function appendUiPresentationLayers(layers, uiSkinId, width, height = 0, opts = {}) {
     const chrome = await composeChromeOverlays(uiSkinId, width, height);
