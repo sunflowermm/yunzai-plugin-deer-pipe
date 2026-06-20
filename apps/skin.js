@@ -14,6 +14,7 @@ import {
     hasPortraitUnlock,
 } from '../constants/skins.js';
 import { getProfessionDef } from '../constants/profession.js';
+import { getExtraDeerDef, isExtraDeerId } from '../constants/extra-deer.js';
 import { loadDeerData, saveDeerData } from '../utils/store.js';
 import { getUserSkinPrefs, setUserSkinPref } from '../utils/skin.js';
 import { reconcileFestivalPortraitUnlocks } from '../utils/portrait-unlock.js';
@@ -82,25 +83,30 @@ export class DeerSkin extends plugin {
         await this.reply(
             `🎨 界面主题已设为：${skinName('ui', skinId)}\n`
             + `当前生效：${skinName('ui', active)}（鹿况/月历/帮助/PK 等样式）\n`
-            + '立绘请用：卷王鹿端午 / 鹿医师端午 等。',
+            + '立绘请用：卷王鹿端午 / 雨木木鹿端午 等。',
             true,
         );
     }
 
     async switchPortraitProf() {
         const msg = cleanCommandMsg(this.e.msg).replace(/\s+/g, '');
-        const match = msg.match(/^(?:🦌|鹿)?(卷王鹿|鹿医师|医师|卷王)(端午|默认|原版)$/);
+        const match = msg.match(/^(?:🦌|鹿)?(卷王鹿|鹿医师|医师|卷王|王美嘉鹿|王美嘉|美嘉鹿|美嘉|雨木木鹿|雨木木|木木鹿|木木)(端午|默认|原版)$/);
         if (!match) {
             await this.listPortraitSkins();
             return;
         }
         const parsed = parsePortraitProfSkinCommand(match[1], match[2]);
         if (!parsed) {
-            await this.reply('仅鹿医师、卷王鹿有端午立绘\n切换：卷王鹿端午 / 鹿医师端午 / 卷王鹿默认', true);
+            await this.reply(
+                '切换：卷王鹿端午 / 鹿医师端午 / 雨木木鹿端午 / 王美嘉鹿端午 等\n见「鹿立绘」',
+                true,
+            );
             return;
         }
         const { professionId, skinId } = parsed;
-        const prof = getProfessionDef(professionId);
+        const prof = isExtraDeerId(professionId)
+            ? getExtraDeerDef(professionId)
+            : getProfessionDef(professionId);
         const { user_id } = this.e.sender;
         const deerData = await loadDeerData();
         const record = ensureUserRecord(deerData, user_id);

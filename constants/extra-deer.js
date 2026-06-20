@@ -1,7 +1,7 @@
 /** 番外鹿：不在 PROFESSIONS 八职业表内，独立转职与玩法 */
 
 import { QUOTA, QUOTA_GROUPS, QUOTA_LABELS } from './profession-quotas.js';
-import { formatTalentCatalogLine, formatTalentTagline } from './talent-text.js';
+import { formatTalentCatalogLine, formatTalentPerkBrief, formatTalentTagline } from './talent-text.js';
 
 export const EXTRA_DEER_IDS = Object.freeze(['meijia', 'yumumu']);
 
@@ -34,7 +34,7 @@ export const EXTRA_DEER_SKILLS = {
         id: 'yumumu',
         name: '束缚',
         cmd: '束缚@',
-        desc: '目标 55 分钟禁自鹿（仍可被帮鹿）· 仅 11:00 前可用 · 1 次/日',
+        desc: '',
     },
 };
 
@@ -72,10 +72,23 @@ export const EXTRA_DEER_QUOTA_TABLE = {
     },
 };
 
-export const YUMUMU_LU_BAN_MS = 55 * 60 * 1000;
-export const YUMUMU_BIND_CUTOFF_HOUR = 11;
-export const YUMUMU_IMPOTENCE_CHANCE = 0.40;
-export const YUMUMU_IMPOTENCE_HELP_FAIL = 0.08;
+import {
+    EXTRA_DEER_TRANSFER_HINT,
+    YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_MINUTES,
+    YUMUMU_IMPOTENCE_CHANCE,
+    YUMUMU_IMPOTENCE_HELP_FAIL,
+    YUMUMU_LU_BAN_MS,
+} from './extra-deer-meta.js';
+
+export {
+    EXTRA_DEER_TRANSFER_HINT,
+    YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_MINUTES,
+    YUMUMU_IMPOTENCE_CHANCE,
+    YUMUMU_IMPOTENCE_HELP_FAIL,
+    YUMUMU_LU_BAN_MS,
+} from './extra-deer-meta.js';
 
 export function isExtraDeerId(id) {
     return !!id && EXTRA_DEER_IDS.includes(String(id));
@@ -102,7 +115,15 @@ export function getExtraDeerDef(id) {
 }
 
 export function getExtraDeerSkill(id) {
-    return EXTRA_DEER_SKILLS[id] || null;
+    const base = EXTRA_DEER_SKILLS[id];
+    if (!base) return null;
+    if (id === 'yumumu') {
+        return {
+            ...base,
+            desc: `目标 ${YUMUMU_BIND_MINUTES} 分钟禁自鹿（仍可被帮鹿）· 仅 ${YUMUMU_BIND_CUTOFF_HOUR}:00 前可用 · 1 次/日`,
+        };
+    }
+    return base;
 }
 
 export function resolveExtraDeerId(token) {
@@ -163,4 +184,15 @@ export function buildExtraDeerMods(def) {
         impotenceHelpFailBonus: full.impotenceHelpFailBonus || 0,
         extraDeer: true,
     };
+}
+
+/** 群播 / 说明：番外鹿一行摘要（配额 + 天赋 + 专属技） */
+export function formatExtraDeerListText() {
+    return EXTRA_DEER_IDS.map((id) => {
+        const p = getExtraDeerDef(id);
+        const skill = EXTRA_DEER_SKILLS[id];
+        const perk = formatTalentPerkBrief(p, 3);
+        const skillTxt = skill ? ` · ${skill.cmd}` : '';
+        return `${p.emoji} ${p.name}：${formatExtraDeerQuotaBrief(id)}${perk}${skillTxt}`;
+    }).join('\n');
 }

@@ -7,7 +7,6 @@ import {
     YUMUMU_IMPOTENCE_HELP_FAIL,
     YUMUMU_LU_BAN_MS,
 } from '../constants/extra-deer.js';
-import { isFestivalActive } from '../constants/skins.js';
 import { getDayProfessionId } from './profession.js';
 
 export {
@@ -224,8 +223,4 @@ export function rejectIfWrongExtraDeer(monthData, day, expectedId) {
         };
     }
     return null;
-}
-
-export function resolveExtraDeerPortraitSkin(date = new Date()) {
-    return isFestivalActive('duanwu', date) ? 'duanwu' : 'default';
 }

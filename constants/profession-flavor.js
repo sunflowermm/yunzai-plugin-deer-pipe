@@ -9,5 +9,5 @@ export const PROFESSION_ART_FLAVOR = {
     rogue: '偷鹿天赋拉满，碰瓷诈戒次数管够',
     sunflower: '向光三维加成：天象福运签运齐飞',
     meijia: '帮鹿稳、安全+1，适合长期互助',
-    yumumu: '帮鹿附带控场 debuff，失手也更低',
+    yumumu: '帮鹿 18 次 · 40% 挂阳痿控场 · 失手 6% 起 · 束缚禁自鹿',
 };

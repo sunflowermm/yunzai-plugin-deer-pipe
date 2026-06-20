@@ -115,13 +115,13 @@ export default class DeerPipeConfig extends ConfigBase {
                         render: {
                             type: 'object',
                             label: '出图',
-                            description: '帮助/职业/天象等静态图的预渲染与实时渲染',
+                            description: '帮助/职业/天象等静态图：服务端预渲染开关 + 玩家皮肤偏好',
                             component: 'SubForm',
                             fields: {
                                 prefer_prebuilt: {
                                     type: 'boolean',
                                     label: '优先预渲染图',
-                                    description: '开启时读 assets/prebuilt/；关闭则始终实时 SVG 出图（缺预渲染文件时也会自动回退）',
+                                    description: '开启：默认读 assets/prebuilt/（快）；玩家换了界面主题或立绘皮肤时仍会自动实时出图。关闭：全员始终实时 SVG 出图。缺预渲染文件时也会自动回退实时渲染。',
                                     default: true,
                                     component: 'Switch',
                                 },

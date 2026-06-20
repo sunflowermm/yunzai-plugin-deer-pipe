@@ -9,6 +9,14 @@ const PRIVILEGED_QQ_HINT = `仅 QQ ${PRIVILEGED_QQS.join('、')}`;
 import { PROFESSION_HELP_RANGE, PROFESSION_WITHDRAW_RANGE } from './profession.js';
 import { PROFESSION_QUOTA_TABLE } from './profession-quotas.js';
 import {
+    EXTRA_DEER_SKILLS,
+    YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_MINUTES,
+    YUMUMU_IMPOTENCE_CHANCE,
+    formatExtraDeerQuotaBrief,
+    getExtraDeerDef,
+} from './extra-deer.js';
+import {
     ARENA_STAKE,
     DAILY_ARENA_QUOTA,
     DAILY_CURSE_QUOTA,
@@ -46,6 +54,7 @@ import {
     VENGEANCE_SUBSTITUTE_CURSE_CHANCE,
     DAILY_DREAM_QUOTA,
     DAILY_REVIVE_LOTTERY_QUOTA,
+    MEIJIA_TEAM_SYNC_MAX,
     REVIVE_LOTTERY_FULL_CHANCE,
     REVIVE_LOTTERY_WEAK_CHANCE,
     GHOST_HOWL_KILLER_CURSE_CHANCE,
@@ -116,6 +125,32 @@ export const HELP_SECTIONS = {
             { cmd: '咒缚@ / 广福@ / 夜袭@ / 向阳@ / 组队@ / 束缚@', desc: '叠咒/福鹿使/窃光/向日葵/王美嘉/雨木木专属技', quota: '不占对应玩法配额 · 1 次/日' },
         ],
     },
+    extraDeer: {
+        title: '番外隐藏鹿',
+        emoji: '✨',
+        items: [
+            {
+                cmd: '转职王美嘉 / 转职雨木木',
+                desc: '与八职业互斥 · 当日锁定 · 「鹿职业」第二张图',
+                quota: `王美嘉 ${formatExtraDeerQuotaBrief('meijia')} · 雨木木 ${formatExtraDeerQuotaBrief('yumumu')}`,
+            },
+            {
+                cmd: EXTRA_DEER_SKILLS.meijia.cmd,
+                desc: '王美嘉专属 · 绑定 1 鹿友：自鹿 +1 时搭档同步 +1',
+                quota: `每日联动 ≤${MEIJIA_TEAM_SYNC_MAX} 次 · 净值≥0 · 双亡 · 不可戒鹿`,
+            },
+            {
+                cmd: EXTRA_DEER_SKILLS.yumumu.cmd,
+                desc: `雨木木专属 · 目标 ${YUMUMU_BIND_MINUTES} 分钟禁自鹿（仍可被帮鹿）`,
+                quota: `仅 ${YUMUMU_BIND_CUTOFF_HOUR}:00 前 · 1 次/日 · 帮鹿 ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 挂阳痿 debuff`,
+            },
+            {
+                cmd: '看鹿职业卡雨木木 / 雨木木鹿端午',
+                desc: '番外静态专精卡 · 端午立绘免费随时切换（默认不穿皮肤）',
+                quota: `帮鹿 ${getExtraDeerDef('yumumu').helpQuota} · ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 阳痿 · 束缚 ${YUMUMU_BIND_MINUTES} 分/${YUMUMU_BIND_CUTOFF_HOUR} 点前`,
+            },
+        ],
+    },
     weather: {
         title: '鹿林天象',
         emoji: '🌤',
@@ -142,7 +177,7 @@ export const HELP_SECTIONS = {
             { cmd: `${D_SHOW}皮肤`, desc: '列出界面主题（样式皮肤 · 免费切换）', quota: '鹿况/月历/帮助/PK 等配色 · 与立绘独立' },
             { cmd: `${D_SHOW}皮肤端午 / 默认`, desc: '切换界面主题 · 永久保存', quota: '未设置时恒为默认 · 不跟节日自动变色' },
             { cmd: `${D_SHOW}立绘`, desc: '端午立绘解锁进度', quota: '仅查进度 · 不切换立绘' },
-            { cmd: '卷王鹿端午 / 鹿医师端午 / 卷王鹿默认', desc: '按职业切换立绘 · 须先解锁', quota: '端午：卷王自🦌 10 次 · 医师帮鹿 10 次 · 活动结束不可再解锁' },
+            { cmd: '卷王鹿端午 / 鹿医师端午 / 雨木木鹿端午 / 王美嘉鹿端午', desc: '按职业切换立绘', quota: '八职业端午须活动解锁 · 番外端午免费随时切换' },
         ],
     },
     pvp: {
@@ -206,7 +241,7 @@ export const HELP_PAGES = [
         key: 'live',
         title: '活鹿篇 · 玩法与天象',
         subtitle: '发送「鹿帮助」· 第 1/2 张 · 鹿与🦌等价',
-        sectionKeys: ['base', 'profession', 'friends', 'playful', 'weather', 'eco', 'skin'],
+        sectionKeys: ['base', 'profession', 'extraDeer', 'friends', 'playful', 'weather', 'eco', 'skin'],
     },
     {
         key: 'beyond',

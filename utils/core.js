@@ -10,7 +10,6 @@ import {
     stickerOverlay,
 } from './sticker-compose.js';
 import { isExtraDeerId } from '../constants/extra-deer.js';
-import { resolveExtraDeerPortraitSkin } from './extra-deer.js';
 import { compositeToPng, rasterizeDeerSvg } from './render-pipeline.js';
 import { emojiSvgImage } from './emoji-compose.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
@@ -93,10 +92,8 @@ const CAL_DEER_MARK_TOP = 38;
 const STATUS_PORTRAIT_SIZE = 208;
 const STATUS_PORTRAIT_LEFT = 24;
 
-async function loadStatusProfessionArt(professionId, size, skinCtx, date) {
-    const portraitSkin = isExtraDeerId(professionId)
-        ? resolveExtraDeerPortraitSkin(date)
-        : (skinCtx?.portrait && skinCtx.portrait !== 'default' ? skinCtx.portrait : undefined);
+async function loadStatusProfessionArt(professionId, size, skinCtx) {
+    const portraitSkin = skinCtx?.portrait && skinCtx.portrait !== 'default' ? skinCtx.portrait : undefined;
     const stickerOpts = { borderWidth: 0, shadow: true, fitScale: 0.92 };
     if (isExtraDeerId(professionId)) {
         return loadExtraDeerArt(professionId, size, portraitSkin, stickerOpts);
@@ -650,7 +647,7 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
 
     const [profThumb, helpIcon, weatherEmojiSvg, ...playIcons] = await Promise.all([
         hasProfPortrait
-            ? loadStatusProfessionArt(status.professionId, STATUS_PORTRAIT_SIZE, skinCtx, now)
+            ? loadStatusProfessionArt(status.professionId, STATUS_PORTRAIT_SIZE, skinCtx)
             : null,
         loadSectionArt('help', STATUS_SECTION_ICON),
         wx ? emojiSvgImage(weatherEmojiCx, weatherEmojiCy, wx.emoji, WEATHER_EMOJI_SIZE) : Promise.resolve(''),

@@ -7,6 +7,7 @@
  */
 
 import { SKIN_AUTO, SKIN_DEFAULT, USER_SKIN_KEYS } from './skin-keys.js';
+import { isExtraDeerId, resolveExtraDeerId } from './extra-deer.js';
 import { resolveProfessionId } from './profession.js';
 
 export { SKIN_DEFAULT, USER_SKIN_KEYS };
@@ -50,8 +51,8 @@ export const PORTRAIT_SKINS = {
         name: '端午限定立绘',
         emoji: '🐲',
         festival: 'duanwu',
-        desc: '鹿医师 · 卷王鹿 端午换装（活动解锁）',
-        professions: ['medic', 'grinder'],
+        desc: '鹿医师 · 卷王鹿 端午换装（活动解锁）· 番外鹿免费随时切换',
+        professions: ['medic', 'grinder', 'meijia', 'yumumu'],
     },
 };
 
@@ -100,14 +101,16 @@ export function parseUiSkinToken(raw) {
     return UI_SKINS[mapped] ? mapped : null;
 }
 
-/** 解析「卷王鹿端午」「鹿医师默认」等 */
+/** 解析「卷王鹿端午」「雨木木鹿默认」等 */
 export function parsePortraitProfSkinCommand(profToken, skinToken) {
-    const profId = resolveProfessionId(profToken);
-    if (!profId || !DUANWU_PORTRAIT_PROFESSIONS.includes(profId)) return null;
+    const profId = resolveProfessionId(profToken) || resolveExtraDeerId(profToken);
+    if (!profId) return null;
     const mapped = mapSkinAlias(skinToken);
     if (!mapped) return null;
     if (mapped === SKIN_DEFAULT) return { professionId: profId, skinId: SKIN_DEFAULT };
-    if (mapped === 'duanwu') return { professionId: profId, skinId: 'duanwu' };
+    if (mapped === 'duanwu' && portraitSkinSupportsProfession('duanwu', profId)) {
+        return { professionId: profId, skinId: 'duanwu' };
+    }
     return null;
 }
 
@@ -155,7 +158,7 @@ export function resolveUiSkinId(pref) {
     return UI_SKINS[raw] ? raw : SKIN_DEFAULT;
 }
 
-/** 立绘：按职业独立偏好；须已解锁才可用端午 */
+/** 立绘：按职业独立偏好；八职业端午须解锁，番外端午免费 */
 export function resolvePortraitSkinId(userRecord, professionId) {
     const byProf = portraitPrefByProf(userRecord);
     const chosen = byProf[professionId];
@@ -194,6 +197,7 @@ function portraitUnlockMap(userRecord) {
 
 export function hasPortraitUnlock(userRecord, skinId, professionId) {
     if (!skinId || skinId === SKIN_DEFAULT) return true;
+    if (skinId === 'duanwu' && isExtraDeerId(professionId)) return true;
     return !!portraitUnlockMap(userRecord)?.[skinId]?.[professionId];
 }
 
@@ -254,8 +258,9 @@ export function formatPortraitSkinCatalog(userRecord = null, date = new Date()) 
         '端午解锁进度：',
         ...unlockLines,
         '',
-        '切换（须先解锁对应职业）：',
-        '· 卷王鹿端午 / 卷王鹿默认',
-        '· 鹿医师端午 / 鹿医师默认',
+        '切换：',
+        '· 卷王鹿端午 / 卷王鹿默认（须解锁）',
+        '· 鹿医师端午 / 鹿医师默认（须解锁）',
+        '· 雨木木鹿端午 / 王美嘉鹿端午（番外免费 · 随时切换）',
     ].join('\n');
 }

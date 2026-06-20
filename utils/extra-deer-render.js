@@ -1,11 +1,12 @@
 import {
     EXTRA_DEER,
     EXTRA_DEER_IDS,
-    EXTRA_DEER_SKILLS,
     getExtraDeerDef,
+    getExtraDeerSkill,
     formatExtraDeerQuotaBrief,
 } from '../constants/extra-deer.js';
-import { resolveExtraDeerPortraitSkin } from './extra-deer.js';
+import { collectTalentParts } from '../constants/talent-text.js';
+import { resolveExtraDeerArtSkin } from './skin.js';
 import {
     buildCenteredEmojiTitleRaster,
     emojiSvgImage,
@@ -42,12 +43,21 @@ const THUMB = 84;
 const GAP = 14;
 const PAD_X = 20;
 const SKILL_ICON = 40;
+const GRID_COLS = 2;
 
-async function buildExtraDeerGrid(theme, topY, thumbs, portraitSkin) {
+function extraDeerCatalogTalentLine(def) {
+    return collectTalentParts(def).slice(0, 4).join(' · ');
+}
+
+async function buildExtraDeerGrid(theme, topY, thumbs) {
     const ids = EXTRA_DEER_IDS;
-    const rowHeights = [];
-    for (const id of ids) {
+    const rowCount = Math.ceil(ids.length / GRID_COLS);
+    const rowHeights = new Array(rowCount).fill(0);
+
+    for (let i = 0; i < ids.length; i += 1) {
+        const id = ids[i];
         const d = getExtraDeerDef(id);
+        const row = Math.floor(i / GRID_COLS);
         const measure = buildSideArtCell({
             x: 0,
             y: 0,
@@ -55,28 +65,30 @@ async function buildExtraDeerGrid(theme, topY, thumbs, portraitSkin) {
             artSize: THUMB,
             theme,
             title: d.name,
-            subtitle: deerTextForSvg(d.synergyTip),
+            subtitle: deerTextForSvg(extraDeerCatalogTalentLine(d)),
             meta: formatExtraDeerQuotaBrief(id),
             badgeText: `转职${d.name.replace(/鹿$/, '')}`,
             badgeKind: 'accent',
             titleSize: 17,
             subSize: 12,
             metaSize: 11,
-            subtitleMaxLines: 2,
-            metaMaxLines: 2,
+            subtitleMaxLines: 4,
+            metaMaxLines: 1,
         });
-        rowHeights.push(measure.cellH + GAP);
+        rowHeights[row] = Math.max(rowHeights[row], measure.cellH + GAP);
     }
+
     const rowTops = [topY];
-    for (let r = 1; r < ids.length; r += 1) {
+    for (let r = 1; r < rowCount; r += 1) {
         rowTops[r] = rowTops[r - 1] + rowHeights[r - 1];
     }
+
     const cellParts = [];
     for (let i = 0; i < ids.length; i += 1) {
         const id = ids[i];
         const d = getExtraDeerDef(id);
-        const col = i % 2;
-        const row = Math.floor(i / 2);
+        const col = i % GRID_COLS;
+        const row = Math.floor(i / GRID_COLS);
         const x = PAD_X + col * (CELL_W + GAP);
         const y = rowTops[row];
         const cell = buildSideArtCell({
@@ -86,15 +98,15 @@ async function buildExtraDeerGrid(theme, topY, thumbs, portraitSkin) {
             artSize: THUMB,
             theme,
             title: d.name,
-            subtitle: deerTextForSvg(d.synergyTip),
+            subtitle: deerTextForSvg(extraDeerCatalogTalentLine(d)),
             meta: formatExtraDeerQuotaBrief(id),
             badgeText: `转职${d.name.replace(/鹿$/, '')}`,
             badgeKind: 'accent',
             titleSize: 17,
             subSize: 12,
             metaSize: 11,
-            subtitleMaxLines: 2,
-            metaMaxLines: 2,
+            subtitleMaxLines: 4,
+            metaMaxLines: 1,
         });
         const emojiArt = !thumbs[i] && d.emoji
             ? await emojiSvgImage(cell.artLeft + THUMB / 2, cell.artTop + THUMB / 2 + 4, d.emoji, 16)
@@ -106,14 +118,14 @@ async function buildExtraDeerGrid(theme, topY, thumbs, portraitSkin) {
 }
 
 async function buildExtraSkillGrid(theme, topY, skillIcons) {
-    const ids = EXTRA_DEER_IDS.filter((id) => EXTRA_DEER_SKILLS[id]);
+    const ids = EXTRA_DEER_IDS.filter((id) => getExtraDeerSkill(id));
     if (!ids.length) return { svg: '', height: 0, cellParts: [] };
     let svg = buildSectionTitle(CX, topY, '番外专属技 · 1次/日', theme);
     const gridTop = topY + 24;
     const cellParts = [];
     for (let i = 0; i < ids.length; i += 1) {
         const id = ids[i];
-        const skill = EXTRA_DEER_SKILLS[id];
+        const skill = getExtraDeerSkill(id);
         const d = EXTRA_DEER[id];
         const col = i % 2;
         const x = PAD_X + col * (CELL_W + GAP);
@@ -126,10 +138,10 @@ async function buildExtraSkillGrid(theme, topY, skillIcons) {
             artPad: 6,
             theme,
             title: `${skill.name} · ${d.name}`,
-            subtitle: deerTextForSvg(`${skill.cmd} · ${skill.desc}`),
+            subtitle: deerTextForSvg(skill.desc),
             titleSize: 14,
             subSize: 11,
-            subtitleMaxLines: 4,
+            subtitleMaxLines: 5,
         });
         const iconIdx = EXTRA_DEER_IDS.indexOf(id);
         const icon = iconIdx >= 0 ? skillIcons[iconIdx] : null;
@@ -148,14 +160,18 @@ async function buildExtraSkillGrid(theme, topY, skillIcons) {
 
 export async function generateExtraDeerCatalogImage(opts = {}) {
     const uiSkinId = opts.skinCtx?.ui || 'default';
-    const portraitSkin = resolveExtraDeerPortraitSkin(opts.date || new Date());
+    const userRecord = opts.userRecord ?? null;
     const theme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.PROFESSION_CATALOG);
     const decoProfile = resolveDecorationProfile(uiSkinId);
     const headerShift = statusHeaderOffset(uiSkinId);
 
     const [brandLogo, ...thumbs] = await Promise.all([
         loadBrandLogo(),
-        ...EXTRA_DEER_IDS.map((id) => loadExtraDeerArt(id, THUMB, portraitSkin)),
+        ...EXTRA_DEER_IDS.map((id) => loadExtraDeerArt(
+            id,
+            THUMB,
+            resolveExtraDeerArtSkin(userRecord, id),
+        )),
     ]);
     const skillIcons = await Promise.all(EXTRA_DEER_IDS.map((id) => loadExtraDeerSkillArt(id, SKILL_ICON)));
 
@@ -165,13 +181,17 @@ export async function generateExtraDeerCatalogImage(opts = {}) {
 
     const introY = 64 + headerShift;
     const gridTop = introY + 28;
-    const profGrid = await buildExtraDeerGrid(theme, gridTop, thumbs, portraitSkin);
+    const profGrid = await buildExtraDeerGrid(theme, gridTop, thumbs);
     const skillsTop = gridTop + profGrid.height + 16;
     const skillsBlock = await buildExtraSkillGrid(theme, skillsTop, skillIcons);
     const footerReserve = 52;
     const H = skillsTop + skillsBlock.height + footerReserve;
 
-    const seed = hashSeed('extra-deer-catalog', uiSkinId, portraitSkin);
+    const seed = hashSeed(
+        'extra-deer-catalog',
+        uiSkinId,
+        ...EXTRA_DEER_IDS.map((id) => resolveExtraDeerArtSkin(userRecord, id) || 'default'),
+    );
     const backgroundSvg = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildSkinCardDecorations(CARD_W, H, theme, seed, decoProfile)}

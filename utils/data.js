@@ -87,7 +87,7 @@ import {
     formatBalancedBreakdown,
 } from './balanced-score.js';
 import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
-import { YUMUMU_BIND_CUTOFF_HOUR, formatExtraDeerQuotaBrief } from '../constants/extra-deer.js';
+import { YUMUMU_BIND_CUTOFF_HOUR, YUMUMU_BIND_MINUTES, formatExtraDeerQuotaBrief } from '../constants/extra-deer.js';
 import {
     getProfessionDef,
     getProfessionMods,
@@ -2357,7 +2357,7 @@ export function performYumumuBindSkill(deerData, yumumuId, targetId, date, day) 
         ok: true,
         type: 'job_skill_yumumu_bind',
         targetId: String(targetId),
-        banMinutes: 55,
+        banMinutes: YUMUMU_BIND_MINUTES,
         targetCount: targetEntry.c,
     };
 }

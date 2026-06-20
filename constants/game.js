@@ -1,3 +1,18 @@
+import {
+    EXTRA_DEER_TRANSFER_HINT,
+    YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_MINUTES,
+} from './extra-deer-meta.js';
+
+export {
+    EXTRA_DEER_TRANSFER_HINT,
+    YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_MINUTES,
+    YUMUMU_IMPOTENCE_CHANCE,
+    YUMUMU_IMPOTENCE_HELP_FAIL,
+    YUMUMU_LU_BAN_MS,
+} from './extra-deer-meta.js';
+
 /** 每日安全🦌次数 */
 export const DAILY_SAFE_LIMIT = 3;
 
@@ -818,7 +833,7 @@ export const ERROR_MESSAGES = {
     help_quota: (used, total) => `今日帮🦌次数已用完（${used}/${total}），明天再来吧`,
     help_withdraw_quota: (used, total) => `今日帮戒🦌次数已用完（${used}/${total}）`,
     profession_unknown: (token) => `未知职业「${token || '?'}」，发送「鹿职业」查看可转职列表`,
-    profession_required: '今日尚未转职！八职业：转职鹿医师/戒师/卷王/巡游鹿/叠咒鹿/福鹿使/窃光鹿/向日葵 · 番外：转职王美嘉/转职雨木木（或「鹿职业」查看）',
+    profession_required: `今日尚未转职！八职业：转职鹿医师/戒师/卷王/巡游鹿/叠咒鹿/福鹿使/窃光鹿/向日葵 · ${EXTRA_DEER_TRANSFER_HINT}（或「鹿职业」查看）`,
     profession_locked: (name) => `今日已锁定为${name}，次日 0 点后可重选 · 发送「鹿况」查配额`,
     job_skill_used: '今日职业专属技已用过，明日 0 点重置',
     job_skill_wrong_profession: (expected, current) => `该专属技需「${expected}」，你今日是「${current}」`,
@@ -840,8 +855,8 @@ export const ERROR_MESSAGES = {
     team_already: '今日已有组队搭档，双亡结算前不可再组队',
     team_partner_taken: '对方今日已被他人组队绑定，换一个搭档吧',
     bind_self: '不能束缚自己',
-    bind_already: '目标已被束缚，55 分钟内无法自🦌',
-    bind_after_cutoff: '雨木木束缚仅 11:00 前可用，避免临近鹿死恶意禁自鹿',
+    bind_already: `目标已被束缚，${YUMUMU_BIND_MINUTES} 分钟内无法自🦌`,
+    bind_after_cutoff: `雨木木束缚仅 ${YUMUMU_BIND_CUTOFF_HOUR}:00 前可用，避免临近鹿死恶意禁自鹿`,
     patrol_buff_pending: '天象巡游已蓄势，请先完成一次玩法再开「鹿巡」',
     helper_dead: '你已🦌死，今日无法帮🦌他人，请先被救活',
     no_target: '请 @🦌友 或引用消息指定对象',

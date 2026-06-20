@@ -18,6 +18,9 @@ king_broadcast:
   # 与鹿王同批推送「职业已重置、可转职」文字提醒
   profession_reset: true
 
-# 出图：优先读 assets/prebuilt/ 预渲染 PNG（缺文件时自动回退实时渲染）
+# 出图（控制台「鹿管配置 → 出图 → 优先预渲染图」）
+# - true（默认）：多数场景读 assets/prebuilt/；玩家「鹿皮肤端午 / 王美嘉鹿端午」等会触发实时出图
+# - false：全员始终实时 SVG 出图（与是否换皮无关）
+# 环境变量 DEER_PIPE_FORCE_LIVE_RENDER=1 等同 prefer_prebuilt: false
 render:
   prefer_prebuilt: true

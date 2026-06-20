@@ -34,7 +34,6 @@ import {
     scatterDeerMarkOverlays,
     stickerOverlay,
 } from './sticker-compose.js';
-import { resolveExtraDeerPortraitSkin } from './extra-deer.js';
 import { resolveSurfaceTheme, resolveDecorationProfile, UI_SURFACES } from './ui/theme.js';
 import { buildSkinCardDecorations } from './ui/components.js';
 import { statusHeaderOffset } from './ui/skin-assets.js';
@@ -154,9 +153,7 @@ export async function generateProfessionCard(professionId, opts = {}) {
     const extra = isExtraDeerId(professionId);
     const prof = extra ? getExtraDeerDef(professionId) : getProfessionDef(professionId);
     const uiSkinId = opts.skinCtx?.ui || 'default';
-    const portraitId = extra
-        ? resolveExtraDeerPortraitSkin(opts.date || new Date())
-        : (opts.skinCtx?.portrait ?? 'default');
+    const portraitId = opts.skinCtx?.portrait ?? 'default';
     const theme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.PROFESSION);
     const decoProfile = resolveDecorationProfile(uiSkinId);
     const flavor = PROFESSION_ART_FLAVOR[professionId] || prof.tagline;

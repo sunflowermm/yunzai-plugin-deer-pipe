@@ -107,7 +107,7 @@ export const REG = {
     skinList: `^${D}皮肤$`,
     skinSwitch: `^${D}皮肤(.+)$`,
     portraitSkinList: `^${D}立绘$`,
-    portraitProfSwitch: `^(?:${D})?(卷王鹿|鹿医师|医师|卷王)(端午|默认|原版)$`,
+    portraitProfSwitch: `^(?:${D})?(卷王鹿|鹿医师|医师|卷王|王美嘉鹿|王美嘉|美嘉鹿|美嘉|雨木木鹿|雨木木|木木鹿|木木)(端午|默认|原版)$`,
 };
 
 /** 清洗指令文本（去 CQ 码、@、误粘 QQ 号） */

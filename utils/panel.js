@@ -97,7 +97,7 @@ export async function replyProfessionCatalog(e, { snapshot, userRecord = null, d
     const skinCtx = resolveSkinContext(userRecord, date);
     const [mainRaw, extraRaw] = await Promise.all([
         resolveProfessionCatalogImage({ skinCtx, date, ...(snapshot ? { snapshot } : {}) }),
-        resolveExtraDeerCatalogImage({ skinCtx, date }),
+        resolveExtraDeerCatalogImage({ skinCtx, date, userRecord }),
     ]);
     await e.reply([segment.image(mainRaw), segment.image(extraRaw)], true);
 }

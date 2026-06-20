@@ -141,7 +141,7 @@ function formatProfessionPerk(p) {
 
 /** 转职提示（8 职业，多处文案统一引用） */
 export const TRANSFER_PROFESSION_HINT =
-    '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游鹿 / 转职叠咒鹿 / 转职福鹿使 / 转职窃光鹿 / 转职向日葵（或「鹿职业」查看）';
+    '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游鹿 / 转职叠咒鹿 / 转职福鹿使 / 转职窃光鹿 / 转职向日葵（番外见转职王美嘉/雨木木 · 「鹿职业」查看）';
 
 export const PROFESSION_LIST_TEXT = Object.keys(PROFESSIONS)
     .map((id) => {

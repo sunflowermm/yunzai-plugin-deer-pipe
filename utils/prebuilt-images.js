@@ -14,8 +14,7 @@ import { generateHelpImages } from './help-render.js';
 import { generateProfessionCatalogImage, generateProfessionCard } from './profession-render.js';
 import { generateExtraDeerCatalogImage } from './extra-deer-render.js';
 import { generateWeatherDetailImage } from './card-render.js';
-import { resolveExtraDeerPortraitSkin } from './extra-deer.js';
-import { shouldBypassPrebuiltForPortraitSkin } from './skin.js';
+import { shouldBypassPrebuiltForPortraitSkin, needsLiveExtraDeerCatalog } from './skin.js';
 
 const bufferCache = new Map();
 
@@ -24,15 +23,27 @@ export function shouldUsePrebuilt() {
     return hub.getRenderConfig().prefer_prebuilt !== false;
 }
 
+/** 单张职业卡：关预渲染 / 带快照顶栏 / 非默认立绘 → 须 live */
+export function shouldBypassPrebuiltProfessionCard(opts = {}) {
+    if (!shouldUsePrebuilt()) return true;
+    if (needsLiveProfessionCatalog(opts.snapshot)) return true;
+    return !!(opts.skinCtx && shouldBypassPrebuiltForPortraitSkin(opts.skinCtx));
+}
+
+/** 番外一览：关预渲染 / 任一番外非默认立绘 → 须 live */
+export function shouldBypassPrebuiltExtraCatalog(opts = {}) {
+    if (!shouldUsePrebuilt()) return true;
+    return needsLiveExtraDeerCatalog(opts.userRecord ?? null);
+}
+
 /** 职业一览带当日互助快照时需 live 渲染顶栏 */
 export function needsLiveProfessionCatalog(snapshot) {
     return !!(snapshot && !snapshot.professionRequired);
 }
 
-/** 非默认立绘皮肤时走 live（预渲染图为默认立绘） */
+/** @deprecated 使用 shouldBypassPrebuiltProfessionCard */
 export function needsLiveProfessionCard(opts = {}) {
-    if (needsLiveProfessionCatalog(opts.snapshot)) return true;
-    return !!(opts.skinCtx && shouldBypassPrebuiltForPortraitSkin(opts.skinCtx));
+    return shouldBypassPrebuiltProfessionCard(opts);
 }
 
 export function clearPrebuiltCache() {
@@ -86,7 +97,7 @@ export async function resolveHelpImages(opts = {}) {
 }
 
 export async function resolveProfessionCatalogImage(opts = {}) {
-    if (needsLiveProfessionCatalog(opts.snapshot)) {
+    if (!shouldUsePrebuilt() || needsLiveProfessionCatalog(opts.snapshot)) {
         return generateProfessionCatalogImage(opts);
     }
     const uiSkinId = prebuiltUiSkinId(opts);
@@ -98,7 +109,7 @@ export async function resolveProfessionCatalogImage(opts = {}) {
 }
 
 export async function resolveProfessionCard(professionId, opts = {}) {
-    if (needsLiveProfessionCard(opts)) {
+    if (shouldBypassPrebuiltProfessionCard(opts)) {
         return generateProfessionCard(professionId, opts);
     }
     const uiSkinId = prebuiltUiSkinId(opts);
@@ -113,9 +124,11 @@ export async function resolveProfessionCard(professionId, opts = {}) {
 }
 
 export async function resolveExtraDeerCatalogImage(opts = {}) {
+    if (shouldBypassPrebuiltExtraCatalog(opts)) {
+        return generateExtraDeerCatalogImage(opts);
+    }
     const uiSkinId = prebuiltUiSkinId(opts);
-    const portraitSkin = resolveExtraDeerPortraitSkin(opts.date || new Date());
-    const rel = PREBUILT_REL.extraDeerCatalog(uiSkinId, portraitSkin);
+    const rel = PREBUILT_REL.extraDeerCatalog(uiSkinId, SKIN_DEFAULT);
     return resolvePrebuiltSkin(
         uiSkinId,
         rel,
