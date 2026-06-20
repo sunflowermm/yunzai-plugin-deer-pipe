@@ -74,6 +74,7 @@ import {
     TOGETHER_FALL_COST,
     calcOverlimitDeathChance,
     formatChancePercent,
+    CART_SESSION_MAX_ROUNDS,
     isPrivileged,
     getDeathReasonText,
 } from '../constants/game.js';
@@ -86,7 +87,7 @@ import {
     formatBalancedBreakdown,
 } from './balanced-score.js';
 import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
-import { formatExtraDeerQuotaBrief } from '../constants/extra-deer.js';
+import { YUMUMU_BIND_CUTOFF_HOUR } from '../constants/extra-deer.js';
 import {
     getProfessionDef,
     getProfessionMods,
@@ -111,8 +112,8 @@ import {
 import {
     applyLuBan,
     applyYumumuHelpSynergy,
+    clearLuBan,
     consumeImpotence,
-    resolveMeijiaTeamOnDeath,
     getExtraDeerDef,
     getImpotenceHelpFailBonus,
     getMeijiaTeamPartnerId,
@@ -122,12 +123,32 @@ import {
     luBanUntilKey,
     meijiaTeamKey,
     rejectIfLuBanned,
+    rejectIfMeijiaTeamPartnerLu,
+    rejectIfMeijiaWithdrawal,
     rejectIfWrongExtraDeer,
     resolveExtraDeerId,
+    resolveMeijiaTeamOnDeath,
     setMeijiaTeamLink,
     syncMeijiaTeamLu,
     buildExtraDeerMods,
 } from './extra-deer.js';
+import {
+    activateDeerCart,
+    clearDeerCartInvite,
+    clearDeerCartPair,
+    deerCartInviteKey,
+    deerCartPartnerKey,
+    deerCartRoleKey,
+    getDeerCartInvite,
+    getDeerCartPartnerId,
+    getDeerCartRole,
+    isInDeerCart,
+    rejectIfCartHelpWrongTarget,
+    rejectIfCartDriverLu,
+    rejectIfCartHelperLu,
+    resolveDeerCartOnDriverDeath,
+    setDeerCartInvite,
+} from './deer-cart.js';
 
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 const DAY_KEY_RE = /^\d{1,2}$/;
@@ -198,10 +219,45 @@ export function hasDayRecord(raw) {
     return entry.a > 0 || entry.c !== 0;
 }
 
-/** 指定日是否鹿死（用于排行榜排除） */
+/** 指定日是否鹿死 */
 export function isDeadOnDay(deerData, userId, date, day) {
     const entry = getDayEntry(getMonthData(getUserRecord(deerData, userId), date), day);
     return !!entry?.d;
+}
+
+export function getDayRankCount(entry) {
+    if (!entry) return null;
+    if (entry.d) return entry.snap ?? 0;
+    return entry.c ?? 0;
+}
+
+export function getStealableCount(entry) {
+    if (!entry) return 0;
+    if (entry.d) return Math.max(0, entry.snap ?? 0);
+    return entry.c ?? 0;
+}
+
+function adjustStealableCount(entry, delta) {
+    if (entry.d) {
+        entry.snap = (entry.snap ?? 0) + delta;
+        return entry.snap;
+    }
+    return adjustDayCount(entry, delta);
+}
+
+function entryForBalancedRank(entry) {
+    if (!entry?.d) return entry;
+    const snap = entry.snap ?? 0;
+    if (snap <= 0) return null;
+    return {
+        ...entry,
+        d: 0,
+        c: snap,
+        cur: 0,
+        curR: 0,
+        ble: 0,
+        bleR: 0,
+    };
 }
 
 export function getDeathKillerId(raw) {
@@ -542,6 +598,9 @@ export function resetUserDayMeta(monthData, day) {
     delete monthData[reviveLotteryUsedKey(day)];
     delete monthData[blessUsedKey(day)];
     delete monthData[cleanseBlessUsedKey(day)];
+    delete monthData[deerCartInviteKey(day)];
+    delete monthData[deerCartPartnerKey(day)];
+    delete monthData[deerCartRoleKey(day)];
     delete monthData[meijiaTeamKey(day)];
     delete monthData[luBanUntilKey(day)];
     delete monthData[impotenceKey(day)];
@@ -750,9 +809,15 @@ export function sumMonthNet(monthData, { upToDay = 31 } = {}) {
         if (!isDayKey(k)) continue;
         const day = parseInt(k, 10);
         if (day > upToDay) continue;
-        if (isDayDead(v)) continue;
-        const c = getRawDayCount(v);
-        if (c === null) continue;
+        const entry = normalizeDayEntry(v);
+        if (!entry) continue;
+        if (entry.d) {
+            const snap = entry.snap ?? 0;
+            if (snap !== 0) hasActivity = true;
+            sum += snap;
+            continue;
+        }
+        const c = entry.c ?? 0;
         if (c !== 0) hasActivity = true;
         sum += c;
     }
@@ -790,9 +855,11 @@ function getPeakDayCountInMonth(monthData, upToDay) {
     let hasActivity = false;
     for (let d = 1; d <= upToDay; d++) {
         const entry = getDayEntry(monthData, d);
-        if (!entry || entry.d) continue;
-        if (entry.c > peak) peak = entry.c;
-        if (entry.c > 0) hasActivity = true;
+        if (!entry) continue;
+        const val = getDayRankCount(entry);
+        if (val == null || val <= 0) continue;
+        if (val > peak) peak = val;
+        hasActivity = true;
     }
     return { peak, hasActivity };
 }
@@ -822,8 +889,9 @@ export function getPeakDayCount(userRecord, date = new Date(), scope = 'month') 
     if (scope === 'day') {
         const day = date.getDate();
         const entry = getDayEntry(getMonthData(userRecord, date), day);
-        if (!entry || entry.d || entry.c <= 0) return { peak: 0, hasActivity: false };
-        return { peak: entry.c, hasActivity: true };
+        const val = getDayRankCount(entry);
+        if (val == null || val <= 0) return { peak: 0, hasActivity: false };
+        return { peak: val, hasActivity: true };
     }
     if (scope === 'year') {
         const year = date.getFullYear();
@@ -932,10 +1000,9 @@ export function getDayRankInGroup(deerData, members, date = new Date()) {
     const list = members.map(id => {
         const uid = String(id);
         const entry = getDayEntry(getMonthData(getUserRecord(deerData, uid), date), day);
-        if (!entry || entry.d) return null;
-        const c = entry.c;
-        if (c <= 0) return null;
-        return { id: uid, sum: c };
+        const c = getDayRankCount(entry);
+        if (c == null || c <= 0) return null;
+        return { id: uid, sum: c, dead: !!entry?.d };
     }).filter(Boolean);
     list.sort((a, b) => b.sum - a.sum || a.id.localeCompare(b.id));
     return list;
@@ -973,10 +1040,11 @@ export function getDayBalancedRankInGroup(deerData, members, date = new Date()) 
         const uid = String(id);
         const monthData = getMonthData(getUserRecord(deerData, uid), date);
         const entry = getDayEntry(monthData, day);
-        if (!entry || entry.d) return null;
-        const sum = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, day, entry, { userId: uid, date }));
+        const rankEntry = entryForBalancedRank(entry);
+        if (!rankEntry) return null;
+        const sum = calcDayBalancedScore(rankEntry, resolveBalancedDayContext(monthData, day, rankEntry, { userId: uid, date }));
         if (sum <= 0) return null;
-        return { id: uid, sum };
+        return { id: uid, sum, dead: !!entry?.d };
     }).filter(Boolean);
     list.sort((a, b) => b.sum - a.sum || a.id.localeCompare(b.id));
     return list;
@@ -989,11 +1057,12 @@ export function sumMonthBalancedScore(monthData, upToDay = 31, opts = {}) {
     const baseDate = opts.date instanceof Date ? opts.date : null;
     for (let d = 1; d <= upToDay; d++) {
         const entry = getDayEntry(monthData, d);
-        if (!entry || entry.d) continue;
+        const rankEntry = entryForBalancedRank(entry);
+        if (!rankEntry) continue;
         const dayOpts = opts.userId != null && baseDate
             ? { userId: opts.userId, date: baseDate }
             : {};
-        const s = calcDayBalancedScore(entry, resolveBalancedDayContext(monthData, d, entry, dayOpts));
+        const s = calcDayBalancedScore(rankEntry, resolveBalancedDayContext(monthData, d, rankEntry, dayOpts));
         if (s > 0) hasActivity = true;
         sum += s;
     }
@@ -1023,16 +1092,16 @@ export function sumMonthActiveAttempts(monthData, upToDay = 31) {
     let sum = 0;
     for (let d = 1; d <= upToDay; d++) {
         const entry = getDayEntry(monthData, d);
-        if (!entry || entry.d) continue;
+        if (!entry) continue;
         sum += entry.a || 0;
     }
     return sum;
 }
 
-/** 群鹿溅目标：综合日榜 Top N（排除施术者，与鹿王同算法） */
+/** 群鹿溅目标：综合日榜 Top N（排除施术者，与鹿王同算法；鹿死者不可被溅） */
 export function pickSplashTargetsFromDayRank(deerData, members, casterId, date, topN = GROUP_SPLASH_TOP_N) {
     return getDayBalancedRankInGroup(deerData, members, date)
-        .filter((r) => String(r.id) !== String(casterId))
+        .filter((r) => String(r.id) !== String(casterId) && !r.dead)
         .slice(0, topN)
         .map((r) => r.id);
 }
@@ -1552,6 +1621,8 @@ export function applyDeath(entry, { reason = DEATH_REASON.SELF, killerId = null 
     entry.dc += 1;
     entry.dr = reason;
     entry.dk = killerId ? String(killerId) : '';
+    clearCurse(entry);
+    clearBless(entry);
     return entry.snap;
 }
 
@@ -1567,8 +1638,28 @@ function resolvePlayDef(id) {
     return isExtraDeerId(id) ? buildExtraDeerMods(getExtraDeerDef(id)) : getProfessionDef(id);
 }
 
-function attachMeijiaTeamOnDeath(deerData, userId, date, day, result, killerId = null) {
-    const team = resolveMeijiaTeamOnDeath(deerData, userId, date, day, {
+function mergeDeerCartDeathResult(result, cart) {
+    if (!cart) return;
+    if (cart.dissolved) {
+        result.deerCartEnded = cart;
+        delete result.deerCartAwaitHelp;
+    } else {
+        result.deerCartAwaitHelp = cart;
+    }
+}
+
+function applyDeerCartOnDriverDeath(deerData, driverId, date, day, result) {
+    mergeDeerCartDeathResult(result, resolveDeerCartOnDriverDeath(deerData, driverId, date, day, {
+        getUserRecord,
+        getMonthData,
+        ensureMonthData,
+        getHelperQuotaLeft,
+    }));
+    return result;
+}
+
+function resolvePlayDeathEffects(deerData, deadUserId, date, day, result, killerId = null) {
+    const team = resolveMeijiaTeamOnDeath(deerData, deadUserId, date, day, {
         getUserRecord,
         getMonthData,
         ensureMonthData,
@@ -1576,22 +1667,31 @@ function attachMeijiaTeamOnDeath(deerData, userId, date, day, result, killerId =
         applyDeathFn: applyDeath,
         killerId,
     });
-    if (!team) return result;
-    if (team.partnerSnap != null) result.meijiaTeamWipe = team;
-    else if (team.dissolved) result.meijiaTeamDissolved = team;
+    if (team) {
+        if (team.partnerSnap != null) {
+            result.meijiaTeamWipe = team;
+            applyDeerCartOnDriverDeath(deerData, team.partnerId, date, day, result);
+        } else if (team.dissolved) {
+            result.meijiaTeamDissolved = team;
+        }
+    }
+    applyDeerCartOnDriverDeath(deerData, deadUserId, date, day, result);
+    const deadMonth = getMonthData(getUserRecord(deerData, deadUserId), date);
+    if (deadMonth) clearLuBan(deadMonth, day);
     return result;
 }
 
 function finalizeLuResult(deerData, userId, date, day, result) {
     if (!result?.ok) return result;
     if (String(result.type || '').startsWith('death')) {
-        return attachMeijiaTeamOnDeath(deerData, userId, date, day, result);
+        return resolvePlayDeathEffects(deerData, userId, date, day, result);
     }
     const teamLu = syncMeijiaTeamLu(deerData, userId, date, day, {
         getUserRecord,
         ensureMonthData,
         ensureDayEntry,
         getMonthData,
+        preLuCount: result.preLuCount,
     });
     if (teamLu) result.meijiaTeamLu = teamLu;
     return result;
@@ -1601,10 +1701,21 @@ function finalizeLuResult(deerData, userId, date, day, result) {
  * 自己🦌
  * @param {object} [gameContext] weatherEffects 等
  */
-export function performLu(deerData, userId, date, day, gameContext = {}) {
+export function performLu(deerData, userId, date, day, gameContext = {}, opts = {}) {
     const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
     if (blocked) return blocked;
     const monthData = ensureMonthData(deerData, userId, date);
+    const cartBlock = rejectIfCartHelperLu(monthData, day);
+    if (cartBlock) return cartBlock;
+    if (!opts.cartSession) {
+        const cartDriverBlock = rejectIfCartDriverLu(monthData, day);
+        if (cartDriverBlock) return cartDriverBlock;
+    }
+    const teamBlock = rejectIfMeijiaTeamPartnerLu(deerData, userId, date, day, {
+        getUserRecord,
+        getMonthData,
+    });
+    if (teamBlock) return teamBlock;
     const luBan = rejectIfLuBanned(monthData, day);
     if (luBan) return luBan;
     const entry = ensureDayEntry(monthData, day);
@@ -1625,6 +1736,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
     let urgeBonus = 0;
     let grinderBonus = 0;
     if (entry.c < safeLimit) {
+        const preLuCount = entry.c;
         entry.c += 1;
         if (profMods?.safeLuDoubleChance && rollChance(profMods.safeLuDoubleChance)) {
             entry.c += 1;
@@ -1644,6 +1756,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
             type: urgeBonus ? 'safe_urged' : (grinderBonus ? 'safe_grinder' : 'safe'),
             entry,
             count: entry.c,
+            preLuCount,
             safeLeft: entry.c < 0 ? 0 : Math.max(0, safeLimit - entry.c),
             safeLimit,
             urgeBonus,
@@ -1665,6 +1778,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
     );
     deathChance = applyOverlimitDeathCap(deathChance, profMods);
+    const preLuCount = entry.c;
     if (rollChance(deathChance)) {
         const snap = applyDeath(entry, { reason: DEATH_REASON.SELF });
         if (hadActiveCurse) consumeCurseRound(entry);
@@ -1678,6 +1792,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
             type,
             entry,
             snap,
+            preLuCount,
             deathChance,
             hadCurse: hadActiveCurse,
             hadBless: hadActiveBless,
@@ -1704,6 +1819,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         type,
         entry,
         count: entry.c,
+        preLuCount,
         deathChance,
         nextDeathChance: computeSelfLuDeathChance(entry, wx, profMods),
         hadCurse: hadActiveCurse,
@@ -1717,6 +1833,75 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         weatherTip: gameContext.weatherEffects?.tip || '',
         weatherPatrolConsumed: patrolConsumed,
     });
+}
+
+/** 鹿车发车后自动连鹿：发车人 performLu，鹿死则帮鹿位 performHelpLu，直至帮鹿用尽散车 */
+export function runDeerCartSession(deerData, driverId, helperId, date, day, gameContext = {}) {
+    const rounds = [];
+
+    for (let i = 0; i < CART_SESSION_MAX_ROUNDS; i++) {
+        const driverMonth = ensureMonthData(deerData, driverId, date);
+        if (getDeerCartRole(driverMonth, day) !== 'driver') break;
+
+        const driverEntry = ensureDayEntry(driverMonth, day);
+        if (driverEntry.d) break;
+
+        const luResult = performLu(deerData, driverId, date, day, gameContext, { cartSession: true });
+        const round = { lu: luResult, help: null };
+        rounds.push(round);
+        if (!luResult.ok) {
+            return {
+                ok: false,
+                lu: luResult,
+                rounds,
+                roundCount: rounds.length,
+                driverId: String(driverId),
+                helperId: String(helperId),
+            };
+        }
+
+        const driverAfter = ensureDayEntry(driverMonth, day);
+        if (!driverAfter.d) continue;
+
+        const helperMonth = ensureMonthData(deerData, helperId, date);
+        const helperEntry = ensureDayEntry(helperMonth, day);
+        if (helperEntry.d) break;
+        if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
+
+        round.help = performHelpLu(deerData, helperId, driverId, date, day, gameContext);
+
+        const driverMonthAfter = ensureMonthData(deerData, driverId, date);
+        if (getDeerCartRole(driverMonthAfter, day) !== 'driver') break;
+
+        const driverAfterHelp = ensureDayEntry(driverMonthAfter, day);
+        if (!driverAfterHelp.d) continue;
+
+        if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
+        if (!round.help?.ok) break;
+        if (round.help.type !== 'revive' && round.help.type !== 'help') break;
+    }
+
+    const driverMonth = ensureMonthData(deerData, driverId, date);
+    let dissolved = getDeerCartRole(driverMonth, day) !== 'driver';
+    const maxRoundsHit = rounds.length >= CART_SESSION_MAX_ROUNDS && !dissolved;
+    if (maxRoundsHit) {
+        const helperMonth = ensureMonthData(deerData, helperId, date);
+        clearDeerCartPair(driverMonth, helperMonth, day);
+        dissolved = true;
+    }
+
+    const lastLu = rounds[rounds.length - 1]?.lu;
+    return {
+        ok: true,
+        rounds,
+        roundCount: rounds.length,
+        driverId: String(driverId),
+        helperId: String(helperId),
+        dissolved,
+        deerCartEnded: lastLu?.deerCartEnded,
+        deerCartAwaitHelp: dissolved ? null : lastLu?.deerCartAwaitHelp,
+        maxRoundsHit,
+    };
 }
 
 /** 当日转职（首次选定后锁定至次日 0 点；鹿死亦可转职以启用冥界玩法） */
@@ -2017,20 +2202,22 @@ export function performRogueNightRaidSkill(deerData, thiefId, targetId, date, da
         return { ok: false, type: 'job_skill_used' };
     }
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
-    if (targetEntry.d) return { ok: false, type: 'steal_target_dead' };
-    if (targetEntry.c <= 0) return { ok: false, type: 'steal_empty' };
+    if (getStealableCount(targetEntry) <= 0) {
+        return { ok: false, type: targetEntry.d ? 'steal_target_dead' : 'steal_empty' };
+    }
     markJobSkillUsed(thiefMonth, day);
     const thiefEntry = ensureDayEntry(thiefMonth, day);
     thiefEntry.a += 1;
     const nightChance = 0.85;
     if (rollChance(nightChance)) {
-        adjustDayCount(targetEntry, -1);
+        adjustStealableCount(targetEntry, -1);
         adjustDayCount(thiefEntry, 1);
         return {
             ok: true,
             type: 'job_skill_rogue_raid_success',
             thiefCount: thiefEntry.c,
-            targetCount: targetEntry.c,
+            targetCount: getStealableCount(targetEntry),
+            stolenFromSnap: !!targetEntry.d,
             nightChance,
         };
     }
@@ -2039,12 +2226,13 @@ export function performRogueNightRaidSkill(deerData, thiefId, targetId, date, da
         ok: true,
         type: 'job_skill_rogue_raid_fail',
         thiefCount: thiefEntry.c,
-        targetCount: targetEntry.c,
+        targetCount: getStealableCount(targetEntry),
+        stolenFromSnap: !!targetEntry.d,
         nightChance,
     };
 }
 
-/** 王美嘉鹿专属：组队 — 绑定搭档，自鹿联动（鹿死解除） */
+/** 王美嘉专属：组队@ */
 export function performMeijiaTeamSkill(deerData, meijiaId, targetId, date, day) {
     if (String(meijiaId) === String(targetId)) {
         return { ok: false, type: 'team_self' };
@@ -2054,6 +2242,10 @@ export function performMeijiaTeamSkill(deerData, meijiaId, targetId, date, day) 
     const meijiaMonth = ensureMonthData(deerData, meijiaId, date);
     const wrong = rejectIfWrongExtraDeer(meijiaMonth, day, 'meijia');
     if (wrong) return wrong;
+    const meijiaEntry = ensureDayEntry(meijiaMonth, day);
+    if (meijiaEntry.c < 0) {
+        return { ok: false, type: 'team_meijia_negative' };
+    }
     if (hasUsedJobSkill(meijiaMonth, day)) {
         return { ok: false, type: 'job_skill_used' };
     }
@@ -2078,10 +2270,72 @@ export function performMeijiaTeamSkill(deerData, meijiaId, targetId, date, day) 
     };
 }
 
-/** 雨木木鹿专属：束缚 — 禁目标自🦌 1 小时，仍可帮🦌 */
+export function performDeerCartInvite(deerData, driverId, helperId, date, day) {
+    if (String(driverId) === String(helperId)) {
+        return { ok: false, type: 'cart_self' };
+    }
+    const blocked = rejectUnlessPlayReady(deerData, driverId, date, day);
+    if (blocked) return blocked;
+    const driverMonth = ensureMonthData(deerData, driverId, date);
+    if (isInDeerCart(driverMonth, day)) {
+        return { ok: false, type: 'cart_already' };
+    }
+    const helperMonth = ensureMonthData(deerData, helperId, date);
+    if (isInDeerCart(helperMonth, day)) {
+        return { ok: false, type: 'cart_partner_busy' };
+    }
+    const helperEntry = ensureDayEntry(helperMonth, day);
+    if (helperEntry.d) return { ok: false, type: 'target_dead' };
+    const pendingInvite = getDeerCartInvite(helperMonth, day);
+    if (pendingInvite && String(pendingInvite) !== String(driverId)) {
+        return { ok: false, type: 'cart_partner_busy' };
+    }
+    setDeerCartInvite(helperMonth, driverId, day);
+    return {
+        ok: true,
+        type: 'deer_cart_invite',
+        helperId: String(helperId),
+    };
+}
+
+export function performDeerCartDepart(deerData, helperId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
+    if (blocked) return blocked;
+    const helperMonth = ensureMonthData(deerData, helperId, date);
+    const driverId = getDeerCartInvite(helperMonth, day);
+    if (!driverId) {
+        return { ok: false, type: 'cart_no_invite' };
+    }
+    if (isInDeerCart(helperMonth, day)) {
+        clearDeerCartInvite(helperMonth, day);
+        return { ok: false, type: 'cart_already' };
+    }
+    const driverMonth = ensureMonthData(deerData, driverId, date);
+    if (isInDeerCart(driverMonth, day)) {
+        clearDeerCartInvite(helperMonth, day);
+        return { ok: false, type: 'cart_partner_busy' };
+    }
+    const driverEntry = ensureDayEntry(driverMonth, day);
+    if (driverEntry.d) {
+        clearDeerCartInvite(helperMonth, day);
+        return { ok: false, type: 'cart_driver_dead' };
+    }
+    activateDeerCart(driverMonth, helperMonth, driverId, helperId, day);
+    return {
+        ok: true,
+        type: 'deer_cart_depart',
+        driverId: String(driverId),
+        helperId: String(helperId),
+    };
+}
+
+/** 雨木木鹿专属：束缚 — 55 分钟禁自鹿，11:00 前可用 */
 export function performYumumuBindSkill(deerData, yumumuId, targetId, date, day) {
     if (String(yumumuId) === String(targetId)) {
         return { ok: false, type: 'bind_self' };
+    }
+    if (date.getHours() >= YUMUMU_BIND_CUTOFF_HOUR) {
+        return { ok: false, type: 'bind_after_cutoff' };
     }
     const blocked = rejectUnlessPlayReady(deerData, yumumuId, date, day);
     if (blocked) return blocked;
@@ -2103,7 +2357,7 @@ export function performYumumuBindSkill(deerData, yumumuId, targetId, date, day) 
         ok: true,
         type: 'job_skill_yumumu_bind',
         targetId: String(targetId),
-        banMinutes: 60,
+        banMinutes: 55,
         targetCount: targetEntry.c,
     };
 }
@@ -2115,6 +2369,8 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
     const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
     if (blocked) return blocked;
     const helperMonth = ensureMonthData(deerData, helperId, date);
+    const cartWrongTarget = rejectIfCartHelpWrongTarget(helperMonth, day, targetId);
+    if (cartWrongTarget) return cartWrongTarget;
     const helpLimit = getHelpQuotaLimit(helperMonth, day);
     const quotaLeft = getHelperQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
@@ -2181,7 +2437,6 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 safeLimit: targetMods.safeLimit,
                 impotenceTriggered: impBonus > 0,
             };
-            attachMeijiaTeamOnDeath(deerData, targetId, date, day, result, helperId);
         } else if (entry.c >= targetMods.safeLimit) {
             result = {
                 ok: true,
@@ -2228,6 +2483,9 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
             revive: result.type === 'revive',
         });
     }
+    if (entry.d) {
+        resolvePlayDeathEffects(deerData, targetId, date, day, result, helperId);
+    }
     return attachQuota(result, quota);
 }
 
@@ -2238,6 +2496,8 @@ export function performWithdrawal(deerData, userId, date, day, { pastDay = false
         if (blocked) return blocked;
     }
     const monthData = ensureMonthData(deerData, userId, date);
+    const withdrawBlock = rejectIfMeijiaWithdrawal(monthData, day);
+    if (withdrawBlock) return withdrawBlock;
     const entry = ensureDayEntry(monthData, day);
     if (entry.d) {
         return { ok: false, type: 'withdrawal_dead' };
@@ -2325,6 +2585,8 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
     }
 
     const targetMonth = ensureMonthData(deerData, targetId, date);
+    const targetWithdrawBlock = rejectIfMeijiaWithdrawal(targetMonth, day);
+    if (targetWithdrawBlock) return targetWithdrawBlock;
     const entry = ensureDayEntry(targetMonth, day);
     if (entry.d) {
         return { ok: false, type: 'target_dead' };
@@ -2534,8 +2796,9 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     const used = readDailyUsed(thiefMonth, day, stealUsedKey);
 
     const targetEntry = ensureDayEntry(ensureMonthData(deerData, targetId, date), day);
-    if (targetEntry.d) return { ok: false, type: 'steal_target_dead' };
-    if (targetEntry.c <= 0) return { ok: false, type: 'steal_empty' };
+    if (getStealableCount(targetEntry) <= 0) {
+        return { ok: false, type: targetEntry.d ? 'steal_target_dead' : 'steal_empty' };
+    }
     thiefMonth[stealUsedKey(day)] = used + 1;
     const thiefEntry = ensureDayEntry(thiefMonth, day);
     thiefEntry.a += 1;
@@ -2547,19 +2810,21 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     const successCap = Math.min(0.95, Math.max(0.05, STEAL_SUCCESS_CHANCE + stealBonus));
     const backfireCap = successCap + Math.max(0.05, STEAL_BACKFIRE_CHANCE + (scaledWx.stealBackfireDelta || 0));
     const roll = Math.random();
+    const snapNote = { stolenFromSnap: !!targetEntry.d };
     if (roll < successCap) {
-        adjustDayCount(targetEntry, -1);
+        adjustStealableCount(targetEntry, -1);
         adjustDayCount(thiefEntry, 1);
         return {
             ok: true,
             type: 'steal_success',
             thiefCount: thiefEntry.c,
-            targetCount: targetEntry.c,
+            targetCount: getStealableCount(targetEntry),
             stealUsed: used + 1,
             stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
             stealMax: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal),
             curseStacks,
             stealBonus,
+            ...snapNote,
         };
     }
     if (roll < backfireCap) {
@@ -2573,13 +2838,14 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
             ok: true,
             type: curseBackfire ? 'steal_curse_backfire' : 'steal_backfire',
             thiefCount: thiefEntry.c,
-            targetCount: targetEntry.c,
+            targetCount: getStealableCount(targetEntry),
             stealUsed: used + 1,
             stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
             stealMax: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal),
             curseStacks,
             stealBonus,
             curseBackfire,
+            ...snapNote,
         };
     }
     let curseBackfire = false;
@@ -2591,7 +2857,7 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
         ok: true,
         type: curseBackfire ? 'steal_curse_fail' : 'steal_fail',
         thiefCount: thiefEntry.c,
-        targetCount: targetEntry.c,
+        targetCount: getStealableCount(targetEntry),
         stealUsed: used + 1,
         stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
         stealMax: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal),
@@ -3382,6 +3648,7 @@ export function performReviveLottery(deerData, userId, date, day) {
         entry.dr = '';
         entry.dk = '';
         clearCurse(entry);
+        clearBless(entry);
         entry.revived += 1;
         return {
             ok: true,

@@ -78,6 +78,8 @@ export const HELP_SECTIONS = {
         items: [
             { cmd: `添加${D_SHOW}友@ta`, desc: '双向结缘', quota: '互助/解咒/借鹿需好友' },
             { cmd: `帮${D_SHOW}@ta`, desc: '代🦌 / 救活鹿死', quota: `依职业 ${PROFESSION_HELP_RANGE[0]}~${PROFESSION_HELP_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_FAIL_CHANCE * 100)}% 起` },
+            { cmd: '鹿车@ta', desc: '邀请🦌友上车，对方 context 内回复「发车」', quota: '发车后自动连鹿 · 与组队@可并存 · 帮鹿位禁自鹿' },
+            { cmd: '发车', desc: '被邀请方在限时内确认上车', quota: '散车=发车人鹿死且帮鹿次数用尽' },
             { cmd: `帮戒${D_SHOW}@ta`, desc: '帮 ta -1', quota: `依职业 ${PROFESSION_WITHDRAW_RANGE[0]}~${PROFESSION_WITHDRAW_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_WITHDRAW_FAIL_CHANCE * 100)}% 起` },
             { cmd: `帮${D_SHOW}次数 / 帮戒${D_SHOW}次数`, desc: '文字查互助剩余（图看发鹿况）', quota: '与职业上限联动 · 须先转职' },
             { cmd: `解${D_SHOW}咒@ta`, desc: '撕咒印（清全部层）', quota: `${DAILY_CLEANSE_CURSE_QUOTA} 次/日` },
@@ -111,7 +113,7 @@ export const HELP_SECTIONS = {
             { cmd: '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等', desc: '8 职业：含向日葵鹿 · 详见鹿职业一览', quota: '首次转职后当日锁定 · 各职业全玩法次数不同' },
             { cmd: `${D_SHOW}技`, desc: '查看今日专属技状态', quota: '每职业 1 次/日' },
             { cmd: `${D_SHOW}巡 / 愈鹿@ / 清规@ / 卷冲`, desc: '巡游/鹿医师/戒灵师/卷王专属技', quota: '须对应职业 · 鹿医师帮鹿成功 12% 帮鹿次数+1' },
-            { cmd: '咒缚@ / 广福@ / 夜袭@ / 向阳@', desc: '叠咒/福鹿使/窃光/向日葵专属技', quota: '不占对应玩法配额 · 1 次/日' },
+            { cmd: '咒缚@ / 广福@ / 夜袭@ / 向阳@ / 组队@ / 束缚@', desc: '叠咒/福鹿使/窃光/向日葵/王美嘉/雨木木专属技', quota: '不占对应玩法配额 · 1 次/日' },
         ],
     },
     weather: {

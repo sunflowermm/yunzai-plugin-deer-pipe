@@ -83,6 +83,8 @@ export const REG = {
     curserBindSkill: '^咒缚',
     blesserGrantSkill: '^广福',
     rogueNightRaidSkill: '^夜袭',
+    deerCart: '^鹿车',
+    /** 鹿车「发车」由 setContext('deerCartDepart') 监听，勿加裸规则 */
     meijiaTeamSkill: '^组队',
     yumumuBindSkill: '^束缚',
     addFriend: `^添加${D}友(.*)`,

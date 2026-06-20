@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, UI_MESSAGES } from '../constants/game.js';
+import { ERROR_MESSAGES, UI_MESSAGES, DEER_CART_DEPART_TIMEOUT_SEC } from '../constants/game.js';
 import { getProfessionDef, resolveProfessionId } from '../constants/profession.js';
 import { getExtraDeerDef, isExtraDeerId, resolveExtraDeerId } from '../constants/extra-deer.js';
 import { REG, cleanCommandMsg, formatMonthLabel, parseViewMonthToken } from '../constants/commands.js';
@@ -8,8 +8,10 @@ import {
     getTodayStatus,
     getUserRecord,
     hasMonthData,
+    ensureMonthData,
     performHelpLu,
     performLu,
+    runDeerCartSession,
     performSetProfession,
     performWithdrawal,
     performJobSkillInfo,
@@ -22,6 +24,8 @@ import {
     performSunflowerFacingSkill,
     performRogueNightRaidSkill,
     performMeijiaTeamSkill,
+    performDeerCartInvite,
+    performDeerCartDepart,
     performYumumuBindSkill,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
@@ -37,6 +41,7 @@ import {
 } from '../utils/panel.js';
 import {
     formatActionMessage,
+    formatCartSessionMessage,
     formatErrorMessage,
     formatHelperQuotaReply,
     formatViewEmpty,
@@ -49,8 +54,15 @@ import {
     resolveAsceticSkillTargetId,
     resolveTargetId,
 } from '../utils/plugin-common.js';
+import {
+    armDeerCartSession,
+    clearDeerCartSession,
+    findDeerCartSessionForTarget,
+    isDeerCartTargetBusy,
+} from '../utils/deer-cart-session.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 import { bumpFestivalPortraitProgress, appendUnlockNotices } from '../utils/portrait-unlock.js';
+import plugin from '../../../lib/plugins/plugin.js';
 
 export class DeerPipe extends plugin {
     constructor() {
@@ -82,6 +94,7 @@ export class DeerPipe extends plugin {
                 { reg: REG.blesserGrantSkill, fnc: 'blesserGrantSkill' },
                 { reg: REG.sunflowerFacingSkill, fnc: 'sunflowerFacingSkill' },
                 { reg: REG.rogueNightRaidSkill, fnc: 'rogueNightRaidSkill' },
+                { reg: REG.deerCart, fnc: 'deerCart' },
                 { reg: REG.meijiaTeamSkill, fnc: 'meijiaTeamSkill' },
                 { reg: REG.yumumuBindSkill, fnc: 'yumumuBindSkill' },
             ],
@@ -94,16 +107,18 @@ export class DeerPipe extends plugin {
         const day = date.getDate();
         const deerData = await loadDeerData();
         const ctx = await loadGameContext(date);
+        const driverName = card || nickname;
+
         const result = performLu(deerData, user_id, date, day, ctx);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;
         }
-        const unlocks = bumpFestivalPortraitProgress(getUserRecord(deerData, user_id), date, 'lu');
+        const notices = bumpFestivalPortraitProgress(getUserRecord(deerData, user_id), date, 'lu');
         await saveDeerData(deerData);
-        const text = appendUnlockNotices(formatActionMessage(result), unlocks);
+        const text = appendUnlockNotices(formatActionMessage(result), notices);
         await replyDeerPanel(this.e, {
-            date, name: card || nickname, userId: user_id, deerData, text, dayOverride: day,
+            date, name: driverName, userId: user_id, deerData, text, dayOverride: day,
         });
     }
 
@@ -441,7 +456,7 @@ export class DeerPipe extends plugin {
         });
     }
 
-    async _runTargetSkill(performFn, { needFriend = true } = {}) {
+    async _runTargetSkill(performFn, { needFriend = true, textOnly = false } = {}) {
         const { user_id, card, nickname } = this.e.sender;
         const targetId = await resolveTargetId(this.e);
         if (!targetId) {
@@ -469,6 +484,10 @@ export class DeerPipe extends plugin {
             helperName: card || nickname,
             targetName,
         });
+        if (textOnly) {
+            await this.reply(text, true);
+            return;
+        }
         await replyInteractionResult(this.e, {
             date,
             name: targetName,
@@ -500,6 +519,155 @@ export class DeerPipe extends plugin {
 
     async rogueNightRaidSkill() {
         await this._runTargetSkill(performRogueNightRaidSkill, { needFriend: false });
+    }
+
+    async deerCart() {
+        const { user_id, card, nickname } = this.e.sender;
+        const targetId = await resolveTargetId(this.e);
+        if (!targetId) {
+            await this.reply(ERROR_MESSAGES.no_target, true);
+            return;
+        }
+        const friends = await loadFriends();
+        if (!canHelpFriend(friends, user_id, targetId)) {
+            await this.reply(ERROR_MESSAGES.not_friend, true);
+            return;
+        }
+        const scopeId = this.e.group_id || 'pm';
+        if (isDeerCartTargetBusy(scopeId, targetId)) {
+            await this.reply(formatErrorMessage({ type: 'cart_busy' }), true);
+            return;
+        }
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performDeerCartInvite(deerData, user_id, targetId, date, day);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const targetName = await getMemberName(this.e, targetId);
+        const driverName = card || nickname;
+        const pluginName = this.name;
+        const selfId = this.e.self_id;
+        armDeerCartSession(scopeId, targetId, {
+            driverId: user_id,
+            driverName,
+            helperId: targetId,
+            date,
+            day,
+            pluginName,
+            selfId,
+        }, {
+            onExpire: () => {
+                plugin.finishUserContext(pluginName, selfId, targetId, 'deerCartDepart');
+            },
+        });
+        plugin.bindUserContext(
+            pluginName,
+            selfId,
+            targetId,
+            'deerCartDepart',
+            this.e,
+            DEER_CART_DEPART_TIMEOUT_SEC,
+        );
+        const text = formatActionMessage(result, {
+            helperName: driverName,
+            targetName,
+        });
+        await this.reply([
+            text,
+            `\n${targetName} 请在 ${DEER_CART_DEPART_TIMEOUT_SEC} 秒内回复「发车」确认上车`,
+        ], true);
+    }
+
+    /**
+     * 用户级上下文：仅被 @ 的帮鹿位回复「发车」（handleContext 优先于 rule）
+     */
+    async deerCartDepart() {
+        const session = findDeerCartSessionForTarget(this.e);
+        if (!session) {
+            plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'deerCartDepart');
+            return false;
+        }
+
+        const msg = String(this.e.msg ?? '').trim();
+        if (!msg.includes('发车')) {
+            await this.reply(`请回复「发车」确认上车（${DEER_CART_DEPART_TIMEOUT_SEC}s 内有效）`, true);
+            return true;
+        }
+
+        const scopeId = this.e.group_id || 'pm';
+        plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'deerCartDepart');
+        clearDeerCartSession(scopeId, this.e.user_id);
+
+        const date = new Date();
+        const day = date.getDate();
+        const { user_id, card, nickname } = this.e.sender;
+        const deerData = await loadDeerData();
+        const depart = performDeerCartDepart(deerData, user_id, date, day);
+        if (!depart.ok) {
+            if (depart.type === 'cart_no_invite') return false;
+            await this.reply(formatErrorMessage(depart), true);
+            await saveDeerData(deerData);
+            return true;
+        }
+        await saveDeerData(deerData);
+
+        const ctx = await loadGameContext(date);
+        const cartSession = runDeerCartSession(
+            deerData,
+            depart.driverId,
+            depart.helperId,
+            date,
+            day,
+            ctx,
+        );
+        if (!cartSession.ok) {
+            await saveDeerData(deerData);
+            await this.reply(formatErrorMessage(cartSession.lu || cartSession), true);
+            return true;
+        }
+
+        let notices = [];
+        for (const round of cartSession.rounds) {
+            notices = notices.concat(
+                bumpFestivalPortraitProgress(getUserRecord(deerData, depart.driverId), date, 'lu'),
+            );
+            if (round.help?.ok) {
+                notices = notices.concat(
+                    bumpFestivalPortraitProgress(getUserRecord(deerData, depart.helperId), date, 'help_lu'),
+                );
+            }
+        }
+        await saveDeerData(deerData);
+
+        const driverName = await getMemberName(this.e, depart.driverId);
+        const helperName = card || nickname;
+        const departLine = formatActionMessage(depart, { helperName, targetName: driverName });
+        const sessionText = formatCartSessionMessage(cartSession, { driverName, helperName });
+        const text = appendUnlockNotices(`${departLine}\n${sessionText}`, notices);
+
+        const lastHelp = [...cartSession.rounds].reverse().find((r) => r.help?.ok)?.help;
+        const panelResult = lastHelp || cartSession.rounds[cartSession.rounds.length - 1]?.lu || depart;
+
+        await replyInteractionResult(this.e, {
+            date,
+            name: driverName,
+            userId: depart.driverId,
+            deerData,
+            text,
+            result: panelResult,
+            helperName,
+            targetName: driverName,
+            helperId: depart.helperId,
+            targetId: depart.driverId,
+            dayOverride: day,
+            withPanel: true,
+            duel: true,
+        });
+        return true;
     }
 
     async meijiaTeamSkill() {

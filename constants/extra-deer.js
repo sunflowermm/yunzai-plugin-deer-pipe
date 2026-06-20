@@ -11,21 +11,15 @@ export const EXTRA_DEER = {
         id: 'meijia',
         name: '王美嘉鹿',
         emoji: '👑',
-        helpQuota: 8,
-        helpWithdrawQuota: 2,
-        helpFailDelta: -0.04,
-        deathDelta: -0.025,
+        helpFailDelta: -0.05,
+        deathDelta: -0.03,
         safeBonus: 1,
     },
     yumumu: {
         id: 'yumumu',
         name: '雨木木鹿',
         emoji: '🌧️',
-        helpQuota: 12,
-        helpWithdrawQuota: 3,
         helpFailDelta: -0.04,
-        impotenceChance: 0.20,
-        impotenceHelpFailBonus: 0.08,
     },
 };
 
@@ -34,13 +28,13 @@ export const EXTRA_DEER_SKILLS = {
         id: 'meijia',
         name: '组队',
         cmd: '组队@',
-        desc: '绑定 1 名鹿友：王美嘉自鹿 +1 时搭档同步 +1 · 任一方鹿死则双亡并解除绑定 · 1 次/日',
+        desc: '绑定 1 名鹿友：王美嘉自鹿 +1 时搭档同步 +1（每日上限 5 次 · 净值≥0 才同步）· 任一方鹿死双亡 · 王美嘉不可戒鹿 · 1 次/日',
     },
     yumumu: {
         id: 'yumumu',
         name: '束缚',
         cmd: '束缚@',
-        desc: '目标 60 分钟禁自鹿（仍可被帮鹿）· 1 次/日',
+        desc: '目标 55 分钟禁自鹿（仍可被帮鹿）· 仅 11:00 前可用 · 1 次/日',
     },
 };
 
@@ -57,7 +51,7 @@ export const EXTRA_DEER_ALIASES = {
 
 export const EXTRA_DEER_QUOTA_TABLE = {
     meijia: {
-        [QUOTA.help]: 8,
+        [QUOTA.help]: 6,
         [QUOTA.helpWithdraw]: 2,
         [QUOTA.steal]: 1,
         [QUOTA.arena]: 2,
@@ -67,7 +61,7 @@ export const EXTRA_DEER_QUOTA_TABLE = {
         [QUOTA.lottery]: 1,
     },
     yumumu: {
-        [QUOTA.help]: 12,
+        [QUOTA.help]: 18,
         [QUOTA.helpWithdraw]: 3,
         [QUOTA.curse]: 2,
         [QUOTA.bless]: 2,
@@ -78,8 +72,9 @@ export const EXTRA_DEER_QUOTA_TABLE = {
     },
 };
 
-export const YUMUMU_LU_BAN_MS = 60 * 60 * 1000;
-export const YUMUMU_IMPOTENCE_CHANCE = 0.20;
+export const YUMUMU_LU_BAN_MS = 55 * 60 * 1000;
+export const YUMUMU_BIND_CUTOFF_HOUR = 11;
+export const YUMUMU_IMPOTENCE_CHANCE = 0.40;
 export const YUMUMU_IMPOTENCE_HELP_FAIL = 0.08;
 
 export function isExtraDeerId(id) {
@@ -89,10 +84,20 @@ export function isExtraDeerId(id) {
 export function getExtraDeerDef(id) {
     const base = EXTRA_DEER[id];
     if (!base) return null;
-    return {
+    const q = resolveExtraDeerQuotas(id);
+    const merged = {
         ...base,
-        tagline: formatTalentTagline(base, 99),
-        synergyTip: formatTalentCatalogLine(base, formatExtraDeerQuotaBrief(id)),
+        helpQuota: q[QUOTA.help],
+        helpWithdrawQuota: q[QUOTA.helpWithdraw],
+    };
+    if (id === 'yumumu') {
+        merged.impotenceChance = YUMUMU_IMPOTENCE_CHANCE;
+        merged.impotenceHelpFailBonus = YUMUMU_IMPOTENCE_HELP_FAIL;
+    }
+    return {
+        ...merged,
+        tagline: formatTalentTagline(merged, 99),
+        synergyTip: formatTalentCatalogLine(merged, formatExtraDeerQuotaBrief(id)),
     };
 }
 
@@ -141,8 +146,8 @@ export function formatExtraDeerQuotaBrief(id) {
 }
 
 export function buildExtraDeerMods(def) {
-    if (!def) return null;
-    const full = getExtraDeerDef(def.id) || def;
+    const full = getExtraDeerDef(def?.id) || def;
+    if (!full) return null;
     return {
         id: full.id,
         name: full.name,
@@ -158,10 +163,4 @@ export function buildExtraDeerMods(def) {
         impotenceHelpFailBonus: full.impotenceHelpFailBonus || 0,
         extraDeer: true,
     };
-}
-
-export function resolvePlayProfession(id) {
-    if (!id) return null;
-    if (isExtraDeerId(id)) return buildExtraDeerMods(getExtraDeerDef(id));
-    return null;
 }

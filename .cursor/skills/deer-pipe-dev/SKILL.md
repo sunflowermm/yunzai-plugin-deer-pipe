@@ -103,17 +103,42 @@ Bot 内：`DEER_PIPE_FORCE_LIVE_RENDER=1` 对比实时 vs 预渲染。
 |------|--------|
 | `constants/extra-deer.js` | `EXTRA_DEER` 天赋数值、`EXTRA_DEER_SKILLS` 专属技、`EXTRA_DEER_QUOTA_TABLE`、`EXTRA_DEER_ALIASES` |
 | `constants/extra-deer.js` | `EXTRA_DEER_IDS` 数组 |
-| `utils/extra-deer.js` | 机制（组队双亡+解除、束缚、阳痿 debuff 等） |
+| `utils/deer-cart.js` | 鹿车机制（邀请/发车/散车） |
+| `utils/deer-cart-session.js` | 鹿车待发车 context session |
+| `utils/extra-deer.js` | 番外机制（王美嘉组队、束缚、阳痿 debuff 等） |
 | `utils/extra-deer-render.js` | 番外一览 SVG |
-| `utils/data.js` | `performMeijiaTeamSkill` / `performYumumuBindSkill` |
+| `utils/data.js` | `runDeerCartSession` / `performMeijiaTeamSkill` / `performDeerCartInvite` / `performDeerCartDepart` |
 | `constants/prebuilt-images.js` | `professionExtraCard`、`extraDeerCatalog` 已在模板里，新 id 加进 `EXTRA_DEER_IDS` 即可 |
-| `constants/commands.js` | `^组队`、`^束缚` 等 |
+| `constants/commands.js` | `^鹿车`、`^组队`、`^束缚` 等（`发车` 走 setContext，勿加裸规则） |
 | `apps/core.js` | handler |
 
-**概念分离（必守）：**
+---
 
-- **天赋** = 转职后全程被动 → `EXTRA_DEER` 数值 + `talent-text.js` 生成文案
-- **专属技** = `组队@` / `束缚@`，1 次/日，写在 `EXTRA_DEER_SKILLS`
+## 鹿车 & 组队
+
+**鹿车本质 = 手鹿**：`鹿车@` 后 `bindUserContext` 等帮鹿位回复「发车」；`runDeerCartSession` 循环 `performLu`（发车人）+ 鹿死则 `performHelpLu`（帮鹿位），`formatCartSessionMessage` 合并为**一条聊天**。
+
+| | 组队 `_tm_` | 鹿车 `_dc_` |
+|---|---|---|
+| 模块 | `extra-deer.js` | `deer-cart.js` + `deer-cart-session.js` + `runDeerCartSession` |
+| 操作 | 王美嘉 `组队@` | `鹿车@` → context 内 `发车` → 自动连鹿 |
+| 搭档限制 | 王美嘉存活时搭档禁自鹿 | 帮鹿位禁自鹿 |
+| 王美嘉禁戒鹿 | 自戒 / 被帮戒均不可 | — |
+| 联动上限 | 每日最多 5 次同步 +1（净值≥0 才同步） | — |
+| 结束 | 绑定方首次鹿死清 `_tm_` | 发车人鹿死且帮鹿次数用尽 |
+| 死亡 | `resolvePlayDeathEffects` | 同上（仅 driver 散车） |
+
+**鹿死状态设计（审计后）**
+
+| 项目 | 规则 |
+|------|------|
+| 冥库 `snap` | 鹿死冻结，仍可被偷/计入榜单，救活按剩余 snap 恢复 |
+| 咒 / 福 | 鹿死时清除；救活时再次清除（还阳签弱救同步清福） |
+| 束缚 | 仅 11:00 前 · 55 分钟；鹿死时解除 lu-ban |
+| 偷鹿 / 夜袭 | 活人偷 `c`，鹿死偷 `snap` |
+| 咒缚 / 鹿福等 | 目标须存活（死者无咒福可叠） |
+
+并存 OK。禁止两模块互 import、共用 meta 键。
 
 ---
 
@@ -151,7 +176,7 @@ Bot 内：`DEER_PIPE_FORCE_LIVE_RENDER=1` 对比实时 vs 预渲染。
 | README 鹿况图仍是旧版 | 未跑 `npm run render` 或未提交 `docs/images/` |
 | 预渲染缺图 | `verifyPrebuiltManifest()`；补 `listPrebuiltRelPaths` 后重跑 render |
 | 天赋文案与实装不符 | 改 `PROFESSIONS` 数值，勿手写 tagline；检查 `collectTalentParts` |
-| SVG 「组队共 」空白 | 文案含 🦌 → 用 `deerTextForSvg()` 或写「鹿」 |
+| SVG 文案含 🦌 空白 | 用 `deerTextForSvg()` 或写「鹿」 |
 | 贴图 404 | `deer-assets.js` manifest 与 `assets/` 不一致 → `npm run art` |
 
 ---

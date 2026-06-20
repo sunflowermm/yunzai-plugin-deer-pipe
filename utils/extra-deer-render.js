@@ -106,7 +106,8 @@ async function buildExtraDeerGrid(theme, topY, thumbs, portraitSkin) {
 }
 
 async function buildExtraSkillGrid(theme, topY, skillIcons) {
-    const ids = EXTRA_DEER_IDS;
+    const ids = EXTRA_DEER_IDS.filter((id) => EXTRA_DEER_SKILLS[id]);
+    if (!ids.length) return { svg: '', height: 0, cellParts: [] };
     let svg = buildSectionTitle(CX, topY, '番外专属技 · 1次/日', theme);
     const gridTop = topY + 24;
     const cellParts = [];
@@ -130,10 +131,12 @@ async function buildExtraSkillGrid(theme, topY, skillIcons) {
             subSize: 11,
             subtitleMaxLines: 4,
         });
-        const emojiArt = !skillIcons[i] && d.emoji
+        const iconIdx = EXTRA_DEER_IDS.indexOf(id);
+        const icon = iconIdx >= 0 ? skillIcons[iconIdx] : null;
+        const emojiArt = !icon && d.emoji
             ? await emojiSvgImage(cell.artLeft + SKILL_ICON / 2, cell.artTop + SKILL_ICON / 2 + 2, d.emoji, 14)
             : '';
-        cellParts.push({ svg: cell.svg + emojiArt, cell, icon: skillIcons[i] });
+        cellParts.push({ svg: cell.svg + emojiArt, cell, icon });
     }
     const maxCellH = Math.max(...cellParts.map((c) => c.cell.cellH));
     return {

@@ -49,7 +49,6 @@ export function buildRankData(deerData, members, { scope = 'month', date = new D
 
     const rankData = members.map(deer => {
         const uid = String(deer);
-        if (isDeadOnDay(deerData, uid, date, upToDay)) return null;
         const userRecord = getUserRecord(deerData, uid);
         if (!userRecord) return null;
         let sum = 0;
@@ -90,15 +89,10 @@ export function buildPeakRankData(deerData, members, { scope = 'month', date = n
     const monthKey = getMonthKey(date);
     const list = members.map((id) => {
         const uid = String(id);
-        if (scope !== 'day' && isDeadOnDay(deerData, uid, date, upToDay)) return null;
         const userRecord = getUserRecord(deerData, uid);
         if (!userRecord) return null;
         const { peak, hasActivity } = getPeakDayCount(userRecord, date, scope);
         if (!hasActivity || peak <= 0) return null;
-        if (scope === 'day') {
-            const entry = getDayEntry(getMonthData(userRecord, date), upToDay);
-            if (!entry || entry.d) return null;
-        }
         return { id: uid, sum: peak };
     }).filter(Boolean);
     list.sort((a, b) => compareRank(a, b, 'desc'));
@@ -111,7 +105,6 @@ export function buildChaosRankData(deerData, members, { scope = 'month', date = 
     const monthKey = getMonthKey(date);
     const list = members.map((id) => {
         const uid = String(id);
-        if (isDeadOnDay(deerData, uid, date, upToDay)) return null;
         const userRecord = getUserRecord(deerData, uid);
         if (!userRecord) return null;
         let sum = 0;
@@ -145,7 +138,6 @@ export function buildBalancedRankData(deerData, members, { scope = 'month', date
     }
     const list = members.map((id) => {
         const uid = String(id);
-        if (isDeadOnDay(deerData, uid, date, upToDay)) return null;
         const userRecord = getUserRecord(deerData, uid);
         if (!userRecord) return null;
         let sum = 0;
@@ -178,7 +170,7 @@ export function buildActiveRankData(deerData, members, { scope = 'month', date =
         let sum = 0;
         if (scope === 'day') {
             const entry = getDayEntry(getMonthData(userRecord, date), upToDay);
-            if (!entry || entry.d) return null;
+            if (!entry) return null;
             sum = entry.a || 0;
         } else if (scope === 'year') {
             for (const [mk, monthData] of Object.entries(userRecord)) {

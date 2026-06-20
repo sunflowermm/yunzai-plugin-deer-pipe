@@ -39,6 +39,13 @@ export const ARENA_STAKE = 3;
 export const ARENA_PK_TIMEOUT_SEC = 60;
 export const ARENA_DECLINE_PENALTY = 1;
 
+/** 鹿车：帮鹿位确认发车等待秒数 / 单趟自动连鹿轮数上限 */
+export const DEER_CART_DEPART_TIMEOUT_SEC = 120;
+export const CART_SESSION_MAX_ROUNDS = 64;
+
+/** 王美嘉组队：每日向搭档同步 +1 上限（防戒鹿刷负净值联动） */
+export const MEIJIA_TEAM_SYNC_MAX = 5;
+
 /** 偷鹿：每日次数 / 成功率 / 反噬率 */
 export const DAILY_STEAL_QUOTA = 3;
 export const STEAL_SUCCESS_CHANCE = 0.35;
@@ -166,6 +173,14 @@ export const META_PREFIX = {
     PATROL_BUFF: '_ptl_',
     /** 王美嘉：当日组队搭档 userId */
     MEIJIA_TEAM: '_tm_',
+    /** 王美嘉：当日已向搭档同步 +1 次数 */
+    MEIJIA_TEAM_SYNC: '_tms_',
+    /** 鹿车：当日搭档 userId */
+    DEER_CART: '_dc_',
+    /** 鹿车：待确认邀请（存于被 @ 方，值为发车人 id） */
+    DEER_CART_INVITE: '_dci_',
+    /** 鹿车：driver | helper */
+    DEER_CART_ROLE: '_dcr_',
     /** 雨木木：禁自🦌截止时间戳（存于目标 monthData） */
     LU_BAN_UNTIL: '_lub_',
     /** 雨木木：阳痿 debuff（下次被帮🦌失手+） */
@@ -808,11 +823,25 @@ export const ERROR_MESSAGES = {
     job_skill_used: '今日职业专属技已用过，明日 0 点重置',
     job_skill_wrong_profession: (expected, current) => `该专属技需「${expected}」，你今日是「${current}」`,
     lu_banned: (min) => `雨木木的束缚生效中，${min} 分钟内无法自🦌（仍可被帮🦌）`,
+    cart_self: '不能与自己组鹿车',
+    cart_already: '你已在鹿车上，散车后再组',
+    cart_partner_busy: '对方已在别的鹿车上',
+    cart_invited: (name, sec = DEER_CART_DEPART_TIMEOUT_SEC) => `已邀请 ${name || 'ta'} 上车，请对方 ${sec}s 内回复「发车」确认 · 发车后自动连鹿直至帮鹿次数耗尽`,
+    cart_helper_no_lu: '你在鹿车帮鹿位，发车后由系统代帮鹿，勿自鹿刷屏',
+    cart_driver_no_lu: '你在鹿车发车位，连鹿由「发车」后自动进行，勿手打刷屏',
+    cart_help_wrong_target: '鹿车帮鹿位只能帮你的发车人',
+    cart_no_invite: '当前没有待确认的鹿车邀请',
+    cart_driver_dead: '发车人已鹿死，无法发车',
+    cart_busy: '对方正在确认鹿车邀请，请稍后再试',
+    team_partner_no_lu: '王美嘉组队中，需等王美嘉鹿死后方可自鹿',
+    meijia_no_withdraw: '王美嘉鹿靠组队联动增益，不能戒鹿（含帮戒）',
+    team_meijia_negative: '王美嘉净值不能为负时才能组队',
     team_self: '不能与自己组队',
     team_already: '今日已有组队搭档，双亡结算前不可再组队',
     team_partner_taken: '对方今日已被他人组队绑定，换一个搭档吧',
     bind_self: '不能束缚自己',
-    bind_already: '目标已被束缚，1 小时内无法自🦌',
+    bind_already: '目标已被束缚，55 分钟内无法自🦌',
+    bind_after_cutoff: '雨木木束缚仅 11:00 前可用，避免临近鹿死恶意禁自鹿',
     patrol_buff_pending: '天象巡游已蓄势，请先完成一次玩法再开「鹿巡」',
     helper_dead: '你已🦌死，今日无法帮🦌他人，请先被救活',
     no_target: '请 @🦌友 或引用消息指定对象',
@@ -834,8 +863,8 @@ export const ERROR_MESSAGES = {
     arena_not_target: '这封战书不是给你的',
     arena_busy: '对方已有待应战擂台',
     steal_used: (used, total) => `今日偷鹿次数已用完（${used}/${total}）`,
-    steal_target_dead: '对方已鹿死，偷无可偷',
-    steal_empty: '对方今日 0 次，偷了个寂寞',
+    steal_target_dead: '对方已鹿死且冥库为空，偷无可偷',
+    steal_empty: '对方没有可偷次数（活人看今日次数，鹿死看冥库）',
     steal_self: '不能偷自己的🦌，左手倒右手不算',
     curse_used: (used, total) => `今日鹿咒已用完（${used}/${total}）`,
     curse_self: '不能给自己下鹿咒（缺德也有底线）',

@@ -312,11 +312,11 @@ export const PROFESSION_QUOTA_TABLE = {
 
     ranger: {
 
-        help: 7, helpWithdraw: 5, steal: 4, curse: 3, bless: 3,
+        help: 8, helpWithdraw: 5, steal: 5, curse: 3, bless: 3,
 
         cleanseCurse: 2, cleanseBless: 2, arena: 5, imperial: 2,
 
-        howl: 6, lottery: 3, groupSplash: 2, bumper: 2, borrow: 2,
+        howl: 6, lottery: 4, groupSplash: 2, bumper: 2, borrow: 2,
 
         urge: 4, sacrifice: 1, fakeWithdraw: 2, greed: 1, dream: 1,
 
@@ -344,9 +344,9 @@ export const PROFESSION_QUOTA_TABLE = {
 
     ascetic: {
 
-        help: 2, helpWithdraw: 10, steal: 0, curse: 1, bless: 1,
+        help: 3, helpWithdraw: 10, steal: 0, curse: 1, bless: 1,
 
-        cleanseCurse: 2, cleanseBless: 2, fakeWithdraw: 5, urge: 6,
+        cleanseCurse: 2, cleanseBless: 2, fakeWithdraw: 6, urge: 6,
 
         arena: 2, imperial: 2, sacrifice: 1, bumper: 1, howl: 3,
 
@@ -376,9 +376,9 @@ export const PROFESSION_QUOTA_TABLE = {
 
     curser: {
 
-        help: 3, helpWithdraw: 2, steal: 1, curse: 7, bless: 0,
+        help: 3, helpWithdraw: 2, steal: 1, curse: 8, bless: 0,
 
-        cleanseCurse: 1, cleanseBless: 0, spectralCurse: 4, vengeance: 4,
+        cleanseCurse: 1, cleanseBless: 0, spectralCurse: 5, vengeance: 5,
 
         sacrifice: 3, arena: 3, imperial: 2, howl: 5, dream: 2,
 
@@ -392,7 +392,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
     blesser: {
 
-        help: 11, helpWithdraw: 3, steal: 0, curse: 0, bless: 6,
+        help: 12, helpWithdraw: 3, steal: 0, curse: 0, bless: 7,
 
         cleanseBless: 4, cleanseCurse: 4, borrow: 3, urge: 5,
 
@@ -408,11 +408,11 @@ export const PROFESSION_QUOTA_TABLE = {
 
     rogue: {
 
-        help: 4, helpWithdraw: 2, steal: 7, curse: 3, bless: 0,
+        help: 4, helpWithdraw: 2, steal: 8, curse: 3, bless: 0,
 
-        cleanseCurse: 1, cleanseBless: 0, greed: 3, bumper: 5,
+        cleanseCurse: 1, cleanseBless: 0, greed: 3, bumper: 6,
 
-        fakeWithdraw: 5, arena: 5, imperial: 3, lottery: 3,
+        fakeWithdraw: 6, arena: 5, imperial: 3, lottery: 3,
 
         groupSplash: 3, sacrifice: 2, urge: 3, howl: 3, borrow: 1,
 
@@ -424,9 +424,9 @@ export const PROFESSION_QUOTA_TABLE = {
 
     sunflower: {
 
-        help: 11, helpWithdraw: 3, steal: 0, curse: 0, bless: 6,
+        help: 11, helpWithdraw: 3, steal: 0, curse: 0, bless: 7,
 
-        cleanseBless: 4, cleanseCurse: 3, urge: 7, howl: 6,
+        cleanseBless: 4, cleanseCurse: 3, urge: 8, howl: 6,
 
         lottery: 4, borrow: 3, dream: 3, reviveLottery: 3, arena: 3,
 
