@@ -84,6 +84,8 @@ export const REG = {
     blesserGrantSkill: '^广福',
     rogueNightRaidSkill: '^夜袭',
     deerCart: '^鹿车',
+    /** 单人连鹿（与鹿车独立） */
+    soloLu: `^连${D}$`,
     /** 鹿车「发车」由 setContext('deerCartDepart') 监听，勿加裸规则 */
     meijiaTeamSkill: '^组队',
     yumumuBindSkill: '^束缚',

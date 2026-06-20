@@ -12,6 +12,7 @@ import {
     performHelpLu,
     performLu,
     runDeerCartSession,
+    runSoloLuSession,
     performSetProfession,
     performWithdrawal,
     performJobSkillInfo,
@@ -37,6 +38,7 @@ import {
     replyProfessionCatalog,
     replyProfessionCard,
     replyCartSession,
+    replySoloLuSession,
     replyStatusPanel,
     skinCtxForSender,
 } from '../utils/panel.js';
@@ -75,6 +77,7 @@ export class DeerPipe extends plugin {
             bypassThrottle: true,
             rule: [
                 { reg: REG.lu, fnc: 'lu' },
+                { reg: REG.soloLu, fnc: 'soloLu' },
                 { reg: REG.withdraw, fnc: 'withdrawalLu' },
                 { reg: REG.view, fnc: 'viewLu' },
                 { reg: REG.status, fnc: 'luStatus' },
@@ -120,6 +123,40 @@ export class DeerPipe extends plugin {
         const text = appendUnlockNotices(formatActionMessage(result), notices);
         await replyDeerPanel(this.e, {
             date, name: driverName, userId: user_id, deerData, text, dayOverride: day,
+        });
+    }
+
+    async soloLu() {
+        const { user_id, card, nickname } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const ctx = await loadGameContext(date);
+        const playerName = card || nickname;
+
+        const session = runSoloLuSession(deerData, user_id, date, day, ctx);
+        if (!session.ok) {
+            await saveDeerData(deerData);
+            await this.reply(formatErrorMessage(session.lu || session), true);
+            return;
+        }
+
+        let notices = [];
+        for (const lu of session.results) {
+            if (lu?.ok) {
+                notices = notices.concat(
+                    bumpFestivalPortraitProgress(getUserRecord(deerData, user_id), date, 'lu'),
+                );
+            }
+        }
+        await saveDeerData(deerData);
+        const unlockLines = appendUnlockNotices('', notices).split('\n').filter(Boolean);
+
+        await replySoloLuSession(this.e, {
+            playerName,
+            session,
+            caption: '连鹿！自动连🦌至死（详情见聊天记录）',
+            extraLines: unlockLines,
         });
     }
 

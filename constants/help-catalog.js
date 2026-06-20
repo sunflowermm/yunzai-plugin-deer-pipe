@@ -72,6 +72,7 @@ export const HELP_SECTIONS = {
         emoji: '🦌',
         items: [
             { cmd: D_SHOW, desc: '自🦌 +1', quota: `安全 ${DAILY_SAFE_LIMIT} 次/日，超限递增鹿死` },
+            { cmd: `连${D_SHOW}`, desc: '单人自动连🦌直至鹿死', quota: '过程发聊天记录 · 须已转职 · 鹿车上不可用' },
             { cmd: `戒${D_SHOW}`, desc: '自律 -1（可扣到负数）', quota: '不限次数' },
             { cmd: `${D_SHOW}况 / @ta ${D_SHOW}况`, desc: '今日鹿况渲染图（可围观）', quota: '含天象/咒福/配额一览' },
             { cmd: `看${D_SHOW} / @ta 看${D_SHOW} / 看${D_SHOW}6`, desc: '月历面板（支持 @ 围观）', quota: '💀格=鹿死原因缩写' },

@@ -563,6 +563,29 @@ export function formatCartSessionSummary(session) {
     return `🚗 连鹿 ×${n} · 本趟结束 · 已散车`;
 }
 
+/** 单人连鹿详情：聊天记录逐条 */
+export function buildSoloLuForwardLines(session, { playerName } = {}) {
+    const lines = [];
+    for (const [i, lu] of (session.results || []).entries()) {
+        if ((session.results?.length || 0) > 1) lines.push(`— 第 ${i + 1} 次 —`);
+        lines.push(`${playerName} ${cartLuLine(lu)}`);
+    }
+    return lines;
+}
+
+export function formatSoloLuSessionSummary(session) {
+    const n = session.count || 0;
+    const lastLu = session.results?.[session.results.length - 1];
+    const endedDead = !!(lastLu?.entry?.d || String(lastLu?.type || '').startsWith('death'));
+    if (session.maxRoundsHit) {
+        return `🦌 连鹿 ×${n} · 达单趟上限`;
+    }
+    if (endedDead) {
+        return `🦌 连鹿 ×${n} · 鹿死收场`;
+    }
+    return `🦌 连鹿 ×${n} · 本趟结束`;
+}
+
 /** 操作结果文案 */
 export function formatActionMessage(result, ctx = {}) {
     const { helperName, targetName, dice, diceSide, choice } = ctx;

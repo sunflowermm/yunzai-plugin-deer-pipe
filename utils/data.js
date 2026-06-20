@@ -1716,12 +1716,13 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
     const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
     if (blocked) return blocked;
     const monthData = ensureMonthData(deerData, userId, date);
-    if (!opts.cartSession) {
+    const inLuSession = !!(opts.cartSession || opts.soloSession);
+    if (!inLuSession) {
         reconcileStaleDeerCart(deerData, userId, date, day);
     }
     const cartBlock = rejectIfCartHelperLu(monthData, day);
     if (cartBlock) return cartBlock;
-    if (!opts.cartSession) {
+    if (!inLuSession) {
         const cartDriverBlock = rejectIfCartDriverLu(monthData, day);
         if (cartDriverBlock) return cartDriverBlock;
     }
@@ -1847,6 +1848,46 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
         weatherTip: gameContext.weatherEffects?.tip || '',
         weatherPatrolConsumed: patrolConsumed,
     });
+}
+
+/** 单人连鹿：反复 performLu 直至鹿死或达单趟上限 */
+export function runSoloLuSession(deerData, userId, date, day, gameContext = {}) {
+    const monthData = ensureMonthData(deerData, userId, date);
+    const cartRole = getDeerCartRole(monthData, day);
+    if (cartRole === 'helper') {
+        return { ok: false, type: 'cart_helper_no_lu' };
+    }
+    if (cartRole === 'driver') {
+        return { ok: false, type: 'cart_driver_no_lu' };
+    }
+
+    const results = [];
+    for (let i = 0; i < CART_SESSION_MAX_ROUNDS; i++) {
+        const entry = ensureDayEntry(ensureMonthData(deerData, userId, date), day);
+        if (entry.d) break;
+
+        const luResult = performLu(deerData, userId, date, day, gameContext, { soloSession: true });
+        results.push(luResult);
+        if (!luResult.ok) {
+            return {
+                ok: false,
+                lu: luResult,
+                results,
+                count: results.length,
+                userId: String(userId),
+            };
+        }
+        if (luResult.entry?.d || String(luResult.type || '').startsWith('death')) break;
+    }
+
+    return {
+        ok: true,
+        results,
+        count: results.length,
+        userId: String(userId),
+        maxRoundsHit: results.length >= CART_SESSION_MAX_ROUNDS
+            && !String(results[results.length - 1]?.type || '').startsWith('death'),
+    };
 }
 
 /** 鹿车发车后自动连鹿：发车人 performLu，鹿死则帮鹿位 performHelpLu，直至帮鹿用尽散车（结束必散车） */

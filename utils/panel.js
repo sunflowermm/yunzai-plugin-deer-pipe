@@ -9,7 +9,7 @@ import {
 } from './prebuilt-images.js';
 import { resolveSkinContext } from './skin.js';
 import common from '../../../lib/common/common.js';
-import { buildCartForwardLines, formatCartSessionSummary } from './messages.js';
+import { buildCartForwardLines, buildSoloLuForwardLines, formatCartSessionSummary, formatSoloLuSessionSummary } from './messages.js';
 
 /** 从 deerData + userId 解析出图皮肤（避免各 app 漏 import getUserRecord） */
 export function skinCtxForSender(deerData, userId, date = new Date(), professionId = null) {
@@ -152,5 +152,24 @@ export async function replyCartSession(e, {
 
     lines.push(session.maxRoundsHit ? '…已达单趟连鹿上限' : '…双方已下车');
     const forward = await common.makeForwardMsg(e, lines, '🦌 鹿车连鹿记录');
+    if (forward) await e.reply(forward);
+}
+
+/** 单人连鹿：首条摘要 + 聊天记录转发 */
+export async function replySoloLuSession(e, {
+    playerName,
+    session,
+    caption = '',
+    extraLines = [],
+} = {}) {
+    const summary = formatSoloLuSessionSummary(session);
+    const head = [caption, summary, ...extraLines].filter(Boolean).join('\n');
+    await e.reply(head, true);
+
+    const lines = buildSoloLuForwardLines(session, { playerName });
+    if (!lines.length) return;
+
+    lines.push(session.maxRoundsHit ? '…已达单趟连鹿上限' : '…连鹿结束');
+    const forward = await common.makeForwardMsg(e, lines, '🦌 连鹿记录');
     if (forward) await e.reply(forward);
 }

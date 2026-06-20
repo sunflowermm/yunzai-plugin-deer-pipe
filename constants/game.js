@@ -59,6 +59,7 @@ export const ARENA_DECLINE_PENALTY = 1;
 
 /** 鹿车：帮鹿位确认发车等待秒数 / 单趟连鹿安全上限（直至鹿死且帮鹿用尽） */
 export const DEER_CART_DEPART_TIMEOUT_SEC = 120;
+/** 鹿车/单人连鹿：单趟自🦌安全上限（防极端概率未鹿死） */
 export const CART_SESSION_MAX_ROUNDS = 512;
 
 /** 王美嘉组队：每日向搭档同步 +1 上限（防戒鹿刷负净值联动） */
