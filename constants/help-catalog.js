@@ -87,8 +87,8 @@ export const HELP_SECTIONS = {
         items: [
             { cmd: `添加${D_SHOW}友@ta`, desc: '双向结缘', quota: '互助/解咒/借鹿需好友' },
             { cmd: `帮${D_SHOW}@ta`, desc: '代🦌 / 救活鹿死', quota: `依职业 ${PROFESSION_HELP_RANGE[0]}~${PROFESSION_HELP_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_FAIL_CHANCE * 100)}% 起` },
-            { cmd: '鹿车@ta', desc: '邀请🦌友上车，对方 context 内回复「发车」', quota: '发车后自动连鹿 · 与组队@可并存 · 帮鹿位禁自鹿' },
-            { cmd: '发车', desc: '被邀请方在限时内确认上车', quota: '散车=发车人鹿死且帮鹿次数用尽' },
+            { cmd: '鹿车@ta', desc: '邀请🦌友上车，对方 context 内回复「发车」', quota: '连鹿至死/帮鹿用尽 · 过程发聊天记录 · 帮鹿位禁自鹿' },
+            { cmd: '发车', desc: '被邀请方在限时内确认上车', quota: '连鹿直至发车位鹿死且帮鹿用尽 · 详情见聊天记录' },
             { cmd: `帮戒${D_SHOW}@ta`, desc: '帮 ta -1', quota: `依职业 ${PROFESSION_WITHDRAW_RANGE[0]}~${PROFESSION_WITHDRAW_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_WITHDRAW_FAIL_CHANCE * 100)}% 起` },
             { cmd: `帮${D_SHOW}次数 / 帮戒${D_SHOW}次数`, desc: '文字查互助剩余（图看发鹿况）', quota: '与职业上限联动 · 须先转职' },
             { cmd: `解${D_SHOW}咒@ta`, desc: '撕咒印（清全部层）', quota: `${DAILY_CLEANSE_CURSE_QUOTA} 次/日` },

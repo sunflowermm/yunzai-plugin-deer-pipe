@@ -8,6 +8,8 @@ import {
     resolveProfessionCard,
 } from './prebuilt-images.js';
 import { resolveSkinContext } from './skin.js';
+import common from '../../../lib/common/common.js';
+import { buildCartForwardLines, formatCartSessionSummary } from './messages.js';
 
 /** 从 deerData + userId 解析出图皮肤（避免各 app 漏 import getUserRecord） */
 export function skinCtxForSender(deerData, userId, date = new Date(), professionId = null) {
@@ -131,4 +133,24 @@ export async function replyProfessionCard(e, {
     const raw = await resolveProfessionCard(professionId, { skinCtx, date });
     const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
     await e.reply(parts, true);
+}
+
+/** 鹿车：首条摘要 + 聊天记录转发（避免单条超长） */
+export async function replyCartSession(e, {
+    caption = '',
+    session,
+    driverName,
+    helperName,
+    extraLines = [],
+} = {}) {
+    const summary = formatCartSessionSummary(session);
+    const head = [caption, summary, ...extraLines].filter(Boolean).join('\n');
+    await e.reply(head, true);
+
+    const lines = buildCartForwardLines(session, { driverName, helperName });
+    if (!lines.length) return;
+
+    lines.push(session.maxRoundsHit ? '…已达单趟连鹿上限' : '…双方已下车');
+    const forward = await common.makeForwardMsg(e, lines, '🦌 鹿车连鹿记录');
+    if (forward) await e.reply(forward);
 }

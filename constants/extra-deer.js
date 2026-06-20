@@ -74,6 +74,8 @@ export const EXTRA_DEER_QUOTA_TABLE = {
 
 import {
     YUMUMU_BIND_MINUTES,
+    YUMUMU_IMPOTENCE_CHANCE,
+    YUMUMU_IMPOTENCE_HELP_FAIL,
     formatYumumuBindCutoffHint,
 } from './extra-deer-meta.js';
 

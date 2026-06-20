@@ -36,12 +36,12 @@ import {
     replyInteractionResult,
     replyProfessionCatalog,
     replyProfessionCard,
+    replyCartSession,
     replyStatusPanel,
     skinCtxForSender,
 } from '../utils/panel.js';
 import {
     formatActionMessage,
-    formatCartSessionMessage,
     formatErrorMessage,
     formatHelperQuotaReply,
     formatViewEmpty,
@@ -664,29 +664,14 @@ export class DeerPipe extends plugin {
         const driverName = await getMemberName(this.e, depart.driverId);
         const helperName = card || nickname;
         const departLine = formatActionMessage(depart, { helperName, targetName: driverName });
-        const sessionText = formatCartSessionMessage(cartSession, { driverName, helperName });
-        const text = appendUnlockNotices(`${departLine}\n${sessionText}`, notices);
+        const unlockLines = appendUnlockNotices('', notices).split('\n').filter(Boolean);
 
-        const lastHelp = [...cartSession.rounds]
-            .flatMap((r) => (r.helps?.length ? r.helps : (r.help ? [r.help] : [])))
-            .reverse()
-            .find((h) => h?.ok);
-        const panelResult = lastHelp || cartSession.rounds[cartSession.rounds.length - 1]?.lu || depart;
-
-        await replyInteractionResult(this.e, {
-            date,
-            name: driverName,
-            userId: depart.driverId,
-            deerData,
-            text,
-            result: panelResult,
+        await replyCartSession(this.e, {
+            caption: departLine,
+            session: cartSession,
+            driverName,
             helperName,
-            targetName: driverName,
-            helperId: depart.helperId,
-            targetId: depart.driverId,
-            dayOverride: day,
-            withPanel: true,
-            duel: true,
+            extraLines: unlockLines,
         });
         return true;
     }

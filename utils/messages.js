@@ -497,26 +497,70 @@ export function formatErrorMessage(result) {
     }
 }
 
-export function formatCartSessionMessage(session, { driverName, helperName } = {}) {
-    const lines = [`🚗 鹿车连鹿 ×${session.roundCount || 0}`];
+export function formatCartSessionMessage(session, ctx = {}) {
+    return buildCartForwardLines(session, ctx).join('\n');
+}
+
+function cartLuLine(result) {
+    if (!result?.ok) return formatErrorMessage(result);
+    const count = result.count ?? result.entry?.c ?? '?';
+    const safe = result.safeLimit ?? DAILY_SAFE_LIMIT;
+    if (result.type === 'safe' || result.type === 'safe_grinder' || result.type === 'safe_urged') {
+        return `🦌 安全 +1 · ${count}/${safe}`;
+    }
+    if (String(result.type || '').startsWith('risky')) {
+        const pct = formatChancePercent(result.deathChance ?? 0);
+        return `🦌 险区 +1 · ${count} 次 · 再🦌 ${pct || '?'}%`;
+    }
+    if (String(result.type || '').startsWith('death')) {
+        return `💀 鹿死 · 丢 ${result.snap ?? 0} 次`;
+    }
+    return formatActionMessage(result);
+}
+
+function cartHelpLine(result, { helperName, driverName }) {
+    if (!result?.ok) return formatErrorMessage(result);
+    const q = quotaHint(result);
+    switch (result.type) {
+        case 'revive':
+            return `💚 ${helperName} 救活 ${driverName} → ${result.count} 次${q}`;
+        case 'help_revive_fail':
+            return `💔 ${helperName} 救失手${q}`;
+        case 'help':
+            return `🤝 ${helperName} 帮鹿 → ${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}${q}`;
+        case 'help_kill':
+        case 'help_pull':
+            return `⚠️ ${helperName} 帮失手${q}`;
+        default:
+            return formatActionMessage(result, { helperName, targetName: driverName });
+    }
+}
+
+/** 鹿车详情：聊天记录逐条（短句，无天象/随机梗） */
+export function buildCartForwardLines(session, { driverName, helperName } = {}) {
+    const lines = [];
     for (const [i, round] of (session.rounds || []).entries()) {
         if ((session.rounds?.length || 0) > 1) lines.push(`— 第 ${i + 1} 轮 —`);
-        lines.push(formatActionMessage(round.lu, { helperName: driverName, targetName: driverName }));
+        lines.push(`${driverName} ${cartLuLine(round.lu)}`);
         const helps = round.helps?.length ? round.helps : (round.help ? [round.help] : []);
         for (const help of helps) {
-            if (help?.ok) {
-                lines.push(formatActionMessage(help, { helperName, targetName: driverName }));
-            } else if (help) {
-                lines.push(formatErrorMessage(help));
-            }
+            lines.push(cartHelpLine(help, { helperName, driverName }));
         }
     }
+    return lines;
+}
+
+export function formatCartSessionSummary(session) {
+    const n = session.roundCount || 0;
+    const lastLu = session.rounds?.[session.rounds.length - 1]?.lu;
+    const endedDead = !!(lastLu?.entry?.d || String(lastLu?.type || '').startsWith('death'));
     if (session.maxRoundsHit) {
-        lines.push('鹿车暂停：已达单趟连鹿上限，已自动散车');
-    } else {
-        lines.push('鹿车到站：本趟连鹿结束，双方已下车');
+        return `🚗 连鹿 ×${n} · 达单趟上限 · 已散车`;
     }
-    return lines.join('\n');
+    if (endedDead) {
+        return `🚗 连鹿 ×${n} · 发车位鹿死且帮鹿用尽 · 已散车`;
+    }
+    return `🚗 连鹿 ×${n} · 本趟结束 · 已散车`;
 }
 
 /** 操作结果文案 */
@@ -829,7 +873,7 @@ export function formatActionMessage(result, ctx = {}) {
         case 'deer_cart_invite':
             return ERROR_MESSAGES.cart_invited(targetName || 'ta');
         case 'deer_cart_depart':
-            return `${helperName || '你'} 发车！与 ${targetName || 'ta'} 同乘鹿车 · 自动连鹿直至 ta 鹿死且你帮鹿次数耗尽`;
+            return `${helperName || '你'} 发车！与 ${targetName || 'ta'} 同乘鹿车 · 连鹿至死/帮鹿用尽（详情见聊天记录）`;
         case 'job_skill_meijia_team':
             return `${helperName || '你'} 组队成功！与 ${targetName || 'ta'} 绑定：王美嘉自鹿 +1 时 ta 同步 +1（每日最多 5 次 · 净值≥0）· 任一方鹿死双亡 · 王美嘉不可戒鹿`;
         case 'job_skill_yumumu_bind':
