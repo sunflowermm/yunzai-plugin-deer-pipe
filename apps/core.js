@@ -650,10 +650,13 @@ export class DeerPipe extends plugin {
             notices = notices.concat(
                 bumpFestivalPortraitProgress(getUserRecord(deerData, depart.driverId), date, 'lu'),
             );
-            if (round.help?.ok) {
-                notices = notices.concat(
-                    bumpFestivalPortraitProgress(getUserRecord(deerData, depart.helperId), date, 'help_lu'),
-                );
+            const helps = round.helps?.length ? round.helps : (round.help ? [round.help] : []);
+            for (const help of helps) {
+                if (help?.ok) {
+                    notices = notices.concat(
+                        bumpFestivalPortraitProgress(getUserRecord(deerData, depart.helperId), date, 'help_lu'),
+                    );
+                }
             }
         }
         await saveDeerData(deerData);
@@ -664,7 +667,10 @@ export class DeerPipe extends plugin {
         const sessionText = formatCartSessionMessage(cartSession, { driverName, helperName });
         const text = appendUnlockNotices(`${departLine}\n${sessionText}`, notices);
 
-        const lastHelp = [...cartSession.rounds].reverse().find((r) => r.help?.ok)?.help;
+        const lastHelp = [...cartSession.rounds]
+            .flatMap((r) => (r.helps?.length ? r.helps : (r.help ? [r.help] : [])))
+            .reverse()
+            .find((h) => h?.ok);
         const panelResult = lastHelp || cartSession.rounds[cartSession.rounds.length - 1]?.lu || depart;
 
         await replyInteractionResult(this.e, {

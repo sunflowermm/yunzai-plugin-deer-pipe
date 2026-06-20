@@ -502,10 +502,13 @@ export function formatCartSessionMessage(session, { driverName, helperName } = {
     for (const [i, round] of (session.rounds || []).entries()) {
         if ((session.rounds?.length || 0) > 1) lines.push(`— 第 ${i + 1} 轮 —`);
         lines.push(formatActionMessage(round.lu, { helperName: driverName, targetName: driverName }));
-        if (round.help?.ok) {
-            lines.push(formatActionMessage(round.help, { helperName, targetName: driverName }));
-        } else if (round.help && !round.help.ok) {
-            lines.push(formatErrorMessage(round.help));
+        const helps = round.helps?.length ? round.helps : (round.help ? [round.help] : []);
+        for (const help of helps) {
+            if (help?.ok) {
+                lines.push(formatActionMessage(help, { helperName, targetName: driverName }));
+            } else if (help) {
+                lines.push(formatErrorMessage(help));
+            }
         }
     }
     if (session.maxRoundsHit) {

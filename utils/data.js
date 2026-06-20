@@ -1861,7 +1861,7 @@ export function runDeerCartSession(deerData, driverId, helperId, date, day, game
             if (driverEntry.d) break;
 
             const luResult = performLu(deerData, driverId, date, day, gameContext, { cartSession: true });
-            const round = { lu: luResult, help: null };
+            const round = { lu: luResult, helps: [] };
             rounds.push(round);
             if (!luResult.ok) {
                 return {
@@ -1874,25 +1874,25 @@ export function runDeerCartSession(deerData, driverId, helperId, date, day, game
                 };
             }
 
-            const driverAfter = ensureDayEntry(driverMonth, day);
+            let driverAfter = ensureDayEntry(driverMonth, day);
             if (!driverAfter.d) continue;
 
             const helperMonth = ensureMonthData(deerData, helperId, date);
-            const helperEntry = ensureDayEntry(helperMonth, day);
-            if (helperEntry.d) break;
-            if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
+            if (ensureDayEntry(helperMonth, day).d) break;
 
-            round.help = performHelpLu(deerData, helperId, driverId, date, day, gameContext);
+            while (getHelperQuotaLeft(helperMonth, day) > 0) {
+                driverAfter = ensureDayEntry(ensureMonthData(deerData, driverId, date), day);
+                if (!driverAfter.d) break;
 
-            const driverMonthAfter = ensureMonthData(deerData, driverId, date);
-            if (getDeerCartRole(driverMonthAfter, day) !== 'driver') break;
+                const helpResult = performHelpLu(deerData, helperId, driverId, date, day, gameContext);
+                round.helps.push(helpResult);
+                if (!helpResult.ok) break;
 
-            const driverAfterHelp = ensureDayEntry(driverMonthAfter, day);
-            if (!driverAfterHelp.d) continue;
+                driverAfter = ensureDayEntry(ensureMonthData(deerData, driverId, date), day);
+                if (!driverAfter.d) break;
+            }
 
-            if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
-            if (!round.help?.ok) break;
-            if (round.help.type !== 'revive' && round.help.type !== 'help') break;
+            if (ensureDayEntry(ensureMonthData(deerData, driverId, date), day).d) break;
         }
 
         return {
