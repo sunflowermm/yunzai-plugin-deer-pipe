@@ -96,7 +96,7 @@ export async function replyWeatherCard(e, { caption, imageBuffer }) {
 export async function replyProfessionCatalog(e, { snapshot, userRecord = null, date = new Date() } = {}) {
     const skinCtx = resolveSkinContext(userRecord, date);
     const [mainRaw, extraRaw] = await Promise.all([
-        resolveProfessionCatalogImage({ skinCtx, date, ...(snapshot ? { snapshot } : {}) }),
+        resolveProfessionCatalogImage({ skinCtx, date, userRecord, ...(snapshot ? { snapshot } : {}) }),
         resolveExtraDeerCatalogImage({ skinCtx, date, userRecord }),
     ]);
     await e.reply([segment.image(mainRaw), segment.image(extraRaw)], true);

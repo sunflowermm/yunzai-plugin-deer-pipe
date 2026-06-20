@@ -34,6 +34,7 @@ import {
     scatterDeerMarkOverlays,
     stickerOverlay,
 } from './sticker-compose.js';
+import { resolveProfessionArtSkin } from './skin.js';
 import { resolveSurfaceTheme, resolveDecorationProfile, UI_SURFACES } from './ui/theme.js';
 import { buildSkinCardDecorations } from './ui/components.js';
 import { statusHeaderOffset } from './ui/skin-assets.js';
@@ -272,11 +273,13 @@ async function buildSynergyGrid(theme, topY) {
     return { svg, height: 22 + rows * SYNERGY_ROW_H + 12 };
 }
 
-async function buildSkillsGrid(theme, topY) {
+async function buildSkillsGrid(theme, topY, userRecord = null) {
     const ids = Object.keys(PROFESSION_SKILLS);
     let svg = buildSectionTitle(CX, topY, '专属技 · 1次/日', theme);
     const gridTop = topY + 24;
-    const skillIcons = await Promise.all(ids.map((id) => loadSkillArt(id, SKILL_THUMB)));
+    const skillIcons = await Promise.all(
+        ids.map((id) => loadSkillArt(id, SKILL_THUMB, resolveProfessionArtSkin(userRecord, id))),
+    );
     const rowCount = Math.ceil(ids.length / CATALOG_COLS);
     const rowHeights = new Array(rowCount).fill(0);
 
@@ -420,6 +423,7 @@ async function buildProfessionCatalogGrid(theme, topY, ids, thumbs) {
 /** 职业一览：配额/联动/专属技均渲染进图 */
 export async function generateProfessionCatalogImage(opts = {}) {
     const uiSkinId = opts.skinCtx?.ui || 'default';
+    const userRecord = opts.userRecord ?? null;
     const theme = resolveSurfaceTheme(uiSkinId, UI_SURFACES.PROFESSION_CATALOG);
     const decoProfile = resolveDecorationProfile(uiSkinId);
     const ids = Object.keys(PROFESSIONS);
@@ -431,14 +435,18 @@ export async function generateProfessionCatalogImage(opts = {}) {
     const [banner, brandLogo, ...thumbs] = await Promise.all([
         loadBanner(PROFESSION_CATALOG_ART, CARD_W - 48, CATALOG_BANNER_H),
         loadBrandLogo(),
-        ...ids.map((id) => loadCatalogThumb(id, CATALOG_THUMB)),
+        ...ids.map((id) => loadCatalogThumb(
+            id,
+            CATALOG_THUMB,
+            resolveProfessionArtSkin(userRecord, id),
+        )),
     ]);
 
     const synergyBlock = await buildSynergyGrid(theme, synergyTop);
     const gridTop = synergyTop + synergyBlock.height + 16;
     const profGrid = await buildProfessionCatalogGrid(theme, gridTop, ids, thumbs);
     const skillsTop = gridTop + profGrid.height + 20;
-    const skillsBlock = await buildSkillsGrid(theme, skillsTop);
+    const skillsBlock = await buildSkillsGrid(theme, skillsTop, userRecord);
     const footerReserve = 56;
     const H = skillsTop + skillsBlock.height + footerReserve;
 
@@ -469,7 +477,11 @@ export async function generateProfessionCatalogImage(opts = {}) {
         statusOverlays.push(...statusTitle.overlays);
     }
 
-    const catalogSeed = hashSeed('prof-catalog', uiSkinId);
+    const catalogSeed = hashSeed(
+        'prof-catalog',
+        uiSkinId,
+        ...ids.map((id) => resolveProfessionArtSkin(userRecord, id) || 'default'),
+    );
     const backgroundSvg = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>
         ${buildSkinCardDecorations(CARD_W, H, theme, catalogSeed, decoProfile)}

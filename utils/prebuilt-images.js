@@ -14,13 +14,20 @@ import { generateHelpImages } from './help-render.js';
 import { generateProfessionCatalogImage, generateProfessionCard } from './profession-render.js';
 import { generateExtraDeerCatalogImage } from './extra-deer-render.js';
 import { generateWeatherDetailImage } from './card-render.js';
-import { shouldBypassPrebuiltForPortraitSkin, needsLiveExtraDeerCatalog } from './skin.js';
+import { shouldBypassPrebuiltForPortraitSkin, needsLiveExtraDeerCatalog, needsLiveProfessionCatalogForPortraits } from './skin.js';
 
 const bufferCache = new Map();
 
 export function shouldUsePrebuilt() {
     if (process.env.DEER_PIPE_FORCE_LIVE_RENDER === '1') return false;
     return hub.getRenderConfig().prefer_prebuilt !== false;
+}
+
+/** 八职业一览：关预渲染 / 带快照顶栏 / 任一职业非默认立绘 → 须 live */
+export function shouldBypassPrebuiltProfessionCatalog(opts = {}) {
+    if (!shouldUsePrebuilt()) return true;
+    if (needsLiveProfessionCatalog(opts.snapshot)) return true;
+    return needsLiveProfessionCatalogForPortraits(opts.userRecord ?? null);
 }
 
 /** 单张职业卡：关预渲染 / 带快照顶栏 / 非默认立绘 → 须 live */
@@ -97,7 +104,7 @@ export async function resolveHelpImages(opts = {}) {
 }
 
 export async function resolveProfessionCatalogImage(opts = {}) {
-    if (!shouldUsePrebuilt() || needsLiveProfessionCatalog(opts.snapshot)) {
+    if (shouldBypassPrebuiltProfessionCatalog(opts)) {
         return generateProfessionCatalogImage(opts);
     }
     const uiSkinId = prebuiltUiSkinId(opts);
