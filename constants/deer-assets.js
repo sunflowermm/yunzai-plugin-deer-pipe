@@ -95,6 +95,8 @@ function listArtRelativePaths() {
     for (const skin of Object.values(PORTRAIT_SKINS)) {
         if (!skin.professions) continue;
         for (const pid of skin.professions) {
+            // 番外立绘在 professions/extra/skins/，勿按八职业路径校验
+            if (EXTRA_DEER_IDS.includes(pid)) continue;
             paths.push(`professions/skins/${skin.id}/${pid}.png`);
         }
     }
