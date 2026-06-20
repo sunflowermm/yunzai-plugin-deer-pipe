@@ -87,7 +87,7 @@ import {
     formatBalancedBreakdown,
 } from './balanced-score.js';
 import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
-import { YUMUMU_BIND_CUTOFF_HOUR } from '../constants/extra-deer.js';
+import { YUMUMU_BIND_CUTOFF_HOUR, formatExtraDeerQuotaBrief } from '../constants/extra-deer.js';
 import {
     getProfessionDef,
     getProfessionMods,
