@@ -121,7 +121,7 @@ import {
     FRIEND_REMOVE_MESSAGES,
     UI_MESSAGES,
 } from '../constants/game.js';
-import { YUMUMU_IMPOTENCE_HELP_FAIL, YUMUMU_IMPOTENCE_CHANCE, YUMUMU_BIND_CUTOFF_HOUR, YUMUMU_BIND_MINUTES } from '../constants/extra-deer.js';
+import { YUMUMU_IMPOTENCE_HELP_FAIL, YUMUMU_IMPOTENCE_CHANCE, YUMUMU_BIND_MINUTES, formatYumumuBindCutoffHint } from '../constants/extra-deer.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
 import { resolveQuotaDenom } from '../constants/profession-quotas.js';
 
@@ -833,7 +833,7 @@ export function formatActionMessage(result, ctx = {}) {
         case 'job_skill_meijia_team':
             return `${helperName || '你'} 组队成功！与 ${targetName || 'ta'} 绑定：王美嘉自鹿 +1 时 ta 同步 +1（每日最多 5 次 · 净值≥0）· 任一方鹿死双亡 · 王美嘉不可戒鹿`;
         case 'job_skill_yumumu_bind':
-            return `${helperName || '你'} 束缚！${targetName || 'ta'} ${result.banMinutes ?? YUMUMU_BIND_MINUTES} 分钟内无法自鹿（仍可被帮鹿）· 仅 ${YUMUMU_BIND_CUTOFF_HOUR}:00 前可用`;
+            return `${helperName || '你'} 束缚！${targetName || 'ta'} ${result.banMinutes ?? YUMUMU_BIND_MINUTES} 分钟内无法自鹿（仍可被帮鹿）· 仅 ${formatYumumuBindCutoffHint()}可用`;
         default:
             return result.message || '操作完成';
     }

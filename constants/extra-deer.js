@@ -73,21 +73,20 @@ export const EXTRA_DEER_QUOTA_TABLE = {
 };
 
 import {
-    EXTRA_DEER_TRANSFER_HINT,
-    YUMUMU_BIND_CUTOFF_HOUR,
     YUMUMU_BIND_MINUTES,
-    YUMUMU_IMPOTENCE_CHANCE,
-    YUMUMU_IMPOTENCE_HELP_FAIL,
-    YUMUMU_LU_BAN_MS,
+    formatYumumuBindCutoffHint,
 } from './extra-deer-meta.js';
 
 export {
     EXTRA_DEER_TRANSFER_HINT,
     YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_CUTOFF_LABEL,
     YUMUMU_BIND_MINUTES,
     YUMUMU_IMPOTENCE_CHANCE,
     YUMUMU_IMPOTENCE_HELP_FAIL,
     YUMUMU_LU_BAN_MS,
+    isYumumuBindAfterCutoff,
+    formatYumumuBindCutoffHint,
 } from './extra-deer-meta.js';
 
 export function isExtraDeerId(id) {
@@ -120,7 +119,7 @@ export function getExtraDeerSkill(id) {
     if (id === 'yumumu') {
         return {
             ...base,
-            desc: `目标 ${YUMUMU_BIND_MINUTES} 分钟禁自鹿（仍可被帮鹿）· 仅 ${YUMUMU_BIND_CUTOFF_HOUR}:00 前可用 · 1 次/日`,
+            desc: `目标 ${YUMUMU_BIND_MINUTES} 分钟禁自鹿（仍可被帮鹿）· 仅 ${formatYumumuBindCutoffHint()}可用 · 1 次/日`,
         };
     }
     return base;

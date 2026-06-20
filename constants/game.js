@@ -1,16 +1,19 @@
 import {
     EXTRA_DEER_TRANSFER_HINT,
-    YUMUMU_BIND_CUTOFF_HOUR,
     YUMUMU_BIND_MINUTES,
+    YUMUMU_BIND_CUTOFF_LABEL,
 } from './extra-deer-meta.js';
 
 export {
     EXTRA_DEER_TRANSFER_HINT,
     YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_CUTOFF_LABEL,
     YUMUMU_BIND_MINUTES,
     YUMUMU_IMPOTENCE_CHANCE,
     YUMUMU_IMPOTENCE_HELP_FAIL,
     YUMUMU_LU_BAN_MS,
+    isYumumuBindAfterCutoff,
+    formatYumumuBindCutoffHint,
 } from './extra-deer-meta.js';
 
 /** 每日安全🦌次数 */
@@ -856,7 +859,7 @@ export const ERROR_MESSAGES = {
     team_partner_taken: '对方今日已被他人组队绑定，换一个搭档吧',
     bind_self: '不能束缚自己',
     bind_already: `目标已被束缚，${YUMUMU_BIND_MINUTES} 分钟内无法自🦌`,
-    bind_after_cutoff: `雨木木束缚仅 ${YUMUMU_BIND_CUTOFF_HOUR}:00 前可用，避免临近鹿死恶意禁自鹿`,
+    bind_after_cutoff: `雨木木束缚仅 ${YUMUMU_BIND_CUTOFF_LABEL}可用，23:00 起关闭以避免临近鹿死恶意禁自鹿`,
     patrol_buff_pending: '天象巡游已蓄势，请先完成一次玩法再开「鹿巡」',
     helper_dead: '你已🦌死，今日无法帮🦌他人，请先被救活',
     no_target: '请 @🦌友 或引用消息指定对象',

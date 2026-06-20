@@ -87,7 +87,7 @@ import {
     formatBalancedBreakdown,
 } from './balanced-score.js';
 import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
-import { YUMUMU_BIND_CUTOFF_HOUR, YUMUMU_BIND_MINUTES, formatExtraDeerQuotaBrief } from '../constants/extra-deer.js';
+import { YUMUMU_BIND_MINUTES, formatExtraDeerQuotaBrief, isYumumuBindAfterCutoff } from '../constants/extra-deer.js';
 import {
     getProfessionDef,
     getProfessionMods,
@@ -2339,12 +2339,12 @@ export function performDeerCartDepart(deerData, helperId, date, day) {
     };
 }
 
-/** 雨木木鹿专属：束缚 — 55 分钟禁自鹿，11:00 前可用 */
+/** 雨木木鹿专属：束缚 — 55 分钟禁自鹿，晚上11点（23:00）前可用 */
 export function performYumumuBindSkill(deerData, yumumuId, targetId, date, day) {
     if (String(yumumuId) === String(targetId)) {
         return { ok: false, type: 'bind_self' };
     }
-    if (date.getHours() >= YUMUMU_BIND_CUTOFF_HOUR) {
+    if (isYumumuBindAfterCutoff(date)) {
         return { ok: false, type: 'bind_after_cutoff' };
     }
     const blocked = rejectUnlessPlayReady(deerData, yumumuId, date, day);

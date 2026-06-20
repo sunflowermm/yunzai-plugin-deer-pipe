@@ -10,10 +10,10 @@ import { PROFESSION_HELP_RANGE, PROFESSION_WITHDRAW_RANGE } from './profession.j
 import { PROFESSION_QUOTA_TABLE } from './profession-quotas.js';
 import {
     EXTRA_DEER_SKILLS,
-    YUMUMU_BIND_CUTOFF_HOUR,
     YUMUMU_BIND_MINUTES,
     YUMUMU_IMPOTENCE_CHANCE,
     formatExtraDeerQuotaBrief,
+    formatYumumuBindCutoffHint,
     getExtraDeerDef,
 } from './extra-deer.js';
 import {
@@ -142,12 +142,12 @@ export const HELP_SECTIONS = {
             {
                 cmd: EXTRA_DEER_SKILLS.yumumu.cmd,
                 desc: `雨木木专属 · 目标 ${YUMUMU_BIND_MINUTES} 分钟禁自鹿（仍可被帮鹿）`,
-                quota: `仅 ${YUMUMU_BIND_CUTOFF_HOUR}:00 前 · 1 次/日 · 帮鹿 ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 挂阳痿 debuff`,
+                quota: `仅 ${formatYumumuBindCutoffHint()} · 1 次/日 · 帮鹿 ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 挂阳痿 debuff`,
             },
             {
                 cmd: '看鹿职业卡雨木木 / 雨木木鹿端午',
                 desc: '番外静态专精卡 · 端午立绘免费随时切换（默认不穿皮肤）',
-                quota: `帮鹿 ${getExtraDeerDef('yumumu').helpQuota} · ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 阳痿 · 束缚 ${YUMUMU_BIND_MINUTES} 分/${YUMUMU_BIND_CUTOFF_HOUR} 点前`,
+                quota: `帮鹿 ${getExtraDeerDef('yumumu').helpQuota} · ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 阳痿 · 束缚 ${YUMUMU_BIND_MINUTES} 分/${formatYumumuBindCutoffHint()}`,
             },
         ],
     },
