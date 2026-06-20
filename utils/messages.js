@@ -508,10 +508,10 @@ export function formatCartSessionMessage(session, { driverName, helperName } = {
             lines.push(formatErrorMessage(round.help));
         }
     }
-    if (session.deerCartEnded || session.dissolved) {
-        lines.push('鹿车到站：帮鹿次数耗尽，已散车');
-    } else if (session.maxRoundsHit) {
+    if (session.maxRoundsHit) {
         lines.push('鹿车暂停：已达单趟连鹿上限，已自动散车');
+    } else {
+        lines.push('鹿车到站：本趟连鹿结束，双方已下车');
     }
     return lines.join('\n');
 }

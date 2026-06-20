@@ -1648,6 +1648,17 @@ function mergeDeerCartDeathResult(result, cart) {
     }
 }
 
+/** 连鹿为同步批次；Redis 里残留的 _dc_/_dcr_ 在邀请/手动玩法前清掉 */
+function reconcileStaleDeerCart(deerData, userId, date, day) {
+    const monthData = getMonthData(getUserRecord(deerData, userId), date);
+    if (!monthData || !isInDeerCart(monthData, day)) return;
+    const partnerId = getDeerCartPartnerId(monthData, day);
+    const partnerMonth = partnerId
+        ? getMonthData(getUserRecord(deerData, partnerId), date)
+        : null;
+    clearDeerCartPair(monthData, partnerMonth, day);
+}
+
 function applyDeerCartOnDriverDeath(deerData, driverId, date, day, result) {
     mergeDeerCartDeathResult(result, resolveDeerCartOnDriverDeath(deerData, driverId, date, day, {
         getUserRecord,
@@ -1705,6 +1716,9 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
     const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
     if (blocked) return blocked;
     const monthData = ensureMonthData(deerData, userId, date);
+    if (!opts.cartSession) {
+        reconcileStaleDeerCart(deerData, userId, date, day);
+    }
     const cartBlock = rejectIfCartHelperLu(monthData, day);
     if (cartBlock) return cartBlock;
     if (!opts.cartSession) {
@@ -1835,73 +1849,67 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
     });
 }
 
-/** 鹿车发车后自动连鹿：发车人 performLu，鹿死则帮鹿位 performHelpLu，直至帮鹿用尽散车 */
+/** 鹿车发车后自动连鹿：发车人 performLu，鹿死则帮鹿位 performHelpLu，直至帮鹿用尽散车（结束必散车） */
 export function runDeerCartSession(deerData, driverId, helperId, date, day, gameContext = {}) {
     const rounds = [];
+    try {
+        for (let i = 0; i < CART_SESSION_MAX_ROUNDS; i++) {
+            const driverMonth = ensureMonthData(deerData, driverId, date);
+            if (getDeerCartRole(driverMonth, day) !== 'driver') break;
 
-    for (let i = 0; i < CART_SESSION_MAX_ROUNDS; i++) {
-        const driverMonth = ensureMonthData(deerData, driverId, date);
-        if (getDeerCartRole(driverMonth, day) !== 'driver') break;
+            const driverEntry = ensureDayEntry(driverMonth, day);
+            if (driverEntry.d) break;
 
-        const driverEntry = ensureDayEntry(driverMonth, day);
-        if (driverEntry.d) break;
+            const luResult = performLu(deerData, driverId, date, day, gameContext, { cartSession: true });
+            const round = { lu: luResult, help: null };
+            rounds.push(round);
+            if (!luResult.ok) {
+                return {
+                    ok: false,
+                    lu: luResult,
+                    rounds,
+                    roundCount: rounds.length,
+                    driverId: String(driverId),
+                    helperId: String(helperId),
+                };
+            }
 
-        const luResult = performLu(deerData, driverId, date, day, gameContext, { cartSession: true });
-        const round = { lu: luResult, help: null };
-        rounds.push(round);
-        if (!luResult.ok) {
-            return {
-                ok: false,
-                lu: luResult,
-                rounds,
-                roundCount: rounds.length,
-                driverId: String(driverId),
-                helperId: String(helperId),
-            };
+            const driverAfter = ensureDayEntry(driverMonth, day);
+            if (!driverAfter.d) continue;
+
+            const helperMonth = ensureMonthData(deerData, helperId, date);
+            const helperEntry = ensureDayEntry(helperMonth, day);
+            if (helperEntry.d) break;
+            if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
+
+            round.help = performHelpLu(deerData, helperId, driverId, date, day, gameContext);
+
+            const driverMonthAfter = ensureMonthData(deerData, driverId, date);
+            if (getDeerCartRole(driverMonthAfter, day) !== 'driver') break;
+
+            const driverAfterHelp = ensureDayEntry(driverMonthAfter, day);
+            if (!driverAfterHelp.d) continue;
+
+            if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
+            if (!round.help?.ok) break;
+            if (round.help.type !== 'revive' && round.help.type !== 'help') break;
         }
 
-        const driverAfter = ensureDayEntry(driverMonth, day);
-        if (!driverAfter.d) continue;
-
+        return {
+            ok: true,
+            rounds,
+            roundCount: rounds.length,
+            driverId: String(driverId),
+            helperId: String(helperId),
+            maxRoundsHit: rounds.length >= CART_SESSION_MAX_ROUNDS,
+        };
+    } finally {
+        const driverMonth = ensureMonthData(deerData, driverId, date);
         const helperMonth = ensureMonthData(deerData, helperId, date);
-        const helperEntry = ensureDayEntry(helperMonth, day);
-        if (helperEntry.d) break;
-        if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
-
-        round.help = performHelpLu(deerData, helperId, driverId, date, day, gameContext);
-
-        const driverMonthAfter = ensureMonthData(deerData, driverId, date);
-        if (getDeerCartRole(driverMonthAfter, day) !== 'driver') break;
-
-        const driverAfterHelp = ensureDayEntry(driverMonthAfter, day);
-        if (!driverAfterHelp.d) continue;
-
-        if (getHelperQuotaLeft(helperMonth, day) <= 0) break;
-        if (!round.help?.ok) break;
-        if (round.help.type !== 'revive' && round.help.type !== 'help') break;
+        if (isInDeerCart(driverMonth, day) || isInDeerCart(helperMonth, day)) {
+            clearDeerCartPair(driverMonth, helperMonth, day);
+        }
     }
-
-    const driverMonth = ensureMonthData(deerData, driverId, date);
-    let dissolved = getDeerCartRole(driverMonth, day) !== 'driver';
-    const maxRoundsHit = rounds.length >= CART_SESSION_MAX_ROUNDS && !dissolved;
-    if (maxRoundsHit) {
-        const helperMonth = ensureMonthData(deerData, helperId, date);
-        clearDeerCartPair(driverMonth, helperMonth, day);
-        dissolved = true;
-    }
-
-    const lastLu = rounds[rounds.length - 1]?.lu;
-    return {
-        ok: true,
-        rounds,
-        roundCount: rounds.length,
-        driverId: String(driverId),
-        helperId: String(helperId),
-        dissolved,
-        deerCartEnded: lastLu?.deerCartEnded,
-        deerCartAwaitHelp: dissolved ? null : lastLu?.deerCartAwaitHelp,
-        maxRoundsHit,
-    };
 }
 
 /** 当日转职（首次选定后锁定至次日 0 点；鹿死亦可转职以启用冥界玩法） */
@@ -2274,6 +2282,8 @@ export function performDeerCartInvite(deerData, driverId, helperId, date, day) {
     if (String(driverId) === String(helperId)) {
         return { ok: false, type: 'cart_self' };
     }
+    reconcileStaleDeerCart(deerData, driverId, date, day);
+    reconcileStaleDeerCart(deerData, helperId, date, day);
     const blocked = rejectUnlessPlayReady(deerData, driverId, date, day);
     if (blocked) return blocked;
     const driverMonth = ensureMonthData(deerData, driverId, date);
@@ -2369,8 +2379,12 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
     const blocked = rejectUnlessPlayReady(deerData, helperId, date, day);
     if (blocked) return blocked;
     const helperMonth = ensureMonthData(deerData, helperId, date);
-    const cartWrongTarget = rejectIfCartHelpWrongTarget(helperMonth, day, targetId);
-    if (cartWrongTarget) return cartWrongTarget;
+    let cartWrongTarget = rejectIfCartHelpWrongTarget(helperMonth, day, targetId);
+    if (cartWrongTarget) {
+        reconcileStaleDeerCart(deerData, helperId, date, day);
+        cartWrongTarget = rejectIfCartHelpWrongTarget(helperMonth, day, targetId);
+        if (cartWrongTarget) return cartWrongTarget;
+    }
     const helpLimit = getHelpQuotaLimit(helperMonth, day);
     const quotaLeft = getHelperQuotaLeft(helperMonth, day);
     if (quotaLeft <= 0) {
