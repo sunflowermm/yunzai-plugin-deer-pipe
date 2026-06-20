@@ -86,6 +86,7 @@ import {
     formatBalancedBreakdown,
 } from './balanced-score.js';
 import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
+import { formatExtraDeerQuotaBrief } from '../constants/extra-deer.js';
 import {
     getProfessionDef,
     getProfessionMods,
@@ -107,6 +108,26 @@ import {
     patrolBuffKey,
     jobSkillUsedKey,
 } from './profession.js';
+import {
+    applyLuBan,
+    applyYumumuHelpSynergy,
+    consumeImpotence,
+    resolveMeijiaTeamOnDeath,
+    getExtraDeerDef,
+    getImpotenceHelpFailBonus,
+    getMeijiaTeamPartnerId,
+    impotenceKey,
+    isExtraDeerId,
+    isLuBanned,
+    luBanUntilKey,
+    meijiaTeamKey,
+    rejectIfLuBanned,
+    rejectIfWrongExtraDeer,
+    resolveExtraDeerId,
+    setMeijiaTeamLink,
+    syncMeijiaTeamLu,
+    buildExtraDeerMods,
+} from './extra-deer.js';
 
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 const DAY_KEY_RE = /^\d{1,2}$/;
@@ -414,7 +435,9 @@ export function getPlayQuotaSnapshot(monthData, day) {
         help: { used: helpUsed, max: helpMax, left: Math.max(0, helpMax - helpUsed) },
         withdraw: { used: withdrawUsed, max: withdrawMax, left: Math.max(0, withdrawMax - withdrawUsed) },
         play,
-        summary: formatProfessionQuotaSummary(profession.id, 'full'),
+        summary: isExtraDeerId(profession.id)
+            ? formatExtraDeerQuotaBrief(profession.id)
+            : formatProfessionQuotaSummary(profession.id, 'full'),
     };
 }
 
@@ -519,6 +542,9 @@ export function resetUserDayMeta(monthData, day) {
     delete monthData[reviveLotteryUsedKey(day)];
     delete monthData[blessUsedKey(day)];
     delete monthData[cleanseBlessUsedKey(day)];
+    delete monthData[meijiaTeamKey(day)];
+    delete monthData[luBanUntilKey(day)];
+    delete monthData[impotenceKey(day)];
 }
 
 const PLAYFUL_META_KEYS = [
@@ -1537,6 +1563,40 @@ function rollHelpWithdrawFail(extra = 0) {
     return rollChance(clampDeathChance(HELP_WITHDRAW_FAIL_CHANCE + extra));
 }
 
+function resolvePlayDef(id) {
+    return isExtraDeerId(id) ? buildExtraDeerMods(getExtraDeerDef(id)) : getProfessionDef(id);
+}
+
+function attachMeijiaTeamOnDeath(deerData, userId, date, day, result, killerId = null) {
+    const team = resolveMeijiaTeamOnDeath(deerData, userId, date, day, {
+        getUserRecord,
+        getMonthData,
+        ensureMonthData,
+        ensureDayEntry,
+        applyDeathFn: applyDeath,
+        killerId,
+    });
+    if (!team) return result;
+    if (team.partnerSnap != null) result.meijiaTeamWipe = team;
+    else if (team.dissolved) result.meijiaTeamDissolved = team;
+    return result;
+}
+
+function finalizeLuResult(deerData, userId, date, day, result) {
+    if (!result?.ok) return result;
+    if (String(result.type || '').startsWith('death')) {
+        return attachMeijiaTeamOnDeath(deerData, userId, date, day, result);
+    }
+    const teamLu = syncMeijiaTeamLu(deerData, userId, date, day, {
+        getUserRecord,
+        ensureMonthData,
+        ensureDayEntry,
+        getMonthData,
+    });
+    if (teamLu) result.meijiaTeamLu = teamLu;
+    return result;
+}
+
 /**
  * 自己🦌
  * @param {object} [gameContext] weatherEffects 等
@@ -1545,6 +1605,8 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
     const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
     if (blocked) return blocked;
     const monthData = ensureMonthData(deerData, userId, date);
+    const luBan = rejectIfLuBanned(monthData, day);
+    if (luBan) return luBan;
     const entry = ensureDayEntry(monthData, day);
     if (entry.d) {
         return { ok: false, type: 'dead', entry, snap: entry.snap, lostCount: entry.snap };
@@ -1577,7 +1639,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         if (hadActiveBless) consumeBlessRound(entry);
         const curseAfter = getCurseInfo(entry);
         const blessAfter = getBlessInfo(entry);
-        return {
+        return finalizeLuResult(deerData, userId, date, day, {
             ok: true,
             type: urgeBonus ? 'safe_urged' : (grinderBonus ? 'safe_grinder' : 'safe'),
             entry,
@@ -1596,7 +1658,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
             blessReduce: blessBefore.deathReduce,
             weatherTip: gameContext.weatherEffects?.tip || '',
             weatherPatrolConsumed: patrolConsumed,
-        };
+        });
     }
 
     let deathChance = clampDeathChance(
@@ -1611,7 +1673,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         if (hadActiveCurse && hadActiveBless) type = 'death_mixed';
         else if (hadActiveCurse) type = 'death_cursed';
         else if (hadActiveBless) type = 'death_blessed';
-        return {
+        return finalizeLuResult(deerData, userId, date, day, {
             ok: true,
             type,
             entry,
@@ -1625,7 +1687,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
             blessReduce: blessBefore.deathReduce,
             weatherTip: gameContext.weatherEffects?.tip || '',
             weatherPatrolConsumed: patrolConsumed,
-        };
+        });
     }
 
     entry.c += 1;
@@ -1637,7 +1699,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
     if (hadActiveCurse && hadActiveBless) type = 'risky_mixed';
     else if (hadActiveCurse) type = 'risky_cursed';
     else if (hadActiveBless) type = 'risky_blessed';
-    return {
+    return finalizeLuResult(deerData, userId, date, day, {
         ok: true,
         type,
         entry,
@@ -1654,21 +1716,21 @@ export function performLu(deerData, userId, date, day, gameContext = {}) {
         blessReduce: blessBefore.deathReduce,
         weatherTip: gameContext.weatherEffects?.tip || '',
         weatherPatrolConsumed: patrolConsumed,
-    };
+    });
 }
 
 /** 当日转职（首次选定后锁定至次日 0 点；鹿死亦可转职以启用冥界玩法） */
 export function performSetProfession(deerData, userId, professionToken, date, day) {
-    const id = resolveProfessionId(professionToken);
+    const id = resolveProfessionId(professionToken) || resolveExtraDeerId(professionToken);
     if (!id) {
         return { ok: false, type: 'profession_unknown', token: professionToken };
     }
     const monthData = ensureMonthData(deerData, userId, date);
     const locked = hasDayProfession(monthData, day);
     const currentId = locked ? getDayProfessionId(monthData, day) : null;
-    const next = getProfessionDef(id);
+    const next = resolvePlayDef(id);
     if (locked && id !== currentId) {
-        const current = getProfessionDef(currentId);
+        const current = resolvePlayDef(currentId);
         return { ok: false, type: 'profession_locked', profession: current };
     }
     if (!locked) {
@@ -1982,6 +2044,70 @@ export function performRogueNightRaidSkill(deerData, thiefId, targetId, date, da
     };
 }
 
+/** 王美嘉鹿专属：组队 — 绑定搭档，自鹿联动（鹿死解除） */
+export function performMeijiaTeamSkill(deerData, meijiaId, targetId, date, day) {
+    if (String(meijiaId) === String(targetId)) {
+        return { ok: false, type: 'team_self' };
+    }
+    const blocked = rejectUnlessPlayReady(deerData, meijiaId, date, day);
+    if (blocked) return blocked;
+    const meijiaMonth = ensureMonthData(deerData, meijiaId, date);
+    const wrong = rejectIfWrongExtraDeer(meijiaMonth, day, 'meijia');
+    if (wrong) return wrong;
+    if (hasUsedJobSkill(meijiaMonth, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const targetEntry = ensureDayEntry(targetMonth, day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+    const existing = getMeijiaTeamPartnerId(meijiaMonth, day);
+    if (existing) {
+        return { ok: false, type: 'team_already', partnerId: existing };
+    }
+    const targetPartner = getMeijiaTeamPartnerId(targetMonth, day);
+    if (targetPartner && String(targetPartner) !== String(meijiaId)) {
+        return { ok: false, type: 'team_partner_taken', partnerId: targetPartner };
+    }
+    markJobSkillUsed(meijiaMonth, day);
+    setMeijiaTeamLink(meijiaMonth, targetMonth, meijiaId, targetId, day);
+    return {
+        ok: true,
+        type: 'job_skill_meijia_team',
+        partnerId: String(targetId),
+        targetCount: targetEntry.c,
+    };
+}
+
+/** 雨木木鹿专属：束缚 — 禁目标自🦌 1 小时，仍可帮🦌 */
+export function performYumumuBindSkill(deerData, yumumuId, targetId, date, day) {
+    if (String(yumumuId) === String(targetId)) {
+        return { ok: false, type: 'bind_self' };
+    }
+    const blocked = rejectUnlessPlayReady(deerData, yumumuId, date, day);
+    if (blocked) return blocked;
+    const yumumuMonth = ensureMonthData(deerData, yumumuId, date);
+    const wrong = rejectIfWrongExtraDeer(yumumuMonth, day, 'yumumu');
+    if (wrong) return wrong;
+    if (hasUsedJobSkill(yumumuMonth, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    const targetMonth = ensureMonthData(deerData, targetId, date);
+    const targetEntry = ensureDayEntry(targetMonth, day);
+    if (targetEntry.d) return { ok: false, type: 'target_dead' };
+    if (isLuBanned(targetMonth, day)) {
+        return { ok: false, type: 'bind_already' };
+    }
+    markJobSkillUsed(yumumuMonth, day);
+    applyLuBan(targetMonth, day);
+    return {
+        ok: true,
+        type: 'job_skill_yumumu_bind',
+        targetId: String(targetId),
+        banMinutes: 60,
+        targetCount: targetEntry.c,
+    };
+}
+
 /**
  * 帮🦌 / 救活 / 拉下马
  */
@@ -2007,8 +2133,9 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
     const monthData = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(monthData, day);
     const targetMods = resolvePlayModifiers(entry, wx);
+    const impBonus = getImpotenceHelpFailBonus(monthData, day);
     const helpFailChance = clampDeathChance(
-        HELP_FAIL_CHANCE + targetMods.helpFailDelta + (helperProf?.helpFailDelta || 0),
+        HELP_FAIL_CHANCE + targetMods.helpFailDelta + (helperProf?.helpFailDelta || 0) + impBonus,
     );
     const helpKey = String(helperId);
     let result;
@@ -2042,6 +2169,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
         entry.a += 1;
         if (entry.c > 0 && rollChance(helpFailChance)) {
+            if (impBonus > 0) consumeImpotence(monthData, day);
             const reason = entry.c >= targetMods.safeLimit ? DEATH_REASON.PULL : DEATH_REASON.HELP;
             const snap = applyDeath(entry, { reason, killerId: helperId });
             result = {
@@ -2051,7 +2179,9 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 snap,
                 helpKillChance: helpFailChance,
                 safeLimit: targetMods.safeLimit,
+                impotenceTriggered: impBonus > 0,
             };
+            attachMeijiaTeamOnDeath(deerData, targetId, date, day, result, helperId);
         } else if (entry.c >= targetMods.safeLimit) {
             result = {
                 ok: true,
@@ -2084,6 +2214,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
 
     if (result?.ok && (result.type === 'help' || result.type === 'revive')) {
         applyMedicHelpSynergy(entry, helperProf, result);
+        applyYumumuHelpSynergy(helperMonth, monthData, day, result);
         if (helperProf?.id === 'medic' && helperProf.helpQuotaBonusChance
             && rollChance(helperProf.helpQuotaBonusChance)) {
             helperMonth[helpQuotaBonusKey(day)] = (helperMonth[helpQuotaBonusKey(day)] || 0) + 1;

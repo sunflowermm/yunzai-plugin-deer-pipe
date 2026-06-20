@@ -2,12 +2,16 @@
 node_modules/
 
 # editor / IDE（勿提交）
-.cursor/
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+
+# Cursor：skills 可提交，其余本地配置忽略
+.cursor/*
+!.cursor/skills/
+!.cursor/skills/**
 
 # OS
 .DS_Store
@@ -27,5 +31,3 @@ scripts/
 assets/_source/
 assets/_archive/
 assets/style-ref/
-
-# 提交：assets/professions/ assets/stickers/ assets/prebuilt/ docs/images/

@@ -83,11 +83,13 @@ export const REG = {
     curserBindSkill: '^咒缚',
     blesserGrantSkill: '^广福',
     rogueNightRaidSkill: '^夜袭',
+    meijiaTeamSkill: '^组队',
+    yumumuBindSkill: '^束缚',
     addFriend: `^添加${D}友(.*)`,
     delFriend: `^绝交${D}友(.*)`,
     myFriend: `^我的${D}友$`,
     profession: `^${D}职业$`,
-    /** 查看静态职业专精卡（走预渲染 PNG，无需转职） */
+    /** 查看静态职业卡（预渲染 PNG） */
     professionCard: `^(?:看)?(?:🦌|鹿)职业(?:卡)?(.+)$`,
     transferProfession: `^转职(?:${D})?(.+)$`,
     helperQuota: `^(${D}配额|互助配额)$`,

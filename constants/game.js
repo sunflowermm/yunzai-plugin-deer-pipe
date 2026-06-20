@@ -164,6 +164,12 @@ export const META_PREFIX = {
     JOB_SKILL: '_jsk_',
     /** 巡游鹿：下一次玩法天象正向加成 pending */
     PATROL_BUFF: '_ptl_',
+    /** 王美嘉：当日组队搭档 userId */
+    MEIJIA_TEAM: '_tm_',
+    /** 雨木木：禁自🦌截止时间戳（存于目标 monthData） */
+    LU_BAN_UNTIL: '_lub_',
+    /** 雨木木：阳痿 debuff（下次被帮🦌失手+） */
+    IMPOTENCE: '_imp_',
 };
 
 /** 巡游专属技：下一次玩法天象正向再 × 此倍率（叠在职业天象 amp 之前） */
@@ -188,6 +194,7 @@ export const DEATH_REASON = {
     ARENA: 'arena',
     STEAL: 'steal',
     GREED: 'greed',
+    MEIJIA_TEAM: 'meijia_team',
 };
 
 export const DEATH_REASON_TEXT = {
@@ -197,6 +204,7 @@ export const DEATH_REASON_TEXT = {
     [DEATH_REASON.TOGETHER]: '同归鹿尽',
     [DEATH_REASON.IMPERIAL]: '皇城鹿败北',
     [DEATH_REASON.ARENA]: '擂台鹿落败',
+    [DEATH_REASON.MEIJIA_TEAM]: '王美嘉组队连坐',
 };
 
 export const DEATH_CELL_LABEL = {
@@ -206,6 +214,7 @@ export const DEATH_CELL_LABEL = {
     [DEATH_REASON.TOGETHER]: '同尽',
     [DEATH_REASON.IMPERIAL]: '皇城',
     [DEATH_REASON.ARENA]: '擂台',
+    [DEATH_REASON.MEIJIA_TEAM]: '连坐',
 };
 
 export const DEATH_MESSAGES = {
@@ -232,6 +241,11 @@ export const DEATH_MESSAGES = {
         '一手拉坠鹿坛，今日🦌功尽付东流。',
         '你拽的是衣角，掉的是 ta 的整条鹿命。',
         '拉下马成功！对方今日从卷王变卷宗。',
+    ],
+    meijia_team: [
+        '王美嘉组队双亡！搭档鹿死，你也一起陪葬…',
+        '组队绑定：一方鹿死，双亡结算，组队随即解除。',
+        '同队同命，搭档先走一步，你也跟着社死，绑定已清空。',
     ],
 };
 
@@ -789,10 +803,16 @@ export const ERROR_MESSAGES = {
     help_quota: (used, total) => `今日帮🦌次数已用完（${used}/${total}），明天再来吧`,
     help_withdraw_quota: (used, total) => `今日帮戒🦌次数已用完（${used}/${total}）`,
     profession_unknown: (token) => `未知职业「${token || '?'}」，发送「鹿职业」查看可转职列表`,
-    profession_required: '今日尚未转职！请先发送：转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游鹿 / 转职叠咒鹿 / 转职福鹿使 / 转职窃光鹿 / 转职向日葵（或「鹿职业」查看详情）',
-    profession_locked: (name) => `今日已锁定为${name}，次日 0 点后可重选 · 发送「鹿配额」查剩余`,
+    profession_required: '今日尚未转职！八职业：转职鹿医师/戒师/卷王/巡游鹿/叠咒鹿/福鹿使/窃光鹿/向日葵 · 番外：转职王美嘉/转职雨木木（或「鹿职业」查看）',
+    profession_locked: (name) => `今日已锁定为${name}，次日 0 点后可重选 · 发送「鹿况」查配额`,
     job_skill_used: '今日职业专属技已用过，明日 0 点重置',
     job_skill_wrong_profession: (expected, current) => `该专属技需「${expected}」，你今日是「${current}」`,
+    lu_banned: (min) => `雨木木的束缚生效中，${min} 分钟内无法自🦌（仍可被帮🦌）`,
+    team_self: '不能与自己组队',
+    team_already: '今日已有组队搭档，双亡结算前不可再组队',
+    team_partner_taken: '对方今日已被他人组队绑定，换一个搭档吧',
+    bind_self: '不能束缚自己',
+    bind_already: '目标已被束缚，1 小时内无法自🦌',
     patrol_buff_pending: '天象巡游已蓄势，请先完成一次玩法再开「鹿巡」',
     helper_dead: '你已🦌死，今日无法帮🦌他人，请先被救活',
     no_target: '请 @🦌友 或引用消息指定对象',

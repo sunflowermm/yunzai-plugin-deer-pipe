@@ -79,7 +79,7 @@ export const HELP_SECTIONS = {
             { cmd: `添加${D_SHOW}友@ta`, desc: '双向结缘', quota: '互助/解咒/借鹿需好友' },
             { cmd: `帮${D_SHOW}@ta`, desc: '代🦌 / 救活鹿死', quota: `依职业 ${PROFESSION_HELP_RANGE[0]}~${PROFESSION_HELP_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_FAIL_CHANCE * 100)}% 起` },
             { cmd: `帮戒${D_SHOW}@ta`, desc: '帮 ta -1', quota: `依职业 ${PROFESSION_WITHDRAW_RANGE[0]}~${PROFESSION_WITHDRAW_RANGE[1]} 次/日 · 失手 ${Math.round(HELP_WITHDRAW_FAIL_CHANCE * 100)}% 起` },
-            { cmd: `${D_SHOW}配额 / 帮${D_SHOW}次数 / 帮戒${D_SHOW}次数`, desc: '查今日互助剩余次数', quota: '与职业上限联动 · 须先转职' },
+            { cmd: `帮${D_SHOW}次数 / 帮戒${D_SHOW}次数`, desc: '文字查互助剩余（图看发鹿况）', quota: '与职业上限联动 · 须先转职' },
             { cmd: `解${D_SHOW}咒@ta`, desc: '撕咒印（清全部层）', quota: `${DAILY_CLEANSE_CURSE_QUOTA} 次/日` },
             { cmd: `${D_SHOW}福@ta`, desc: `正面咒 · 每层 -${Math.round(BLESS_DEATH_REDUCE * 100)}% 鹿死`, quota: `${DAILY_BLESS_QUOTA} 次/日 · 最多 ${BLESS_MAX_STACKS} 层 ${BLESS_MAX_ROUNDS} 回合` },
             { cmd: `解${D_SHOW}福@ta`, desc: '收福咒（清全部层）', quota: `${DAILY_CLEANSE_BLESS_QUOTA} 次/日` },
@@ -107,7 +107,7 @@ export const HELP_SECTIONS = {
         emoji: '🎭',
         items: [
             { cmd: `${D_SHOW}职业`, desc: '【每日必做】选定职业后玩法解锁 · 附职业一览图', quota: '未转职封印全部玩法 · 仅鹿碑/看榜/帮助可用' },
-            { cmd: `${D_SHOW}职业卷王 / ${D_SHOW}职业卡窃光`, desc: '查看某职业静态专精卡（配额/专属技/被动）', quota: '无需转职 · 预渲染快出图' },
+            { cmd: `${D_SHOW}职业卷王 / ${D_SHOW}职业卡窃光`, desc: '查看某职业静态卡（配额/天赋/专属技）', quota: '无需转职 · 预渲染快出图' },
             { cmd: '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等', desc: '8 职业：含向日葵鹿 · 详见鹿职业一览', quota: '首次转职后当日锁定 · 各职业全玩法次数不同' },
             { cmd: `${D_SHOW}技`, desc: '查看今日专属技状态', quota: '每职业 1 次/日' },
             { cmd: `${D_SHOW}巡 / 愈鹿@ / 清规@ / 卷冲`, desc: '巡游/鹿医师/戒灵师/卷王专属技', quota: '须对应职业 · 鹿医师帮鹿成功 12% 帮鹿次数+1' },

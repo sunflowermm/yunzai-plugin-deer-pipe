@@ -2,8 +2,8 @@ import { UI_MESSAGES } from '../constants/game.js';
 import { getMonthData, getUserRecord, isDayDead } from './data.js';
 import { generateImage, generateStatusImage } from './core.js';
 import { generateInteractionCard } from './card-render.js';
-import { generateUserProfessionPanel } from './profession-render.js';
 import {
+    resolveExtraDeerCatalogImage,
     resolveProfessionCatalogImage,
     resolveProfessionCard,
 } from './prebuilt-images.js';
@@ -92,27 +92,25 @@ export async function replyWeatherCard(e, { caption, imageBuffer }) {
     await e.reply(parts, true);
 }
 
-/** 职业一览图（配额/联动/专属技已渲染进图） */
+/** 职业一览图（八职业预渲染 + 番外预渲染） */
 export async function replyProfessionCatalog(e, { snapshot, userRecord = null, date = new Date() } = {}) {
     const skinCtx = resolveSkinContext(userRecord, date);
-    const raw = await resolveProfessionCatalogImage({ snapshot, skinCtx });
-    await e.reply([segment.image(raw)], true);
+    const [mainRaw, extraRaw] = await Promise.all([
+        resolveProfessionCatalogImage({ skinCtx, date, ...(snapshot ? { snapshot } : {}) }),
+        resolveExtraDeerCatalogImage({ skinCtx, date }),
+    ]);
+    await e.reply([segment.image(mainRaw), segment.image(extraRaw)], true);
 }
 
-/** 用户当日职业配额面板（含已用，纯图） */
-export async function replyUserProfessionPanel(e, { monthData, day, text, userRecord = null, date = new Date() }) {
-    const skinCtx = resolveSkinContext(userRecord, date);
-    const raw = await generateUserProfessionPanel(monthData, day, { skinCtx });
-    const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
-    await e.reply(parts, true);
-}
-
-/** 单职业专精卡（转职成功等） */
-export async function replyProfessionCard(e, { professionId, text, monthData = null, day = null, userRecord = null, date = new Date() }) {
+/** 单职业卡（预渲染 · 非默认立绘皮肤时 live） */
+export async function replyProfessionCard(e, {
+    professionId,
+    text,
+    userRecord = null,
+    date = new Date(),
+} = {}) {
     const skinCtx = resolveSkinContext(userRecord, date, professionId);
-    const raw = (monthData != null && day != null)
-        ? await generateUserProfessionPanel(monthData, day, { skinCtx })
-        : await resolveProfessionCard(professionId, { skinCtx });
+    const raw = await resolveProfessionCard(professionId, { skinCtx, date });
     const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
     await e.reply(parts, true);
 }

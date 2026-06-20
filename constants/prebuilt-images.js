@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { EXTRA_DEER_IDS } from './extra-deer.js';
 import { PROFESSIONS } from './profession.js';
 import { WEATHER_IDS } from './weather.js';
 import { HELP_PAGES } from './help-catalog.js';
@@ -19,6 +20,12 @@ export const PREBUILT_REL = {
     helpPage: (uiId, index) => `help/${uiId}/page-${index + 1}.png`,
     professionCatalog: (uiId) => `profession/${uiId}/catalog.png`,
     professionCard: (uiId, professionId) => `profession/${uiId}/card-${professionId}.png`,
+    professionExtraCard: (uiId, extraId) => `profession/${uiId}/card-extra-${extraId}.png`,
+    extraDeerCatalog: (uiId, portraitSkin = 'default') => (
+        portraitSkin === 'duanwu'
+            ? `profession/${uiId}/extra-catalog-duanwu.png`
+            : `profession/${uiId}/extra-catalog.png`
+    ),
     weatherDetail: (uiId, weatherId, slot = 'am') => `weather/${uiId}/${weatherId}-${slot}.png`,
     manifest: 'manifest.json',
 };
@@ -29,6 +36,7 @@ export const DOCS_IMAGE = {
     calendar: (uiId) => `calendar-${uiId}.png`,
     year: (uiId) => `year-${uiId}.png`,
     catalog: (uiId) => `catalog-${uiId}.png`,
+    extraCatalog: (uiId) => `extra-catalog-${uiId}.png`,
     helpPage: (uiId, index) => `help-${uiId}-${index + 1}.png`,
     playSteal: 'play-steal-success.png',
     playCurse: 'play-curse.png',
@@ -43,6 +51,7 @@ export function listDocsImageFiles() {
             DOCS_IMAGE.calendar(uiId),
             DOCS_IMAGE.year(uiId),
             DOCS_IMAGE.catalog(uiId),
+            DOCS_IMAGE.extraCatalog(uiId),
         );
         for (let i = 0; i < HELP_PAGES.length; i += 1) {
             files.push(DOCS_IMAGE.helpPage(uiId, i));
@@ -62,6 +71,11 @@ export function listPrebuiltRelPaths() {
         for (const id of Object.keys(PROFESSIONS)) {
             paths.push(PREBUILT_REL.professionCard(uiId, id));
         }
+        for (const eid of EXTRA_DEER_IDS) {
+            paths.push(PREBUILT_REL.professionExtraCard(uiId, eid));
+        }
+        paths.push(PREBUILT_REL.extraDeerCatalog(uiId, 'default'));
+        paths.push(PREBUILT_REL.extraDeerCatalog(uiId, 'duanwu'));
         for (const weatherId of WEATHER_IDS) {
             for (const slot of WEATHER_PREBUILT_SLOTS) {
                 paths.push(PREBUILT_REL.weatherDetail(uiId, weatherId, slot));

@@ -4,6 +4,7 @@ import {
     getProfessionSkill,
     resolveProfessionId,
 } from '../constants/profession.js';
+import { buildExtraDeerMods, getExtraDeerDef, getExtraDeerSkill, isExtraDeerId } from '../constants/extra-deer.js';
 import { getProfessionQuotaLimit, QUOTA } from './profession-quota.js';
 
 export { getProfessionQuotaLimit, QUOTA } from './profession-quota.js';
@@ -94,7 +95,7 @@ export function getJobSkillSnapshot(monthData, day) {
         used,
         canUse: !used,
         patrolPending: hasPatrolBuff(monthData, day),
-        skill: getProfessionSkill(id),
+        skill: isExtraDeerId(id) ? getExtraDeerSkill(id) : getProfessionSkill(id),
         professionId: id,
     };
 }
@@ -104,13 +105,13 @@ export function rejectIfWrongProfession(deerData, userId, date, day, expectedId)
     const id = getDayProfessionId(monthData, day);
     if (!id) return { ok: false, type: 'profession_required' };
     if (id !== expectedId) {
-        const skill = getProfessionSkill(expectedId);
-        const current = getProfessionDef(id);
+        const skill = isExtraDeerId(expectedId) ? getExtraDeerSkill(expectedId) : getProfessionSkill(expectedId);
+        const current = isExtraDeerId(id) ? getExtraDeerDef(id) : getProfessionDef(id);
         return {
             ok: false,
             type: 'job_skill_wrong_profession',
             expected: skill?.name || expectedId,
-            current: current.name,
+            current: current?.name || id,
         };
     }
     return null;
@@ -132,7 +133,9 @@ export function hasDayProfession(monthData, day) {
 export function getDayProfessionId(monthData, day) {
     const raw = monthData?.[jobMetaKey(day)];
     if (raw == null || raw === '') return null;
-    return getProfessionDef(String(raw)).id;
+    const id = String(raw);
+    if (isExtraDeerId(id)) return id;
+    return getProfessionDef(id).id;
 }
 
 /** 将职业 mods 从 def 展开（仅已转职时调用） */
@@ -174,6 +177,7 @@ export function buildProfessionMods(def) {
 export function getProfessionMods(monthData, day) {
     const id = getDayProfessionId(monthData, day);
     if (!id) return null;
+    if (isExtraDeerId(id)) return buildExtraDeerMods(getExtraDeerDef(id));
     return buildProfessionMods(getProfessionDef(id));
 }
 
@@ -187,6 +191,10 @@ export function getHelpWithdrawQuotaLimit(monthData, day) {
 
 export function setDayProfession(monthData, day, professionId) {
     if (!monthData) return;
+    if (isExtraDeerId(professionId)) {
+        monthData[jobMetaKey(day)] = professionId;
+        return;
+    }
     monthData[jobMetaKey(day)] = getProfessionDef(professionId).id;
 }
 

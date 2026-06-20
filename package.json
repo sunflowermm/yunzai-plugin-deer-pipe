@@ -7,11 +7,9 @@
     "sharp": "^0.33.5"
   },
   "scripts": {
+    "render": "node scripts/render-all.mjs",
     "art": "node scripts/art-pipeline/index.mjs",
     "art:fresh": "node scripts/art-pipeline/index.mjs fresh",
-    "prebuild:images": "node scripts/export-images.mjs",
-    "prebuild:runtime": "node scripts/export-images.mjs --prebuilt",
-    "export:docs-images": "node scripts/export-images.mjs --docs",
     "art:ui-stickers": "node scripts/art-pipeline/index.mjs sync ui-default-skin-sticker ui-duanwu-skin-sticker --force"
   }
 }

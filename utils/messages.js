@@ -121,6 +121,7 @@ import {
     FRIEND_REMOVE_MESSAGES,
     UI_MESSAGES,
 } from '../constants/game.js';
+import { YUMUMU_IMPOTENCE_HELP_FAIL } from '../constants/extra-deer.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
 import { resolveQuotaDenom } from '../constants/profession-quotas.js';
 
@@ -177,13 +178,32 @@ function withdrawQuotaHint(result) {
     return `（帮戒🦌剩余 ${left}/${max}）`;
 }
 
+function extraDeerActionSuffix(result) {
+    const parts = [];
+    if (result.meijiaTeamLu) {
+        parts.push(` · 组队联动：搭档同步 +1（现 ${result.meijiaTeamLu.partnerCount} 次）`);
+    }
+    if (result.meijiaTeamWipe) {
+        parts.push(' · 王美嘉组队双亡：搭档一并鹿死 · 组队已解除');
+    } else if (result.meijiaTeamDissolved) {
+        parts.push(' · 组队已解除');
+    }
+    if (result.yumumuImpotence) {
+        parts.push(` · 雨木木天赋：目标附加「阳痿」，下次被帮鹿失手 +${Math.round(YUMUMU_IMPOTENCE_HELP_FAIL * 100)}%`);
+    }
+    if (result.impotenceTriggered) {
+        parts.push(` · 阳痿 debuff 触发，帮鹿失手率 +${Math.round(YUMUMU_IMPOTENCE_HELP_FAIL * 100)}%`);
+    }
+    return parts.join('');
+}
+
 /** 互助配额查询/职业面板文案 */
 export function formatHelperQuotaReply(snapshot, mode = 'all') {
     if (snapshot?.professionRequired) {
         return [
             '🎭 今日尚未转职，玩法已封印',
             ERROR_MESSAGES.profession_required,
-            '转职后发送「鹿配额」查看互助剩余',
+            '转职后发送「鹿况」查看配额与玩法',
         ].join('\n');
     }
     if (!snapshot?.profession) return '无法读取互助配额';
@@ -253,6 +273,18 @@ export function formatErrorMessage(result) {
             return ERROR_MESSAGES.job_skill_wrong_profession(result.expected, result.current);
         case 'patrol_buff_pending':
             return ERROR_MESSAGES.patrol_buff_pending;
+        case 'lu_banned':
+            return ERROR_MESSAGES.lu_banned(result.leftMin);
+        case 'team_self':
+            return ERROR_MESSAGES.team_self;
+        case 'team_already':
+            return ERROR_MESSAGES.team_already;
+        case 'team_partner_taken':
+            return ERROR_MESSAGES.team_partner_taken;
+        case 'bind_self':
+            return ERROR_MESSAGES.bind_self;
+        case 'bind_already':
+            return ERROR_MESSAGES.bind_already;
         case 'withdrawal_dead':
             return ERROR_MESSAGES.withdrawal_dead;
         case 'empty':
@@ -432,40 +464,41 @@ export function formatActionMessage(result, ctx = {}) {
     const wq = withdrawQuotaHint(result);
     switch (result.type) {
         case 'safe':
-            return `${pickRandom(SAFE_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
+            return `${pickRandom(SAFE_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         case 'safe_grinder':
-            return `${pickRandom(SAFE_MESSAGES)} 卷王连击 +${result.grinderBonus || 1}！（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
+            return `${pickRandom(SAFE_MESSAGES)} 卷王连击 +${result.grinderBonus || 1}！（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         case 'safe_urged':
-            return `${pickRandom(SAFE_MESSAGES)} ${pickRandom(URGE_BUFF_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
+            return `${pickRandom(SAFE_MESSAGES)} ${pickRandom(URGE_BUFF_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         case 'risky':
-            return `${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
+            return `${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         case 'risky_cursed':
-            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         case 'risky_blessed':
-            return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
+            return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         case 'risky_mixed':
-            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(BLESSED_LU_MESSAGES)} 福咒对冲！今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}`;
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(BLESSED_LU_MESSAGES)} 福咒对冲！今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         case 'death': {
             const pct = formatChancePercent(result.deathChance ?? 0);
             const pctText = pct ? `（触发 ${pct}% 判定）` : '';
-            return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
+            const reason = result.entry?.dr || DEATH_REASON.SELF;
+            return `${pickDeathMessage(reason)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         }
         case 'death_cursed': {
             const pct = formatChancePercent(result.deathChance ?? 0);
             const stackNote = result.curseStacks ? ` · ${result.curseStacks} 层咒` : '';
             const pctText = pct ? `（含鹿咒${stackNote}，触发 ${pct}% 判定）` : '';
-            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         }
         case 'death_blessed': {
             const pct = formatChancePercent(result.deathChance ?? 0);
             const stackNote = result.blessStacks ? ` · ${result.blessStacks} 层福` : '';
             const pctText = pct ? `（含鹿福${stackNote}，触发 ${pct}% 判定）` : '';
-            return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
+            return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         }
         case 'death_mixed': {
             const pct = formatChancePercent(result.deathChance ?? 0);
             const pctText = pct ? `（福咒对冲${modifierDeathNote(result)}，触发 ${pct}% 判定）` : '';
-            return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}`;
+            return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}${extraDeerActionSuffix(result)}`;
         }
         case 'revive': {
             const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿次数+1' : '';
@@ -477,12 +510,12 @@ export function formatActionMessage(result, ctx = {}) {
             const soothe = result.curseSoothe ? ' · 顺手下咒回合 -1' : '';
             const medic = result.medicCleanse ? ' · 鹿医师撕咒' : (result.medicBless ? ' · 鹿医师贴福' : '');
             const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿次数+1' : '';
-            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${bonus}${q}`;
+            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${bonus}${q}${extraDeerActionSuffix(result)}`;
         }
         case 'help_kill':
-            return `${helperName || '你'} 误伤 ${targetName || 'ta'}！${pickDeathMessage(DEATH_REASON.HELP)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}`;
+            return `${helperName || '你'} 误伤 ${targetName || 'ta'}！${pickDeathMessage(DEATH_REASON.HELP)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}${extraDeerActionSuffix(result)}`;
         case 'help_pull':
-            return `${helperName || '你'} 拉 ${targetName || 'ta'} 下马！${pickDeathMessage(DEATH_REASON.PULL)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}`;
+            return `${helperName || '你'} 拉 ${targetName || 'ta'} 下马！${pickDeathMessage(DEATH_REASON.PULL)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}${extraDeerActionSuffix(result)}`;
         case 'help_miss':
             return `${helperName || '你'} 想拉 ${targetName || 'ta'} 下马，${pickRandom(HELP_FAIL_MESSAGES)}（${helpFailPct}% 未触发）${q}`;
         case 'withdrawal':
@@ -728,6 +761,10 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '你'} 夜袭得手！你 ${result.thiefCount} 次 · ${targetName || 'ta'} ${result.targetCount} 次（不占偷鹿配额）`;
         case 'job_skill_rogue_raid_fail':
             return `${helperName || '你'} 夜袭失手，自损 1 次（现 ${result.thiefCount} 次 · 不占偷鹿配额）`;
+        case 'job_skill_meijia_team':
+            return `${helperName || '你'} 组队成功！与 ${targetName || 'ta'} 绑定：王美嘉自鹿 +1 时 ta 同步 +1 · 任一方鹿死则双亡并解除绑定（今日锁定）`;
+        case 'job_skill_yumumu_bind':
+            return `${helperName || '你'} 束缚！${targetName || 'ta'} ${result.banMinutes || 60} 分钟内无法自鹿（仍可被帮鹿）`;
         default:
             return result.message || '操作完成';
     }

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { FileUtils } from '../../../lib/utils/file-utils.js';
 import { PROFESSIONS } from './profession.js';
+import { EXTRA_DEER_IDS } from './extra-deer.js';
 import { QUOTA_GROUPS } from './profession-quotas.js';
 import { PORTRAIT_SKINS, SKIN_DEFAULT } from './skins.js';
 import { UI_SKIN_PACKS, UI_SKIN_COMPONENT_KEYS } from './ui-skin-registry.js';
@@ -40,6 +41,23 @@ export function professionArtPath(professionId, skinId = SKIN_DEFAULT) {
     return null;
 }
 
+export function extraDeerArtPath(extraId, skinId = SKIN_DEFAULT) {
+    if (skinId && skinId !== SKIN_DEFAULT) {
+        const skinRel = `professions/extra/skins/${skinId}/${extraId}.png`;
+        const skinAbs = `${ASSET_ROOT}/${skinRel}`;
+        if (FileUtils.existsSync(skinAbs)) return skinAbs;
+    }
+    const base = `${ASSET_ROOT}/professions/extra/${extraId}.png`;
+    if (FileUtils.existsSync(base)) return base;
+    return null;
+}
+
+export function extraDeerSkillArtPath(extraId) {
+    const base = `${ASSET_ROOT}/stickers/skills/extra/${extraId}.png`;
+    if (FileUtils.existsSync(base)) return base;
+    return skillArtPath(extraId);
+}
+
 export function skillArtPath(professionId, skinId = SKIN_DEFAULT) {
     if (skinId && skinId !== SKIN_DEFAULT) {
         const skinRel = `stickers/skills/skins/${skinId}/${professionId}.png`;
@@ -69,11 +87,15 @@ function listArtRelativePaths() {
     paths.push(...ids.map((id) => `professions/${id}.png`));
     paths.push('professions/catalog.png');
     paths.push(...ids.map((id) => `stickers/skills/${id}.png`));
+    for (const eid of EXTRA_DEER_IDS) {
+        paths.push(`professions/extra/${eid}.png`);
+        paths.push(`stickers/skills/extra/${eid}.png`);
+        paths.push(`professions/extra/skins/duanwu/${eid}.png`);
+    }
     for (const skin of Object.values(PORTRAIT_SKINS)) {
         if (!skin.professions) continue;
         for (const pid of skin.professions) {
             paths.push(`professions/skins/${skin.id}/${pid}.png`);
-            paths.push(`stickers/skills/skins/${skin.id}/${pid}.png`);
         }
     }
     paths.push(...QUOTA_GROUPS.map((g) => `stickers/sections/${g.sectionKey}.png`));

@@ -416,23 +416,30 @@ flowchart TD
 | 类型 | 运行时入口 | 预渲染 / 实时 |
 |------|------------|---------------|
 | 鹿帮助 | `resolveHelpImages()` | `prebuilt/help/{ui}/page-*.png` |
-| 职业一览 | `resolveProfessionCatalogImage()` | `prebuilt/profession/{ui}/catalog.png` |
-| 静态职业卡 | `resolveProfessionCard(id)` | `prebuilt/profession/{ui}/card-*.png` |
-| 天象详情 | `resolveWeatherDetailImage()` | `prebuilt/weather/{ui}/{id}-am\|pm.png` |
+| 职业一览 | `resolveProfessionCatalogImage()` | 未转职 → `catalog.png`；已转职带配额 → 实时 |
+| 番外一览 | `resolveExtraDeerCatalogImage()` | `prebuilt/.../extra-catalog*.png` |
+| 静态职业卡 | `resolveProfessionCard(id)` | `prebuilt/profession/{ui}/card-*.png`（非默认立绘 → 实时） |
+| 天象详情 | `resolveWeatherDetailImage()` | `prebuilt/weather/{ui}/{id}-am\|pm.png`（鹿神赐福 → 实时） |
 | 鹿况 / 月历 / 玩法卡 | 实时 SVG + sharp | — |
 
-**改 UI 后**（XRK-Yunzai 根目录）：
+**改 UI / 天赋文案 / 布局后**（XRK-Yunzai 根目录或插件目录）：
 
 ```bash
-node plugins/yunzai-plugin-deer-pipe/scripts/export-images.mjs
-# 或 npm run prebuild:images
+cd plugins/yunzai-plugin-deer-pipe && npm run render
 ```
 
-一次生成并提交 **`assets/prebuilt/`**（Bot 运行时直读）与 **`docs/images/`**（README / GitHub 附图）。仅改 Bot 预渲染：`npm run prebuild:runtime`；仅改 README 截图：`npm run export:docs-images`。
+**一条命令**重新生成：
+
+| 输出目录 | 用途 |
+|----------|------|
+| `assets/prebuilt/` | Bot 运行时直读（帮助、职业卡、天象、番外） |
+| `docs/images/` | README / GitHub 附图（**含鹿况 `status-*.png`、月历、帮助、番外一览**） |
 
 调试实时出图：`DEER_PIPE_FORCE_LIVE_RENDER=1`。
 
-**Git 提交**：`assets/professions/`、`assets/stickers/`、`assets/prebuilt/`、`docs/images/`。**不提交**：`.cursor/`、`scripts/`、`assets/_source/`（抠图前）、`assets/_archive/`、`assets/style-ref/`。
+**Git 提交**：`assets/professions/`、`assets/stickers/`、`assets/prebuilt/`、`docs/images/`。**不提交**：`scripts/`（维护脚本）、`assets/_source/`、`assets/_archive/`、`assets/style-ref/`。
+
+新增角色 / 改 UI 的开发清单见 [`.cursor/skills/deer-pipe-dev/SKILL.md`](.cursor/skills/deer-pipe-dev/SKILL.md)。
 
 ---
 
@@ -463,6 +470,10 @@ yunzai-plugin-deer-pipe/
 | 今日鹿况 `鹿况` | 八职业一览 `鹿职业` |
 |:---:|:---:|
 | <img src="./docs/images/status-duanwu.png" alt="今日鹿况·端午主题" width="360"> | <img src="./docs/images/catalog-duanwu.png" alt="八职业一览·端午主题" width="360"> |
+
+| 番外一览 `鹿职业`（第二张图） |
+|:---:|
+| <img src="./docs/images/extra-catalog-duanwu.png" alt="番外鹿一览·端午主题" width="360"> |
 
 | 鹿帮助 · 活鹿篇 `鹿帮助` | 鹿帮助 · 冥界篇 |
 |:---:|:---:|

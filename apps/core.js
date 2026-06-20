@@ -1,5 +1,6 @@
 import { ERROR_MESSAGES, UI_MESSAGES } from '../constants/game.js';
 import { getProfessionDef, resolveProfessionId } from '../constants/profession.js';
+import { getExtraDeerDef, isExtraDeerId, resolveExtraDeerId } from '../constants/extra-deer.js';
 import { REG, cleanCommandMsg, formatMonthLabel, parseViewMonthToken } from '../constants/commands.js';
 import {
     getHelperQuotaSnapshot,
@@ -20,6 +21,8 @@ import {
     performBlesserGrantSkill,
     performSunflowerFacingSkill,
     performRogueNightRaidSkill,
+    performMeijiaTeamSkill,
+    performYumumuBindSkill,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
@@ -30,7 +33,6 @@ import {
     replyProfessionCatalog,
     replyProfessionCard,
     replyStatusPanel,
-    replyUserProfessionPanel,
     skinCtxForSender,
 } from '../utils/panel.js';
 import {
@@ -80,6 +82,8 @@ export class DeerPipe extends plugin {
                 { reg: REG.blesserGrantSkill, fnc: 'blesserGrantSkill' },
                 { reg: REG.sunflowerFacingSkill, fnc: 'sunflowerFacingSkill' },
                 { reg: REG.rogueNightRaidSkill, fnc: 'rogueNightRaidSkill' },
+                { reg: REG.meijiaTeamSkill, fnc: 'meijiaTeamSkill' },
+                { reg: REG.yumumuBindSkill, fnc: 'yumumuBindSkill' },
             ],
         });
     }
@@ -173,37 +177,36 @@ export class DeerPipe extends plugin {
         const userRecord = getUserRecord(deerData, user_id);
         const monthData = getMonthData(userRecord, date);
         const snapshot = getHelperQuotaSnapshot(monthData, day);
-        await replyProfessionCatalog(this.e, { snapshot, userRecord, date });
+        await replyProfessionCatalog(this.e, {
+            snapshot: snapshot.professionRequired ? undefined : snapshot,
+            userRecord,
+            date,
+        });
     }
 
-    /** 静态职业专精卡（预渲染图，任意时间可查看） */
+    /** 静态职业卡（预渲染图，任意时间可查看） */
     async viewProfessionCard() {
         const msg = cleanCommandMsg(this.e.msg);
         const match = msg.match(/^(?:看)?(?:🦌|鹿)职业(?:卡)?(.+)$/);
         const token = match?.[1]?.trim() ?? '';
-        const professionId = resolveProfessionId(token);
+        const professionId = resolveProfessionId(token) || resolveExtraDeerId(token);
         if (!professionId) {
             await this.reply(ERROR_MESSAGES.profession_unknown(token), true);
             return;
         }
-        const prof = getProfessionDef(professionId);
+        const prof = isExtraDeerId(professionId) ? getExtraDeerDef(professionId) : getProfessionDef(professionId);
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, this.e.sender.user_id);
         await replyProfessionCard(this.e, {
             professionId,
             userRecord,
+            date: new Date(),
             text: `${prof.emoji} ${prof.name} · 发送「转职${token}」可锁定今日职业`,
         });
     }
 
     async helperQuotaInfo() {
-        const { user_id } = this.e.sender;
-        const date = new Date();
-        const day = date.getDate();
-        const deerData = await loadDeerData();
-        const userRecord = getUserRecord(deerData, user_id);
-        const monthData = getMonthData(userRecord, date);
-        await replyUserProfessionPanel(this.e, { monthData, day, userRecord, date });
+        await this.luStatus();
     }
 
     async helpLuQuotaInfo() {
@@ -242,23 +245,24 @@ export class DeerPipe extends plugin {
             return;
         }
         await saveDeerData(deerData);
-        const text = formatActionMessage(result);
-        const monthData = getMonthData(getUserRecord(deerData, user_id), date);
+        const userRecord = getUserRecord(deerData, user_id);
         if (result.changed && result.profession?.id) {
+            const p = result.profession;
+            await replyProfessionCard(this.e, {
+                professionId: p.id,
+                text: `${p.emoji} 转职成功：${p.name}（今日已锁定）`,
+                userRecord,
+                date,
+            });
+        } else if (result.profession?.id) {
             await replyProfessionCard(this.e, {
                 professionId: result.profession.id,
-                text,
-                monthData,
-                day,
-                userRecord: getUserRecord(deerData, user_id),
+                text: formatActionMessage(result),
+                userRecord,
+                date,
             });
         } else {
-            await replyUserProfessionPanel(this.e, {
-                monthData,
-                day,
-                text,
-                userRecord: getUserRecord(deerData, user_id),
-            });
+            await this.reply(formatActionMessage(result), true);
         }
     }
 
@@ -496,5 +500,13 @@ export class DeerPipe extends plugin {
 
     async rogueNightRaidSkill() {
         await this._runTargetSkill(performRogueNightRaidSkill, { needFriend: false });
+    }
+
+    async meijiaTeamSkill() {
+        await this._runTargetSkill(performMeijiaTeamSkill);
+    }
+
+    async yumumuBindSkill() {
+        await this._runTargetSkill(performYumumuBindSkill);
     }
 }

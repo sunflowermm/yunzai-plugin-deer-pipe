@@ -11,6 +11,11 @@ export function escapeXml(text) {
         .replace(/"/g, '&quot;');
 }
 
+/** SVG 内嵌字体不支持 🦌，出图文案统一替换为「鹿」 */
+export function deerTextForSvg(text) {
+    return String(text ?? '').replace(/🦌/g, '鹿');
+}
+
 export function truncText(text, max = 16) {
     const s = String(text ?? '');
     return escapeXml(s.length > max ? `${s.slice(0, max)}…` : s);

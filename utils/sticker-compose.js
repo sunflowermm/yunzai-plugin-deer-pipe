@@ -3,6 +3,8 @@ import { FileUtils } from '../../../lib/utils/file-utils.js';
 import {
     CHECK_MARK,
     DEERPIPE_LOGO,
+    extraDeerArtPath,
+    extraDeerSkillArtPath,
     professionArtPath,
     PROFESSION_CATALOG_ART,
     sectionArtPath,
@@ -122,6 +124,21 @@ export async function loadSectionArt(sectionKey, size = 34) {
 
 export async function loadCatalogThumb(professionId, size, skinId = undefined) {
     return loadProfessionArt(professionId, size, { borderWidth: 0, shadow: false, skinId });
+}
+
+export async function loadExtraDeerArt(extraId, size, skinId = undefined, opts = {}) {
+    return loadSticker(extraDeerArtPath(extraId, skinId), size, {
+        borderWidth: 0,
+        shadow: opts.shadow !== false,
+        ...opts,
+    });
+}
+
+export async function loadExtraDeerSkillArt(extraId, size = 44) {
+    return loadSticker(extraDeerSkillArtPath(extraId), size, {
+        borderWidth: 0,
+        shadow: false,
+    });
 }
 
 export async function loadCatalogArt(size = 68) {

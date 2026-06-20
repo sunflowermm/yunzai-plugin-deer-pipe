@@ -1,7 +1,16 @@
 import sharp from 'sharp';
 import { WEATHER_CATALOG, parseWeatherPeriodSlot } from '../constants/weather.js';
 import { escapeXml, truncText, svgTextStyled, svgTextPlain, hashSeed, cardSvgExtraDefs, textCentered, buildQuotaBarStack, buildLabelValueGrid, labelValueGridRowCount, wrapTextLines, TXT, TXT_SOFT, TXT_PLAIN, TXT_EMOJI } from './svg-base.js';
-import { loadCalendarDeerMark, loadProfessionArt, loadSectionArt, stickerOverlay } from './sticker-compose.js';
+import {
+    buildPortraitGlowSvg,
+    loadCalendarDeerMark,
+    loadExtraDeerArt,
+    loadProfessionArt,
+    loadSectionArt,
+    stickerOverlay,
+} from './sticker-compose.js';
+import { isExtraDeerId } from '../constants/extra-deer.js';
+import { resolveExtraDeerPortraitSkin } from './extra-deer.js';
 import { compositeToPng, rasterizeDeerSvg } from './render-pipeline.js';
 import { emojiSvgImage } from './emoji-compose.js';
 import { CARD_FLAVOR } from '../constants/eco.js';
@@ -80,6 +89,20 @@ const STATS_H = 50;
 const CAL_DEER_MARK_H = 28;
 const CAL_DEER_MARK_LEFT = 8;
 const CAL_DEER_MARK_TOP = 38;
+/** 鹿况职业立绘（对齐职业卡视觉，接近专精卡 220） */
+const STATUS_PORTRAIT_SIZE = 208;
+const STATUS_PORTRAIT_LEFT = 24;
+
+async function loadStatusProfessionArt(professionId, size, skinCtx, date) {
+    const portraitSkin = isExtraDeerId(professionId)
+        ? resolveExtraDeerPortraitSkin(date)
+        : (skinCtx?.portrait && skinCtx.portrait !== 'default' ? skinCtx.portrait : undefined);
+    const stickerOpts = { borderWidth: 0, shadow: true, fitScale: 0.92 };
+    if (isExtraDeerId(professionId)) {
+        return loadExtraDeerArt(professionId, size, portraitSkin, stickerOpts);
+    }
+    return loadProfessionArt(professionId, size, { ...stickerOpts, skinId: portraitSkin });
+}
 
 function formatDayCount(count) {
     if (count > 99) return '99+';
@@ -561,7 +584,12 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
     };
     const playSections = buildStatusPlaySections(status, qv);
 
-    const balancedExtra = (status.balancedScore != null && !status.professionRequired) ? 24 : 0;
+    const hasProfPortrait = !status.professionRequired && !!status.professionId;
+    const portraitExtra = hasProfPortrait ? Math.max(0, STATUS_PORTRAIT_SIZE - 88) : 0;
+    const balancedExtra = ((status.balancedScore != null && !status.professionRequired) ? 24 : 0) + portraitExtra;
+    const statCx = hasProfPortrait
+        ? Math.round((STATUS_PORTRAIT_LEFT + STATUS_PORTRAIT_SIZE + 20 + W) / 2)
+        : CX;
     const STATUS_SECTION_PAD = 24;
     const STATUS_SECTION_ICON = 30;
     const QUOTA_TITLE_Y = STAT_TOP + 162 + balancedExtra;
@@ -614,18 +642,15 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
 
     const weatherEmojiCx = WEATHER_PAD_X + WEATHER_EMOJI_SIZE / 2;
     const weatherEmojiCy = WEATHER_TOP + WEATHER_H / 2;
-    const portraitSkinId = skinCtx?.portrait;
+    const portraitTop = STAT_TOP + 6;
+    const portraitCy = portraitTop + STATUS_PORTRAIT_SIZE / 2;
     const balancedLine = (status.balancedScore != null && !status.professionRequired)
-        ? textCentered(CX, STAT_TOP + 114, `综合 ${status.balancedScore} 分 · ${escapeXml(truncText(status.balancedBreakdown || '', 40))}`, TXT_SOFT, { size: 13, fill: '#c9782a' })
+        ? textCentered(statCx, STAT_TOP + 114, `综合 ${status.balancedScore} 分 · ${escapeXml(truncText(status.balancedBreakdown || '', 40))}`, TXT_SOFT, { size: 13, fill: '#c9782a' })
         : '';
 
     const [profThumb, helpIcon, weatherEmojiSvg, ...playIcons] = await Promise.all([
-        (!status.professionRequired && status.professionId)
-            ? loadProfessionArt(status.professionId, 76, {
-                borderWidth: 2,
-                radius: 12,
-                skinId: portraitSkinId && portraitSkinId !== 'default' ? portraitSkinId : undefined,
-            })
+        hasProfPortrait
+            ? loadStatusProfessionArt(status.professionId, STATUS_PORTRAIT_SIZE, skinCtx, now)
             : null,
         loadSectionArt('help', STATUS_SECTION_ICON),
         wx ? emojiSvgImage(weatherEmojiCx, weatherEmojiCy, wx.emoji, WEATHER_EMOJI_SIZE) : Promise.resolve(''),
@@ -643,8 +668,9 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
             weatherEmojiSvg,
             textX: WEATHER_TEXT_X,
         })}
+        ${hasProfPortrait ? buildPortraitGlowSvg(STATUS_PORTRAIT_LEFT + STATUS_PORTRAIT_SIZE / 2, portraitCy, STATUS_PORTRAIT_SIZE) : ''}
         ${buildStatusStatBlock({
-            cx: CX,
+            cx: statCx,
             statTop: STAT_TOP,
             theme: { ...theme, auraFill },
             moodEmoji,
@@ -673,7 +699,9 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         top: 0,
         left: 0,
     }];
-    const thumbOverlay = profThumb ? stickerOverlay(profThumb, STAT_TOP + 8, 24) : null;
+    const thumbOverlay = profThumb
+        ? stickerOverlay(profThumb, portraitTop, STATUS_PORTRAIT_LEFT)
+        : null;
     if (thumbOverlay) layers.push(thumbOverlay);
     if (helpIcon) layers.push(stickerOverlay(helpIcon, helpHeader.slot.top, helpHeader.slot.left));
     playHeaders.forEach(({ header }, i) => {
