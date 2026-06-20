@@ -6,6 +6,7 @@ import { HELP_PAGES } from '../constants/help-catalog.js';
 import { isExtraDeerId } from '../constants/extra-deer.js';
 import {
     PREBUILT_REL,
+    PREBUILT_UI_SKIN_IDS,
     prebuiltAbsPath,
     prebuiltUiSkinId,
     weatherPrebuiltSlot,
@@ -23,17 +24,15 @@ export function shouldUsePrebuilt() {
     return hub.getRenderConfig().prefer_prebuilt !== false;
 }
 
-/** 八职业一览：关预渲染 / 带快照顶栏 / 任一职业非默认立绘 → 须 live */
+/** 八职业一览：关预渲染 / 任一职业非默认立绘 → 须 live（配额顶栏改由文字 preamble 展示） */
 export function shouldBypassPrebuiltProfessionCatalog(opts = {}) {
     if (!shouldUsePrebuilt()) return true;
-    if (needsLiveProfessionCatalog(opts.snapshot)) return true;
     return needsLiveProfessionCatalogForPortraits(opts.userRecord ?? null);
 }
 
-/** 单张职业卡：关预渲染 / 带快照顶栏 / 非默认立绘 → 须 live */
+/** 单张职业卡：关预渲染 / 非默认立绘 → 须 live */
 export function shouldBypassPrebuiltProfessionCard(opts = {}) {
     if (!shouldUsePrebuilt()) return true;
-    if (needsLiveProfessionCatalog(opts.snapshot)) return true;
     return !!(opts.skinCtx && shouldBypassPrebuiltForPortraitSkin(opts.skinCtx));
 }
 
@@ -43,11 +42,6 @@ export function shouldBypassPrebuiltExtraCatalog(opts = {}) {
     return needsLiveExtraDeerCatalog(opts.userRecord ?? null);
 }
 
-/** 职业一览带当日互助快照时需 live 渲染顶栏 */
-export function needsLiveProfessionCatalog(snapshot) {
-    return !!(snapshot && !snapshot.professionRequired);
-}
-
 /** @deprecated 使用 shouldBypassPrebuiltProfessionCard */
 export function needsLiveProfessionCard(opts = {}) {
     return shouldBypassPrebuiltProfessionCard(opts);
@@ -55,6 +49,26 @@ export function needsLiveProfessionCard(opts = {}) {
 
 export function clearPrebuiltCache() {
     bufferCache.clear();
+}
+
+/** 启动时预热常用预渲染 PNG（帮助/职业一览），避免首条指令读盘 */
+export function warmPrebuiltCache() {
+    if (!shouldUsePrebuilt()) return 0;
+    const rels = [];
+    for (const uiId of PREBUILT_UI_SKIN_IDS) {
+        for (let i = 0; i < HELP_PAGES.length; i += 1) {
+            rels.push(PREBUILT_REL.helpPage(uiId, i));
+        }
+        rels.push(
+            PREBUILT_REL.professionCatalog(uiId),
+            PREBUILT_REL.extraDeerCatalog(uiId, SKIN_DEFAULT),
+        );
+    }
+    let loaded = 0;
+    for (const rel of rels) {
+        if (loadPrebuiltImage(rel)) loaded += 1;
+    }
+    return loaded;
 }
 
 export function loadPrebuiltImage(relPath) {

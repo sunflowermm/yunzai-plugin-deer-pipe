@@ -93,12 +93,22 @@ export async function replyWeatherCard(e, { caption, imageBuffer }) {
 }
 
 /** 职业一览图（八职业预渲染 + 番外预渲染） */
-export async function replyProfessionCatalog(e, { snapshot, userRecord = null, date = new Date() } = {}) {
+export async function replyProfessionCatalog(e, {
+    snapshot,
+    userRecord = null,
+    date = new Date(),
+    /** 已转职时先回配额文字，再读预渲染图（避免顶栏快照拖慢整图） */
+    preamble = '',
+} = {}) {
     const skinCtx = resolveSkinContext(userRecord, date);
-    const [mainRaw, extraRaw] = await Promise.all([
+    const imagesPromise = Promise.all([
         resolveProfessionCatalogImage({ skinCtx, date, userRecord, ...(snapshot ? { snapshot } : {}) }),
         resolveExtraDeerCatalogImage({ skinCtx, date, userRecord }),
     ]);
+    if (preamble) {
+        await e.reply(preamble, true);
+    }
+    const [mainRaw, extraRaw] = await imagesPromise;
     await e.reply([segment.image(mainRaw), segment.image(extraRaw)], true);
 }
 
@@ -108,8 +118,16 @@ export async function replyProfessionCard(e, {
     text,
     userRecord = null,
     date = new Date(),
+    /** 先回文字再出图，缩短首条消息等待（上传 PNG 往往占大头） */
+    textFirst = false,
 } = {}) {
     const skinCtx = resolveSkinContext(userRecord, date, professionId);
+    if (textFirst && text) {
+        await e.reply(text, true);
+        const raw = await resolveProfessionCard(professionId, { skinCtx, date });
+        await e.reply(segment.image(raw), true);
+        return;
+    }
     const raw = await resolveProfessionCard(professionId, { skinCtx, date });
     const parts = text ? [text, segment.image(raw)] : [segment.image(raw)];
     await e.reply(parts, true);

@@ -62,6 +62,7 @@ import {
 } from '../utils/deer-cart-session.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 import { bumpFestivalPortraitProgress, appendUnlockNotices } from '../utils/portrait-unlock.js';
+import { needsLiveProfessionCatalogForPortraits } from '../utils/skin.js';
 import plugin from '../../../lib/plugins/plugin.js';
 
 export class DeerPipe extends plugin {
@@ -187,15 +188,16 @@ export class DeerPipe extends plugin {
     async professionInfo() {
         const { user_id } = this.e.sender;
         const date = new Date();
-        const day = date.getDate();
         const deerData = await loadDeerData();
         const userRecord = getUserRecord(deerData, user_id);
         const monthData = getMonthData(userRecord, date);
-        const snapshot = getHelperQuotaSnapshot(monthData, day);
+        const snapshot = getHelperQuotaSnapshot(monthData, date.getDate());
+        const portraitLive = needsLiveProfessionCatalogForPortraits(userRecord);
         await replyProfessionCatalog(this.e, {
-            snapshot: snapshot.professionRequired ? undefined : snapshot,
+            snapshot: portraitLive && !snapshot.professionRequired ? snapshot : undefined,
             userRecord,
             date,
+            preamble: formatHelperQuotaReply(snapshot),
         });
     }
 
@@ -268,6 +270,7 @@ export class DeerPipe extends plugin {
                 text: `${p.emoji} 转职成功：${p.name}（今日已锁定）`,
                 userRecord,
                 date,
+                textFirst: true,
             });
         } else if (result.profession?.id) {
             await replyProfessionCard(this.e, {
@@ -599,20 +602,32 @@ export class DeerPipe extends plugin {
         }
 
         const scopeId = this.e.group_id || 'pm';
-        plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'deerCartDepart');
-        clearDeerCartSession(scopeId, this.e.user_id);
-
         const date = new Date();
         const day = date.getDate();
         const { user_id, card, nickname } = this.e.sender;
         const deerData = await loadDeerData();
         const depart = performDeerCartDepart(deerData, user_id, date, day);
         if (!depart.ok) {
-            if (depart.type === 'cart_no_invite') return false;
-            await this.reply(formatErrorMessage(depart), true);
+            if (depart.type === 'cart_no_invite') {
+                plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'deerCartDepart');
+                clearDeerCartSession(scopeId, this.e.user_id);
+                return false;
+            }
+            let errText = formatErrorMessage(depart);
+            if (depart.type === 'profession_required') {
+                errText += `\n转职完成后请再次回复「发车」（${DEER_CART_DEPART_TIMEOUT_SEC}s 内仍有效）`;
+            }
+            await this.reply(errText, true);
+            if (depart.type !== 'profession_required') {
+                plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'deerCartDepart');
+                clearDeerCartSession(scopeId, this.e.user_id);
+            }
             await saveDeerData(deerData);
             return true;
         }
+
+        plugin.finishUserContext(this.name, this.e.self_id, this.e.user_id, 'deerCartDepart');
+        clearDeerCartSession(scopeId, this.e.user_id);
         await saveDeerData(deerData);
 
         const ctx = await loadGameContext(date);

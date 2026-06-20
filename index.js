@@ -3,7 +3,7 @@ import path from "path";
 import config from "./model/config.js";
 import hub from "./lib/deer-hub.js";
 import { verifyArtManifest } from "./constants/deer-assets.js";
-import { verifyPrebuiltManifest } from "./utils/prebuilt-images.js";
+import { verifyPrebuiltManifest, warmPrebuiltCache } from "./utils/prebuilt-images.js";
 
 hub.startWatch();
 if (!global.segment) {
@@ -28,6 +28,11 @@ const missingPrebuilt = verifyPrebuiltManifest();
 if (missingPrebuilt.length) {
     logger.warn(`[deer-pipe] 预渲染 PNG 缺失 ${missingPrebuilt.length} 项（将回退实时渲染）：${missingPrebuilt.slice(0, 5).join(' · ')}${missingPrebuilt.length > 5 ? ' …' : ''}`);
     logger.warn('[deer-pipe] 预渲染 PNG 缺失：请拉取仓库内 assets/prebuilt/ 成品，或联系维护者更新');
+} else {
+    const warmed = warmPrebuiltCache();
+    if (warmed > 0) {
+        logger.info(`[deer-pipe] 预渲染 PNG 已预热 ${warmed} 张（帮助/职业一览）`);
+    }
 }
 
 const files = fs.readdirSync(`./plugins/${pluginName}/apps`).filter(file => file.endsWith(".js"));

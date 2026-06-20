@@ -21,13 +21,10 @@ export class DeerHelp extends plugin {
     async deerHelp() {
         const deerData = await loadDeerData();
         const skinCtx = skinCtxForSender(deerData, this.e.sender.user_id, new Date());
-        const images = await resolveHelpImages({ skinCtx });
-        const parts = [
-            `${HELP_TAGLINE}\n共 2 张图：活鹿篇（玩法/天象/生态）+ 冥界篇（对线/死亡/特权/彩蛋）\n提示：所有「鹿」与「🦌」可互换`,
-        ];
-        for (const buf of images) {
-            parts.push(segment.image(buf));
-        }
-        await this.reply(parts, true);
+        const intro = `${HELP_TAGLINE}\n共 2 张图：活鹿篇（玩法/天象/生态）+ 冥界篇（对线/死亡/特权/彩蛋）\n提示：所有「鹿」与「🦌」可互换`;
+        const imagesPromise = resolveHelpImages({ skinCtx });
+        await this.reply(intro, true);
+        const images = await imagesPromise;
+        await this.reply(images.map((buf) => segment.image(buf)), true);
     }
 }
