@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "generatedAt": "2026-06-20T12:02:37.845Z",
+  "generatedAt": "2026-06-21T03:55:10.866Z",
   "files": [
     "help/default/page-1.png",
     "help/default/page-2.png",
@@ -15,6 +15,7 @@
     "profession/default/card-sunflower.png",
     "profession/default/card-extra-meijia.png",
     "profession/default/card-extra-yumumu.png",
+    "profession/default/card-extra-yujie.png",
     "profession/default/extra-catalog.png",
     "profession/default/extra-catalog-duanwu.png",
     "weather/default/sunny-am.png",
@@ -46,6 +47,7 @@
     "profession/duanwu/card-sunflower.png",
     "profession/duanwu/card-extra-meijia.png",
     "profession/duanwu/card-extra-yumumu.png",
+    "profession/duanwu/card-extra-yujie.png",
     "profession/duanwu/extra-catalog.png",
     "profession/duanwu/extra-catalog-duanwu.png",
     "weather/duanwu/sunny-am.png",
