@@ -65,16 +65,27 @@ node plugins/yunzai-plugin-deer-pipe/scripts/render-all.mjs
 
 | 文件 | 改什么 |
 |------|--------|
-| `constants/deer-assets.js` | 路径 + `ART_MANIFEST` 条目 |
-| `scripts/art-pipeline/jobs.mjs` | AI 生图 job（立绘、技能 icon、端午 skin 等） |
+| `constants/deer-assets.js` | 路径校验随 `PORTRAIT_SKINS` 自动推导 |
+| `scripts/art-pipeline/jobs.mjs` | 任务表：`EXTRA_DEER_*`、`PORTRAIT_SKIN_JOBS`、prompt 参考 |
 | `constants/profession-flavor.js` | 职业卡底部诙谐一句（可选） |
 
+**立绘出图（品红底 → 抠图，不用 gptgod）：**
+
+1. **图升图**：以 `assets/professions/...` 或 `_source/` 为参考，Cursor GenerateImage 生成**纯品红底 `#FF00FF`**、无场景无黑底的完整立绘。
+2. **存源图**：写入 `assets/_source/` **与成品相同相对路径**（例：`professions/extra/yujie.png`）。
+3. **抠图**：
+
 ```bash
-npm run art -- sync <job-id>    # 生图 + 抠图 → assets/
-npm run art:fresh               # 全量重跑（慎用）
+npm run art -- cutout professions/extra/yujie.png
+# 或按任务 id（kind=cutout）
+npm run art -- sync extra-nianxian-yujie
 ```
 
-启动时 `verifyArtManifest()` 校验 `assets/` 文件齐全。
+4. 校验：`node -e "import('./constants/deer-assets.js').then(m=>console.log(m.verifyArtManifest()))"`
+
+`kind: cutout` 任务**不调用外部 API**；`kind: api` 为历史批量任务，新番外/皮肤优先走 GenerateImage + cutout。
+
+启动时 `verifyArtManifest()` 校验 `assets/` 成品齐全。
 
 ### 4. 预渲染清单
 
