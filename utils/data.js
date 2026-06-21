@@ -87,7 +87,7 @@ import {
     formatBalancedBreakdown,
 } from './balanced-score.js';
 import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
-import { YUMUMU_BIND_MINUTES, formatExtraDeerQuotaBrief, isYumumuBindAfterCutoff } from '../constants/extra-deer.js';
+import { YUMUMU_BIND_MINUTES, formatExtraDeerQuotaBrief, isYumumuBindAfterCutoff, YUJIE_IMPERIAL_WIN_BONUS } from '../constants/extra-deer.js';
 import {
     getProfessionDef,
     getProfessionMods,
@@ -113,8 +113,11 @@ import {
     applyLuBan,
     applyYumumuHelpSynergy,
     clearLuBan,
+    clearYujieImperialGuarantee,
     consumeImpotence,
     getExtraDeerDef,
+    hasYujieImperialGuarantee,
+    applyYujieImperialGuarantee,
     getImpotenceHelpFailBonus,
     getMeijiaTeamPartnerId,
     impotenceKey,
@@ -2411,6 +2414,38 @@ export function performYumumuBindSkill(deerData, yumumuId, targetId, date, day) 
         banMinutes: YUMUMU_BIND_MINUTES,
         targetCount: targetEntry.c,
     };
+}
+
+/** 语姐鹿专属：带派 — 下一次皇城鹿掷骰必胜 */
+export function performYujieDaipaiSkill(deerData, userId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
+    const monthData = ensureMonthData(deerData, userId, date);
+    const wrong = rejectIfWrongExtraDeer(monthData, day, 'yujie');
+    if (wrong) return wrong;
+    if (hasUsedJobSkill(monthData, day)) {
+        return { ok: false, type: 'job_skill_used' };
+    }
+    markJobSkillUsed(monthData, day);
+    applyYujieImperialGuarantee(monthData, day);
+    return {
+        ok: true,
+        type: 'job_skill_yujie_daipai',
+    };
+}
+
+/** 皇城鹿猜大小：语姐天赋 +20% 必胜 / 带派蓄势 100% 必胜 */
+export function resolveImperialChallengerWin(deerData, challengerId, date, day, choice, side) {
+    const monthData = ensureMonthData(deerData, challengerId, date);
+    if (hasYujieImperialGuarantee(monthData, day)) {
+        clearYujieImperialGuarantee(monthData, day);
+        return { win: true, yujieDaipai: true };
+    }
+    let win = choice === side;
+    if (!win && getDayProfessionId(monthData, day) === 'yujie' && rollChance(YUJIE_IMPERIAL_WIN_BONUS)) {
+        return { win: true, yujieBonus: true };
+    }
+    return { win };
 }
 
 /**

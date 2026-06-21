@@ -5,7 +5,7 @@ import { FileUtils } from '../../../lib/utils/file-utils.js';
 import { PROFESSIONS } from './profession.js';
 import { EXTRA_DEER_IDS } from './extra-deer.js';
 import { QUOTA_GROUPS } from './profession-quotas.js';
-import { PORTRAIT_SKINS, SKIN_DEFAULT } from './skins.js';
+import { PORTRAIT_SKINS, SKIN_DEFAULT } from './skin-registry.js';
 import { UI_SKIN_PACKS, UI_SKIN_COMPONENT_KEYS } from './ui-skin-registry.js';
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -90,14 +90,15 @@ function listArtRelativePaths() {
     for (const eid of EXTRA_DEER_IDS) {
         paths.push(`professions/extra/${eid}.png`);
         paths.push(`stickers/skills/extra/${eid}.png`);
-        paths.push(`professions/extra/skins/duanwu/${eid}.png`);
     }
     for (const skin of Object.values(PORTRAIT_SKINS)) {
         if (!skin.professions) continue;
         for (const pid of skin.professions) {
-            // 番外立绘在 professions/extra/skins/，勿按八职业路径校验
-            if (EXTRA_DEER_IDS.includes(pid)) continue;
-            paths.push(`professions/skins/${skin.id}/${pid}.png`);
+            if (EXTRA_DEER_IDS.includes(pid)) {
+                paths.push(`professions/extra/skins/${skin.id}/${pid}.png`);
+            } else {
+                paths.push(`professions/skins/${skin.id}/${pid}.png`);
+            }
         }
     }
     paths.push(...QUOTA_GROUPS.map((g) => `stickers/sections/${g.sectionKey}.png`));

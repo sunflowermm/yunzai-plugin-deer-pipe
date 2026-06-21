@@ -10,6 +10,7 @@ import {
     performArenaDecline,
     settleArenaPk,
     settleImperialPk,
+    resolveImperialChallengerWin,
     validateArenaStart,
     validateImperialStart,
     refundImperialUsed,
@@ -527,7 +528,15 @@ export class DeerSpecial extends plugin {
         this.finish('imperialPkChoice', false);
         const deerData = await loadDeerData();
         const { dice, side } = rollDiceBigSmall();
-        const win = choice === side;
+        const pk = resolveImperialChallengerWin(
+            deerData,
+            this.e.user_id,
+            session.date,
+            session.day,
+            choice,
+            side,
+        );
+        const win = pk.win;
         const result = settleImperialPk(
             deerData,
             this.e.user_id,
@@ -542,6 +551,8 @@ export class DeerSpecial extends plugin {
             await this.reply(formatErrorMessage(result), true);
             return;
         }
+        if (pk.yujieDaipai) result.yujieDaipai = true;
+        if (pk.yujieBonus) result.yujieBonus = true;
 
         await saveDeerData(deerData);
         const text = formatActionMessage(result, {

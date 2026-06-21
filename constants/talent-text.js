@@ -117,6 +117,10 @@ export function collectTalentParts(def) {
         parts.push(`阳痿目标被帮鹿失手 +${pct(def.impotenceHelpFailBonus)}（叠加基础 ${pct(HELP_FAIL_CHANCE)}）`);
     }
 
+    if (def.imperialWinBonus) {
+        parts.push(`皇城鹿猜大小额外 +${pct(def.imperialWinBonus)} 必胜修正`);
+    }
+
     return parts;
 }
 

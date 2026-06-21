@@ -673,8 +673,12 @@ export function formatActionMessage(result, ctx = {}) {
             return `${pickRandom(PLAYFUL_CLEARANCE_MESSAGES)}（${result.cleared} 人恶趣味次数已重置）`;
         case 'amnesty_all':
             return `${pickRandom(AMNESTY_ALL_MESSAGES)}（还阳 ${result.revived} 人 · 玩法重置 ${result.metaReset} 人）`;
-        case 'imperial_win':
-            return `${pickRandom(IMPERIAL_WIN_MESSAGES)} · ${targetName || '鹿王'} 现 ${result.kingCount} 次`;
+        case 'imperial_win': {
+            const yujieNote = result.yujieDaipai
+                ? ' · 带派脚丫子必胜'
+                : (result.yujieBonus ? ' · 语姐皇城胜势' : '');
+            return `${pickRandom(IMPERIAL_WIN_MESSAGES)} · ${targetName || '鹿王'} 现 ${result.kingCount} 次${yujieNote}`;
+        }
         case 'imperial_lose': {
             const kingPart = result.kingBonus
                 ? ` · ${targetName || '鹿王'} +${result.kingBonus} 现 ${result.kingCount} 次`
@@ -901,6 +905,8 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '你'} 组队成功！与 ${targetName || 'ta'} 绑定：王美嘉自鹿 +1 时 ta 同步 +1（每日最多 5 次 · 净值≥0）· 任一方鹿死双亡 · 王美嘉不可戒鹿`;
         case 'job_skill_yumumu_bind':
             return `${helperName || '你'} 束缚！${targetName || 'ta'} ${result.banMinutes ?? YUMUMU_BIND_MINUTES} 分钟内无法自鹿（仍可被帮鹿）· 仅 ${formatYumumuBindCutoffHint()}可用`;
+        case 'job_skill_yujie_daipai':
+            return `${helperName || '你'} 带派！脚丫子蓄势 · 下一次皇城鹿掷骰必胜`;
         default:
             return result.message || '操作完成';
     }

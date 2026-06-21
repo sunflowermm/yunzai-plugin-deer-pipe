@@ -8,7 +8,10 @@ export const YUMUMU_BIND_MINUTES = Math.round(YUMUMU_LU_BAN_MS / 60000);
 export const YUMUMU_IMPOTENCE_CHANCE = 0.40;
 export const YUMUMU_IMPOTENCE_HELP_FAIL = 0.08;
 
-export const EXTRA_DEER_TRANSFER_HINT = '番外：转职王美嘉 / 转职雨木木';
+/** 语姐鹿：皇城鹿猜大小额外必胜概率（叠在 50% 骰运之上） */
+export const YUJIE_IMPERIAL_WIN_BONUS = 0.20;
+
+export const EXTRA_DEER_TRANSFER_HINT = '番外：转职王美嘉 / 转职雨木木 / 转职语姐';
 
 export function isYumumuBindAfterCutoff(date) {
     return date.getHours() >= YUMUMU_BIND_CUTOFF_HOUR;

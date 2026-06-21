@@ -28,6 +28,8 @@ import {
     performDeerCartInvite,
     performDeerCartDepart,
     performYumumuBindSkill,
+    performYujieDaipaiSkill,
+    resolveImperialChallengerWin,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
@@ -101,6 +103,7 @@ export class DeerPipe extends plugin {
                 { reg: REG.deerCart, fnc: 'deerCart' },
                 { reg: REG.meijiaTeamSkill, fnc: 'meijiaTeamSkill' },
                 { reg: REG.yumumuBindSkill, fnc: 'yumumuBindSkill' },
+                { reg: REG.yujieDaipaiSkill, fnc: 'yujieDaipaiSkill' },
             ],
         });
     }
@@ -719,5 +722,31 @@ export class DeerPipe extends plugin {
 
     async yumumuBindSkill() {
         await this._runTargetSkill(performYumumuBindSkill);
+    }
+
+    async yujieDaipaiSkill() {
+        const { user_id, card, nickname } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const result = performYujieDaipaiSkill(deerData, user_id, date, day);
+        if (!result.ok) {
+            await this.reply(formatErrorMessage(result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const text = formatActionMessage(result, { helperName: card || nickname });
+        await replyInteractionResult(this.e, {
+            date,
+            name: card || nickname,
+            userId: user_id,
+            deerData,
+            text,
+            result,
+            helperName: card || nickname,
+            helperId: user_id,
+            dayOverride: day,
+            withPanel: true,
+        });
     }
 }

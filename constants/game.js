@@ -204,6 +204,8 @@ export const META_PREFIX = {
     LU_BAN_UNTIL: '_lub_',
     /** 雨木木：阳痿 debuff（下次被帮🦌失手+） */
     IMPOTENCE: '_imp_',
+    /** 语姐鹿：带派蓄势（下次皇城鹿必胜） */
+    YUJIE_DAIPAI: '_ydp_',
 };
 
 /** 巡游专属技：下一次玩法天象正向再 × 此倍率（叠在职业天象 amp 之前） */

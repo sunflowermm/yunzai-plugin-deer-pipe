@@ -2,11 +2,10 @@
  * 鹿/🦌 等价指令 token 与 rule 正则（全插件唯一数据源）
  * loader 会将 reg 字符串转为 RegExp，此处用字符串拼接便于维护
  */
-/** 匹配鹿或🦌 */
-export const D = '(🦌|鹿)';
+import { D, D_OPT, D_SHOW } from './command-tokens.js';
+import { PORTRAIT_PROF_SWITCH } from './portrait-skin-command.js';
 
-/** 帮助图展示：🦌/鹿 可互换 */
-export const D_SHOW = '🦌/鹿';
+export { D, D_OPT, D_SHOW };
 
 /** 查鹿林天象（不与通用「天气」插件抢匹配） */
 export const WEATHER_CMD_SHOW = `${D_SHOW}环境 / 天气${D_SHOW}`;
@@ -89,6 +88,7 @@ export const REG = {
     /** 鹿车「发车」由 setContext('deerCartDepart') 监听，勿加裸规则 */
     meijiaTeamSkill: '^组队',
     yumumuBindSkill: '^束缚',
+    yujieDaipaiSkill: '^带派$',
     addFriend: `^添加${D}友(.*)`,
     delFriend: `^绝交${D}友(.*)`,
     myFriend: `^我的${D}友$`,
@@ -109,7 +109,7 @@ export const REG = {
     skinList: `^${D}皮肤$`,
     skinSwitch: `^${D}皮肤(.+)$`,
     portraitSkinList: `^${D}立绘$`,
-    portraitProfSwitch: `^(?:${D})?(卷王鹿|鹿医师|医师|卷王|王美嘉鹿|王美嘉|美嘉鹿|美嘉|雨木木鹿|雨木木|木木鹿|木木)(端午|默认|原版)$`,
+    portraitProfSwitch: PORTRAIT_PROF_SWITCH,
 };
 
 /** 清洗指令文本（去 CQ 码、@、误粘 QQ 号） */

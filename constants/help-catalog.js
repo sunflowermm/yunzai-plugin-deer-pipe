@@ -123,7 +123,7 @@ export const HELP_SECTIONS = {
             { cmd: '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等', desc: '8 职业：含向日葵鹿 · 详见鹿职业一览', quota: '首次转职后当日锁定 · 各职业全玩法次数不同' },
             { cmd: `${D_SHOW}技`, desc: '查看今日专属技状态', quota: '每职业 1 次/日' },
             { cmd: `${D_SHOW}巡 / 愈鹿@ / 清规@ / 卷冲`, desc: '巡游/鹿医师/戒灵师/卷王专属技', quota: '须对应职业 · 鹿医师帮鹿成功 12% 帮鹿次数+1' },
-            { cmd: '咒缚@ / 广福@ / 夜袭@ / 向阳@ / 组队@ / 束缚@', desc: '叠咒/福鹿使/窃光/向日葵/王美嘉/雨木木专属技', quota: '不占对应玩法配额 · 1 次/日' },
+            { cmd: '咒缚@ / 广福@ / 夜袭@ / 向阳@ / 组队@ / 束缚@ / 带派', desc: '叠咒/福鹿使/窃光/向日葵/王美嘉/雨木木/语姐专属技', quota: '不占对应玩法配额 · 1 次/日' },
         ],
     },
     extraDeer: {
@@ -131,9 +131,9 @@ export const HELP_SECTIONS = {
         emoji: '✨',
         items: [
             {
-                cmd: '转职王美嘉 / 转职雨木木',
+                cmd: '转职王美嘉 / 转职雨木木 / 转职语姐',
                 desc: '与八职业互斥 · 当日锁定 · 「鹿职业」第二张图',
-                quota: `王美嘉 ${formatExtraDeerQuotaBrief('meijia')} · 雨木木 ${formatExtraDeerQuotaBrief('yumumu')}`,
+                quota: `王美嘉 ${formatExtraDeerQuotaBrief('meijia')} · 雨木木 ${formatExtraDeerQuotaBrief('yumumu')} · 语姐 ${formatExtraDeerQuotaBrief('yujie')}`,
             },
             {
                 cmd: EXTRA_DEER_SKILLS.meijia.cmd,
@@ -146,8 +146,13 @@ export const HELP_SECTIONS = {
                 quota: `仅 ${formatYumumuBindCutoffHint()} · 1 次/日 · 帮鹿 ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 挂阳痿 debuff`,
             },
             {
-                cmd: '看鹿职业卡雨木木 / 雨木木鹿端午',
-                desc: '番外静态专精卡 · 端午立绘免费随时切换（默认不穿皮肤）',
+                cmd: EXTRA_DEER_SKILLS.yujie.cmd,
+                desc: '语姐专属 · 带派脚丫子蓄势：下一次皇城鹿掷骰必胜',
+                quota: `催鹿/皇城配额偏高 · 天赋皇城胜势 +20% · 1 次/日`,
+            },
+            {
+                cmd: '看鹿职业卡雨木木 / 雨木木鹿端午 / 语姐鹿年限',
+                desc: '番外静态专精卡 · 端午/年限立绘免费随时切换（默认不穿皮肤）',
                 quota: `帮鹿 ${getExtraDeerDef('yumumu').helpQuota} · ${Math.round(YUMUMU_IMPOTENCE_CHANCE * 100)}% 阳痿 · 束缚 ${YUMUMU_BIND_MINUTES} 分/${formatYumumuBindCutoffHint()}`,
             },
         ],

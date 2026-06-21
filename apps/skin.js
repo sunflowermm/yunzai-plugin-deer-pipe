@@ -3,7 +3,7 @@ import {
     formatUiSkinCatalog,
     formatPortraitSkinCatalog,
     parseUiSkinToken,
-    parsePortraitProfSkinCommand,
+    parsePortraitProfSkinMessage,
     SKIN_DEFAULT,
     UI_SKINS,
     PORTRAIT_SKINS,
@@ -16,8 +16,7 @@ import {
 import { getProfessionDef } from '../constants/profession.js';
 import { getExtraDeerDef, isExtraDeerId } from '../constants/extra-deer.js';
 import { loadDeerData, saveDeerData } from '../utils/store.js';
-import { getUserSkinPrefs, setUserSkinPref } from '../utils/skin.js';
-import { reconcileFestivalPortraitUnlocks } from '../utils/portrait-unlock.js';
+import { getUserSkinPrefs, setUserSkinPref, syncPortraitSkinState } from '../utils/skin.js';
 
 function ensureUserRecord(deerData, userId) {
     const uid = String(userId);
@@ -50,13 +49,13 @@ export class DeerSkin extends plugin {
     }
 
     async listSkins() {
-        await this.reply(formatUiSkinCatalog(new Date()), true);
+        await this.reply(formatUiSkinCatalog(), true);
     }
 
     async listPortraitSkins() {
         const deerData = await loadDeerData();
         const record = ensureUserRecord(deerData, this.e.sender.user_id);
-        reconcileFestivalPortraitUnlocks(record);
+        syncPortraitSkinState(record);
         await saveDeerData(deerData);
         await this.reply(formatPortraitSkinCatalog(record, new Date()), true);
     }
@@ -89,18 +88,9 @@ export class DeerSkin extends plugin {
     }
 
     async switchPortraitProf() {
-        const msg = cleanCommandMsg(this.e.msg).replace(/\s+/g, '');
-        const match = msg.match(/^(?:🦌|鹿)?(卷王鹿|鹿医师|医师|卷王|王美嘉鹿|王美嘉|美嘉鹿|美嘉|雨木木鹿|雨木木|木木鹿|木木)(端午|默认|原版)$/);
-        if (!match) {
-            await this.listPortraitSkins();
-            return;
-        }
-        const parsed = parsePortraitProfSkinCommand(match[1], match[2]);
+        const parsed = parsePortraitProfSkinMessage(this.e.msg);
         if (!parsed) {
-            await this.reply(
-                '切换：卷王鹿端午 / 鹿医师端午 / 雨木木鹿端午 / 王美嘉鹿端午 等\n见「鹿立绘」',
-                true,
-            );
+            await this.listPortraitSkins();
             return;
         }
         const { professionId, skinId } = parsed;
@@ -110,12 +100,14 @@ export class DeerSkin extends plugin {
         const { user_id } = this.e.sender;
         const deerData = await loadDeerData();
         const record = ensureUserRecord(deerData, user_id);
-        reconcileFestivalPortraitUnlocks(record);
+        syncPortraitSkinState(record);
 
-        if (skinId === 'duanwu' && !hasPortraitUnlock(record, 'duanwu', professionId)) {
-            const hint = isFestivalActive('duanwu', new Date())
-                ? `${prof.name}端午立绘未解锁（见「鹿立绘」查进度）`
-                : `${prof.name}端午立绘未解锁且活动已结束`;
+        if (skinId !== SKIN_DEFAULT && !hasPortraitUnlock(record, skinId, professionId)) {
+            const skinDef = PORTRAIT_SKINS[skinId];
+            const festId = skinDef?.festival;
+            const hint = festId && isFestivalActive(festId, new Date())
+                ? `${prof.name}${skinDef?.name || skinId}未解锁（见「鹿立绘」查进度）`
+                : `${prof.name}${skinDef?.name || skinId}未解锁且活动已结束`;
             await saveDeerData(deerData);
             await this.reply(hint, true);
             return;

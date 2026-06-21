@@ -3,7 +3,7 @@
 import { QUOTA, QUOTA_GROUPS, QUOTA_LABELS } from './profession-quotas.js';
 import { formatTalentCatalogLine, formatTalentPerkBrief, formatTalentTagline } from './talent-text.js';
 
-export const EXTRA_DEER_IDS = Object.freeze(['meijia', 'yumumu']);
+export const EXTRA_DEER_IDS = Object.freeze(['meijia', 'yumumu', 'yujie']);
 
 /** 天赋数值（tagline/synergyTip 由 talent-text 生成） */
 export const EXTRA_DEER = {
@@ -21,6 +21,13 @@ export const EXTRA_DEER = {
         emoji: '🌧️',
         helpFailDelta: -0.04,
     },
+    yujie: {
+        id: 'yujie',
+        name: '语姐鹿',
+        emoji: '👣',
+        deathDelta: -0.02,
+        imperialWinBonus: 0.20,
+    },
 };
 
 export const EXTRA_DEER_SKILLS = {
@@ -36,6 +43,12 @@ export const EXTRA_DEER_SKILLS = {
         cmd: '束缚@',
         desc: '',
     },
+    yujie: {
+        id: 'yujie',
+        name: '带派',
+        cmd: '带派',
+        desc: '脚丫子蓄势：下一次皇城鹿掷骰必胜 · 天赋皇城胜势 +20% · 1 次/日',
+    },
 };
 
 export const EXTRA_DEER_ALIASES = {
@@ -47,6 +60,8 @@ export const EXTRA_DEER_ALIASES = {
     雨木木鹿: 'yumumu',
     木木: 'yumumu',
     木木鹿: 'yumumu',
+    语姐: 'yujie',
+    语姐鹿: 'yujie',
 };
 
 export const EXTRA_DEER_QUOTA_TABLE = {
@@ -70,6 +85,15 @@ export const EXTRA_DEER_QUOTA_TABLE = {
         [QUOTA.urge]: 4,
         [QUOTA.lottery]: 2,
     },
+    yujie: {
+        [QUOTA.help]: 8,
+        [QUOTA.helpWithdraw]: 2,
+        [QUOTA.urge]: 8,
+        [QUOTA.imperial]: 4,
+        [QUOTA.curse]: 2,
+        [QUOTA.bless]: 2,
+        [QUOTA.lottery]: 2,
+    },
 };
 
 import {
@@ -87,6 +111,7 @@ export {
     YUMUMU_IMPOTENCE_CHANCE,
     YUMUMU_IMPOTENCE_HELP_FAIL,
     YUMUMU_LU_BAN_MS,
+    YUJIE_IMPERIAL_WIN_BONUS,
     isYumumuBindAfterCutoff,
     formatYumumuBindCutoffHint,
 } from './extra-deer-meta.js';
@@ -183,6 +208,7 @@ export function buildExtraDeerMods(def) {
         safeBonus: full.safeBonus || 0,
         impotenceChance: full.impotenceChance || 0,
         impotenceHelpFailBonus: full.impotenceHelpFailBonus || 0,
+        imperialWinBonus: full.imperialWinBonus || 0,
         extraDeer: true,
     };
 }

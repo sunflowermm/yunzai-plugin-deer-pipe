@@ -50,6 +50,22 @@ export function impotenceKey(day) {
     return `${META_PREFIX.IMPOTENCE}${day}`;
 }
 
+export function yujieDaipaiKey(day) {
+    return `${META_PREFIX.YUJIE_DAIPAI}${day}`;
+}
+
+export function hasYujieImperialGuarantee(monthData, day) {
+    return !!monthData?.[yujieDaipaiKey(day)];
+}
+
+export function applyYujieImperialGuarantee(monthData, day) {
+    monthData[yujieDaipaiKey(day)] = 1;
+}
+
+export function clearYujieImperialGuarantee(monthData, day) {
+    if (monthData) delete monthData[yujieDaipaiKey(day)];
+}
+
 export function getMeijiaTeamPartnerId(monthData, day) {
     const raw = monthData?.[meijiaTeamKey(day)];
     return raw != null && raw !== '' ? String(raw) : null;

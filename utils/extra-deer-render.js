@@ -6,7 +6,7 @@ import {
     formatExtraDeerQuotaBrief,
 } from '../constants/extra-deer.js';
 import { collectTalentParts } from '../constants/talent-text.js';
-import { resolveExtraDeerArtSkin } from './skin.js';
+import { resolveProfessionArtSkin } from './skin.js';
 import {
     buildCenteredEmojiTitleRaster,
     emojiSvgImage,
@@ -170,7 +170,7 @@ export async function generateExtraDeerCatalogImage(opts = {}) {
         ...EXTRA_DEER_IDS.map((id) => loadExtraDeerArt(
             id,
             THUMB,
-            resolveExtraDeerArtSkin(userRecord, id),
+            resolveProfessionArtSkin(userRecord, id),
         )),
     ]);
     const skillIcons = await Promise.all(EXTRA_DEER_IDS.map((id) => loadExtraDeerSkillArt(id, SKILL_ICON)));
@@ -190,7 +190,7 @@ export async function generateExtraDeerCatalogImage(opts = {}) {
     const seed = hashSeed(
         'extra-deer-catalog',
         uiSkinId,
-        ...EXTRA_DEER_IDS.map((id) => resolveExtraDeerArtSkin(userRecord, id) || 'default'),
+        ...EXTRA_DEER_IDS.map((id) => resolveProfessionArtSkin(userRecord, id) || 'default'),
     );
     const backgroundSvg = `
         <rect width="${CARD_W}" height="${H}" rx="16" fill="url(#cardBg)"/>

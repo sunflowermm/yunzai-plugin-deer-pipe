@@ -4,7 +4,7 @@ import { EXTRA_DEER_IDS } from './extra-deer.js';
 import { PROFESSIONS } from './profession.js';
 import { WEATHER_IDS } from './weather.js';
 import { HELP_PAGES } from './help-catalog.js';
-import { SKIN_DEFAULT } from './skins.js';
+import { SKIN_DEFAULT } from './skin-registry.js';
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
