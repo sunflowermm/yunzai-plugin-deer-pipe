@@ -413,6 +413,8 @@ export function formatErrorMessage(result) {
             );
         case 'howl_dead':
             return ERROR_MESSAGES.howl_dead;
+        case 'howl_chain_no_curse':
+            return ERROR_MESSAGES.howl_chain_no_curse;
         case 'greed_used':
             return ERROR_MESSAGES.greed_used;
         case 'greed_self':
@@ -586,6 +588,63 @@ function formatQuotaChainSummary(session, { emoji, label, tail = '配额耗尽' 
     return `${emoji} 连${label} ×${n} · ${tail}`;
 }
 
+const CHAIN_PLAY_META = {
+    urge: {
+        emoji: '⏰',
+        label: '催鹿',
+        tail: (session) => {
+            const stacks = session.results?.[session.results.length - 1]?.buffStacks ?? 0;
+            return stacks ? `催更符 ×${stacks}` : '配额耗尽';
+        },
+    },
+    lottery: { emoji: '🎴', label: '抽鹿签' },
+    howl: {
+        emoji: '📣',
+        label: '鹿鸣',
+        tail: (session) => (session.curseCleared ? '咒已清' : '配额耗尽'),
+    },
+    fakeWithdraw: {
+        emoji: '🎭',
+        label: '诈戒',
+        tail: (session) => {
+            const count = session.results?.[session.results.length - 1]?.count ?? 0;
+            return count ? `现 ${count} 次` : '配额耗尽';
+        },
+    },
+    reviveLottery: { emoji: '🪷', label: '还阳签' },
+    bless: {
+        emoji: '✨',
+        label: '鹿福',
+        tail: (session) => {
+            const last = session.results?.[session.results.length - 1];
+            return last?.blessStacks ? `鹿福 ×${last.blessStacks} 层` : '配额耗尽';
+        },
+    },
+    curse: {
+        emoji: '☠️',
+        label: '鹿咒',
+        tail: (session) => {
+            const last = session.results?.[session.results.length - 1];
+            return last?.curseStacks ? `鹿咒 ×${last.curseStacks} 层` : '配额耗尽';
+        },
+    },
+    spectralCurse: {
+        emoji: '👻',
+        label: '冥咒',
+        tail: (session) => {
+            const last = session.results?.[session.results.length - 1];
+            return last?.curseStacks ? `冥咒 ×${last.curseStacks} 层` : '配额耗尽';
+        },
+    },
+    dream: { emoji: '💤', label: '托梦' },
+};
+
+export function formatPlayChainSummary(session, kind) {
+    const meta = CHAIN_PLAY_META[kind] || { emoji: '🦌', label: '连玩' };
+    const tail = meta.tail?.(session) ?? '配额耗尽';
+    return formatQuotaChainSummary(session, { emoji: meta.emoji, label: meta.label, tail });
+}
+
 export function buildQuotaChainForwardLines(session, formatOne, ctx = {}) {
     const lines = [];
     for (const [i, result] of (session.results || []).entries()) {
@@ -595,55 +654,7 @@ export function buildQuotaChainForwardLines(session, formatOne, ctx = {}) {
     return lines;
 }
 
-export function formatUrgeChainSummary(session) {
-    const last = session.results?.[session.results.length - 1];
-    const stacks = last?.buffStacks ?? 0;
-    return formatQuotaChainSummary(session, {
-        emoji: '⏰',
-        label: '催鹿',
-        tail: stacks ? `催更符 ×${stacks}` : '配额耗尽',
-    });
-}
-
-export function buildUrgeChainForwardLines(session, ctx = {}) {
-    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
-}
-
-export function formatLotteryChainSummary(session) {
-    return formatQuotaChainSummary(session, { emoji: '🎴', label: '抽鹿签' });
-}
-
-export function buildLotteryChainForwardLines(session, ctx = {}) {
-    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
-}
-
-export function formatHowlChainSummary(session) {
-    return formatQuotaChainSummary(session, { emoji: '📣', label: '鹿鸣' });
-}
-
-export function buildHowlChainForwardLines(session, ctx = {}) {
-    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
-}
-
-export function formatFakeWithdrawChainSummary(session) {
-    const last = session.results?.[session.results.length - 1];
-    const count = last?.count ?? 0;
-    return formatQuotaChainSummary(session, {
-        emoji: '🎭',
-        label: '诈戒',
-        tail: count ? `现 ${count} 次` : '配额耗尽',
-    });
-}
-
-export function buildFakeWithdrawChainForwardLines(session, ctx = {}) {
-    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
-}
-
-export function formatReviveLotteryChainSummary(session) {
-    return formatQuotaChainSummary(session, { emoji: '🪷', label: '还阳签' });
-}
-
-export function buildReviveLotteryChainForwardLines(session, ctx = {}) {
+export function buildPlayChainForwardLines(session, ctx = {}) {
     return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
 }
 
@@ -795,8 +806,9 @@ export function formatActionMessage(result, ctx = {}) {
         case 'howl': {
             const base = pickHowlMessage(result.count, false);
             const howlCap = qDenom(result, 'howlUsed', 'howlLeft', 'howlMax', DAILY_HOWL_QUOTA);
-            if (result.howlEffect === 'bonus_cleanse') {
-                return `${base}\n${pickRandom(HOWL_BONUS_MESSAGES)} 吉兆震散 1 层咒！现 ${result.count} 次（${result.howlUsed}/${howlCap}）`;
+            if (result.howlEffect === 'cleanse' || result.howlEffect === 'bonus_cleanse') {
+                const left = result.curseStacks ? `剩 ${result.curseStacks} 层咒` : '咒已清';
+                return `${base}\n吉兆震散 1 层咒！${left}（${result.howlUsed}/${howlCap}）`;
             }
             if (result.howlEffect === 'bonus') {
                 return `${base}\n${pickRandom(HOWL_BONUS_MESSAGES)} 现 ${result.count} 次（${result.howlUsed}/${howlCap}）`;

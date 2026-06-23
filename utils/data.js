@@ -1812,7 +1812,21 @@ export function runSoloLuSession(deerData, userId, date, day, gameContext = {}) 
 
 const CHAIN_PLAY_MAX = 64;
 
-function runQuotaChain(runOnce, { stopIf = null } = {}) {
+/** 活人配额连玩：须转职、存活；鹿车发车位须等自动连鹿 */
+function rejectIfAliveQuotaChainStart(deerData, userId, date, day) {
+    const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (blocked) return blocked;
+    const monthData = ensureMonthData(deerData, userId, date);
+    reconcileStaleDeerCart(deerData, userId, date, day);
+    return rejectIfCartDriverLu(monthData, day);
+}
+
+/** 亡魂对目标连玩：须转职 + 鹿死 */
+function rejectIfGhostTargetChainStart(deerData, ghostId, date, day) {
+    return rejectUnlessGhostReady(deerData, ghostId, date, day);
+}
+
+function runQuotaChain(runOnce, { stopIf = null, leftKey = null } = {}) {
     const results = [];
     for (let i = 0; i < CHAIN_PLAY_MAX; i++) {
         const r = runOnce();
@@ -1822,53 +1836,129 @@ function runQuotaChain(runOnce, { stopIf = null } = {}) {
         }
         results.push(r);
         if (stopIf?.(r)) break;
-        const leftKey = Object.keys(r).find((k) => k.endsWith('Left'));
         if (leftKey != null && (r[leftKey] ?? 0) <= 0) break;
     }
     return { ok: results.length > 0, results, count: results.length };
 }
 
-/** 连催鹿：对同一目标耗尽当日催鹿配额 */
-export function runUrgeChainSession(deerData, userId, targetId, date, day) {
+function runAliveTargetChain(deerData, actorId, targetId, date, day, performFn, leftKey, gameContext = {}) {
+    const preflight = rejectIfAliveQuotaChainStart(deerData, actorId, date, day);
+    if (preflight) return { ok: false, result: preflight, results: [], count: 0 };
     const session = runQuotaChain(
-        () => performUrgeDeer(deerData, userId, targetId, date, day),
+        () => performFn(deerData, actorId, targetId, date, day, gameContext),
+        { leftKey },
     );
-    return { ...session, targetId: String(targetId), userId: String(userId) };
+    return { ...session, userId: String(actorId), targetId: String(targetId) };
 }
 
-/** 连抽鹿签：耗尽当日鹿签配额 */
-export function runLotteryChainSession(deerData, userId, date, day, gameContext = {}) {
+function runAliveSelfChain(deerData, userId, date, day, performFn, leftKey, gameContext = {}, chainOpts = {}) {
+    const preflight = rejectIfAliveQuotaChainStart(deerData, userId, date, day);
+    if (preflight) return { ok: false, result: preflight, results: [], count: 0 };
     const session = runQuotaChain(
-        () => performDeerLottery(deerData, userId, date, day, gameContext),
+        () => performFn(deerData, userId, date, day, gameContext),
+        { leftKey, ...chainOpts },
     );
     return { ...session, userId: String(userId) };
 }
 
-/** 连还阳签：鹿死专属，耗尽还阳签配额或还阳成功 */
+function runGhostTargetChain(deerData, ghostId, targetId, date, day, performFn, leftKey) {
+    const preflight = rejectIfGhostTargetChainStart(deerData, ghostId, date, day);
+    if (preflight) return { ok: false, result: preflight, results: [], count: 0 };
+    const session = runQuotaChain(
+        () => performFn(deerData, ghostId, targetId, date, day),
+        { leftKey },
+    );
+    return { ...session, userId: String(ghostId), targetId: String(targetId) };
+}
+
+/** 连催鹿：叠催更符至配额用尽（无@自催） */
+export function runUrgeChainSession(deerData, userId, targetId, date, day) {
+    return runAliveTargetChain(deerData, userId, targetId, date, day, performUrgeDeer, 'urgeLeft');
+}
+
+/** 连抽鹿签：耗尽抽签配额 */
+export function runLotteryChainSession(deerData, userId, date, day, gameContext = {}) {
+    return runAliveSelfChain(deerData, userId, date, day, performDeerLottery, 'lotteryLeft', gameContext);
+}
+
+/** 连还阳签：还阳成功或配额用尽 */
 export function runReviveLotteryChainSession(deerData, userId, date, day) {
+    const preflight = rejectUnlessGhostReady(deerData, userId, date, day);
+    if (preflight) return { ok: false, result: preflight, results: [], count: 0 };
     const session = runQuotaChain(
         () => performReviveLottery(deerData, userId, date, day),
-        { stopIf: (r) => r.type === 'revive_lottery_full' || r.type === 'revive_lottery_weak' },
+        {
+            leftKey: 'reviveLotteryLeft',
+            stopIf: (r) => r.type === 'revive_lottery_full' || r.type === 'revive_lottery_weak',
+        },
     );
     const last = session.results?.[session.results.length - 1];
     const revived = last?.type === 'revive_lottery_full' || last?.type === 'revive_lottery_weak';
     return { ...session, userId: String(userId), revived };
 }
 
-/** 连鹿鸣：耗尽当日鹿鸣配额 */
+/** 连鹿鸣：活人须带咒，逐次吉兆震咒至清；鹿死鸣魂至配额用尽 */
 export function runHowlChainSession(deerData, userId, date, day, gameContext = {}) {
+    const profBlock = rejectIfNoProfession(deerData, userId, date, day);
+    if (profBlock) return { ok: false, result: profBlock, results: [], count: 0 };
+    const monthData = ensureMonthData(deerData, userId, date);
+    reconcileStaleDeerCart(deerData, userId, date, day);
+    const entry = ensureDayEntry(monthData, day);
+    const isGhost = !!entry.d;
+    if (isGhost) {
+        const ghostBlock = rejectUnlessActorDead(deerData, userId, date, day);
+        if (ghostBlock) return { ok: false, result: ghostBlock, results: [], count: 0 };
+    } else {
+        const cartBlock = rejectIfCartDriverLu(monthData, day);
+        if (cartBlock) return { ok: false, result: cartBlock, results: [], count: 0 };
+        const deadBlock = rejectIfActorDead(deerData, userId, date, day);
+        if (deadBlock) return { ok: false, result: deadBlock, results: [], count: 0 };
+        if (!getCurseInfo(entry).active) {
+            return { ok: false, result: { ok: false, type: 'howl_chain_no_curse' }, results: [], count: 0 };
+        }
+    }
     const session = runQuotaChain(
         () => performDeerHowl(deerData, userId, date, day, gameContext),
+        {
+            leftKey: 'howlLeft',
+            stopIf: () => {
+                if (isGhost) return false;
+                const live = ensureDayEntry(ensureMonthData(deerData, userId, date), day);
+                return !getCurseInfo(live).active;
+            },
+        },
     );
-    return { ...session, userId: String(userId) };
+    const liveAfter = ensureDayEntry(ensureMonthData(deerData, userId, date), day);
+    return {
+        ...session,
+        userId: String(userId),
+        curseCleared: !isGhost && !getCurseInfo(liveAfter).active,
+    };
 }
 
-/** 连诈戒：耗尽当日诈戒配额 */
+/** 连诈戒：耗尽诈戒配额 */
 export function runFakeWithdrawChainSession(deerData, userId, date, day) {
-    const session = runQuotaChain(
-        () => performFakeWithdrawal(deerData, userId, date, day),
-    );
-    return { ...session, userId: String(userId) };
+    return runAliveSelfChain(deerData, userId, date, day, performFakeWithdrawal, 'fakeWithdrawLeft');
+}
+
+/** 连鹿福：叠层/续回合至配额用尽（满层只续 bleR） */
+export function runBlessChainSession(deerData, casterId, targetId, date, day) {
+    return runAliveTargetChain(deerData, casterId, targetId, date, day, performBlessDeer, 'blessLeft');
+}
+
+/** 连鹿咒：叠层/续回合至配额用尽（满层只续 curR） */
+export function runCurseChainSession(deerData, casterId, targetId, date, day, gameContext = {}) {
+    return runAliveTargetChain(deerData, casterId, targetId, date, day, performCurseDeer, 'curseLeft', gameContext);
+}
+
+/** 连冥咒：亡魂叠咒至配额用尽 */
+export function runSpectralCurseChainSession(deerData, ghostId, targetId, date, day) {
+    return runGhostTargetChain(deerData, ghostId, targetId, date, day, performSpectralCurse, 'spectralCurseLeft');
+}
+
+/** 连托梦：亡魂对🦌友托梦至配额用尽 */
+export function runDreamChainSession(deerData, ghostId, targetId, date, day) {
+    return runGhostTargetChain(deerData, ghostId, targetId, date, day, performDreamDeer, 'dreamLeft');
 }
 
 /** 鹿车发车后自动连鹿：发车人 performLu，鹿死则帮鹿位 performHelpLu，直至帮鹿用尽散车（结束必散车） */
@@ -2064,8 +2154,6 @@ export function performMedicHealSkill(deerData, helperId, targetId, date, day, g
         entry.snap = 0;
         entry.dr = '';
         entry.dk = '';
-        clearCurse(entry);
-        clearBless(entry);
         entry.revived += 1;
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
@@ -2560,8 +2648,6 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
         entry.snap = 0;
         entry.dr = '';
         entry.dk = '';
-        clearCurse(entry);
-        clearBless(entry);
         entry.revived += 1;
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
@@ -3284,27 +3370,29 @@ export function performDeerHowl(deerData, userId, date, day, gameContext = {}) {
     const scaledWx = scaleWeatherForProfession(wx, prof);
     const trapChance = clampDeathChance(HOWL_TRAP_CHANCE + (scaledWx.howlTrapDelta || 0));
     const bonusChance = clampDeathChance(HOWL_BONUS_CHANCE + (scaledWx.howlBonusDelta || 0));
-    if (rollChance(trapChance)) {
+    if (getCurseInfo(entry).active) {
+        entry.cur = Math.max(0, entry.cur - 1);
+        if (entry.cur <= 0) clearCurse(entry);
+        else entry.curR = CURSE_MAX_ROUNDS;
+        curseDispelled = 1;
+        howlEffect = 'cleanse';
+    } else if (rollChance(trapChance)) {
         adjustDayCount(entry, -1);
         howlEffect = 'trap';
     } else if (rollChance(bonusChance)) {
         entry.c += 1;
         howlEffect = 'bonus';
-        if (getCurseInfo(entry).active) {
-            entry.cur = Math.max(0, entry.cur - 1);
-            if (entry.cur <= 0) clearCurse(entry);
-            else entry.curR = CURSE_MAX_ROUNDS;
-            curseDispelled = 1;
-            howlEffect = 'bonus_cleanse';
-        }
     }
 
+    const ci = getCurseInfo(entry);
     return {
         ok: true,
         type: 'howl',
         count: entry.c,
         howlEffect,
         curseDispelled,
+        curseStacks: ci.stacks,
+        curseRounds: ci.rounds,
         howlUsed: used + 1,
         howlLeft: getProfessionQuotaLimit(monthData, day, QUOTA.howl) - used - 1,
         howlMax: getProfessionQuotaLimit(monthData, day, QUOTA.howl),

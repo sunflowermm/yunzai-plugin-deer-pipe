@@ -220,7 +220,6 @@ const PLAYFUL_META = {
     help: { emoji: '🤝', title: '帮🦌成功', theme: 'help' },
     help_kill: { emoji: '💀', title: '帮🦌误伤', theme: 'fail' },
     help_pull: { emoji: '📉', title: '拉下马', theme: 'pvp' },
-    help_miss: { emoji: '🫥', title: '帮🦌失手', theme: 'fail' },
     help_revive_fail: { emoji: '⚰️', title: '救活失手', theme: 'fail' },
     revive: { emoji: '💚', title: '救活成功', theme: 'help' },
     help_withdraw: { emoji: '📘', title: '帮戒成功', theme: 'help' },
@@ -235,7 +234,7 @@ const PLAYFUL_META = {
 const DUEL_TYPES = new Set([
     'arena_win_challenger', 'arena_win_target', 'arena_decline', 'arena_invite',
     'imperial_win', 'imperial_lose', 'imperial_invite',
-    'together_fall', 'help', 'help_kill', 'help_pull', 'help_miss', 'help_revive_fail', 'revive',
+    'together_fall', 'help', 'help_kill', 'help_pull', 'help_revive_fail', 'revive',
     'help_withdraw', 'help_withdraw_fail',
     'steal_success', 'steal_fail', 'steal_backfire', 'steal_curse_backfire', 'steal_curse_fail',
     'curse', 'cleanse_curse', 'bless', 'cleanse_bless',
@@ -361,7 +360,6 @@ function buildPlayfulStatRows(result, { helperName, targetName } = {}) {
         case 'help':
         case 'help_kill':
         case 'help_pull':
-        case 'help_miss':
         case 'help_revive_fail':
         case 'revive':
             push('目标', `${result.count ?? result.snap ?? '?'} 次`, '#5dade2');

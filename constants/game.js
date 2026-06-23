@@ -898,6 +898,7 @@ export const ERROR_MESSAGES = {
     urge_used: (used, total) => `今日催鹿次数已用完（${used}/${total}）`,
     urge_self: '不能催自己🦌，自省请直接发🦌',
     howl_used: (used, total) => `今日鹿鸣次数已用完（${used}/${total}）`,
+    howl_chain_no_curse: '连鹿鸣仅在有鹿咒时可用（单次鹿鸣无咒时仍可碰吉兆/陷阱）',
     howl_dead: '鹿死状态下只能鸣魂，不能鹿鸣（先用帮🦌救活）',
     greed_used: '今日倒贴鹿已用过，贪心要适度',
     greed_self: '不能倒贴自己，自爱请直接🦌',

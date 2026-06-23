@@ -10,7 +10,7 @@ import {
 
 import { WEATHER_CATALOG, resolveWeatherId } from '../constants/weather.js';
 
-import { performBlessDeer, performCleanseBless } from '../utils/data.js';
+import { performBlessDeer, performCleanseBless, runBlessChainSession } from '../utils/data.js';
 
 import { canHelpFriend } from '../utils/friends.js';
 
@@ -19,6 +19,7 @@ import { WEATHER_GOD_BLESS_FLAVOR } from '../constants/eco.js';
 import { isDeerPrivileged } from '../utils/privilege.js';
 
 import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
+import { handleQuotaChainPlay } from '../utils/play-chain.js';
 
 import { REG, cleanCommandMsg } from '../constants/commands.js';
 
@@ -43,6 +44,7 @@ export class DeerWeather extends plugin {
                 { reg: REG.deerGodBless, fnc: 'deerGodBless' },
                 { reg: REG.blessDeer, fnc: 'blessDeer' },
                 { reg: REG.cleanseBless, fnc: 'cleanseBless' },
+                { reg: REG.chainBless, fnc: 'chainBless' },
             ],
         });
         this.task = [
@@ -201,6 +203,25 @@ export class DeerWeather extends plugin {
             helperId: user_id,
             targetId,
             duel: true,
+        });
+    }
+
+    async chainBless() {
+        const { user_id } = this.e.sender;
+        const targetId = await resolveTargetId(this.e);
+        if (!targetId) {
+            await this.reply(ERROR_MESSAGES.no_target, true);
+            return;
+        }
+        const targetName = await getMemberName(this.e, targetId);
+        await handleQuotaChainPlay(this.e, {
+            kind: 'bless',
+            caption: '连鹿福！叠层/续回合至配额用尽（满层只续回合 · 详情见聊天记录）',
+            forwardTitle: '✨ 连鹿福记录',
+            messageCtx: { targetName },
+            runSession: (deerData, casterId, date, day) => runBlessChainSession(
+                deerData, casterId, targetId, date, day,
+            ),
         });
     }
 

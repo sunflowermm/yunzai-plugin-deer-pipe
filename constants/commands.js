@@ -90,6 +90,10 @@ export const REG = {
     chainHowl: `^连${D}鸣$`,
     chainFakeWithdraw: `^连诈戒(${D})?[0-9]*$`,
     chainReviveLottery: `^连还阳签$`,
+    chainBless: `^连${D}福`,
+    chainCurse: `^连${D}咒`,
+    chainSpectralCurse: `^连冥${D}咒`,
+    chainDream: `^连托梦${D}`,
     /** 鹿车「发车」由 setContext('deerCartDepart') 监听，勿加裸规则 */
     meijiaTeamSkill: '^组队',
     yumumuBindSkill: '^束缚',
