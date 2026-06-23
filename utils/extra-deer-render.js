@@ -119,14 +119,44 @@ async function buildExtraSkillGrid(theme, topY, skillIcons) {
     if (!ids.length) return { svg: '', height: 0, cellParts: [] };
     let svg = buildSectionTitle(CX, topY, '番外专属技 · 1次/日', theme);
     const gridTop = topY + 24;
+    const rowCount = Math.ceil(ids.length / GRID_COLS);
+    const rowHeights = new Array(rowCount).fill(0);
+
+    for (let i = 0; i < ids.length; i += 1) {
+        const id = ids[i];
+        const skill = getExtraDeerSkill(id);
+        const d = EXTRA_DEER[id];
+        const row = Math.floor(i / GRID_COLS);
+        const measure = buildSideArtCell({
+            x: 0,
+            y: 0,
+            cellW: CELL_W,
+            artSize: SKILL_ICON,
+            artPad: 6,
+            theme,
+            title: `${skill.name} · ${d.name}`,
+            subtitle: deerTextForSvg(skill.desc),
+            titleSize: 14,
+            subSize: 11,
+            subtitleMaxLines: 5,
+        });
+        rowHeights[row] = Math.max(rowHeights[row], measure.cellH + GAP);
+    }
+
+    const rowTops = [gridTop];
+    for (let r = 1; r < rowCount; r += 1) {
+        rowTops[r] = rowTops[r - 1] + rowHeights[r - 1];
+    }
+
     const cellParts = [];
     for (let i = 0; i < ids.length; i += 1) {
         const id = ids[i];
         const skill = getExtraDeerSkill(id);
         const d = EXTRA_DEER[id];
-        const col = i % 2;
+        const col = i % GRID_COLS;
+        const row = Math.floor(i / GRID_COLS);
         const x = PAD_X + col * (CELL_W + GAP);
-        const y = gridTop;
+        const y = rowTops[row];
         const cell = buildSideArtCell({
             x,
             y,
@@ -147,10 +177,10 @@ async function buildExtraSkillGrid(theme, topY, skillIcons) {
             : '';
         cellParts.push({ svg: cell.svg + emojiArt, cell, icon });
     }
-    const maxCellH = Math.max(...cellParts.map((c) => c.cell.cellH));
+    const totalH = rowHeights.reduce((sum, h) => sum + h, 0);
     return {
         svg: svg + cellParts.map((c) => c.svg).join(''),
-        height: 24 + maxCellH + 8,
+        height: 24 + totalH + 8,
         cellParts,
     };
 }

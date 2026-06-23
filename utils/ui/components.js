@@ -7,6 +7,7 @@ import {
     buildFooterBar,
     buildMultilineText,
     buildSectionTitleRow,
+    escapeXml,
     hashSeed,
     textCentered,
     textCenteredEmoji,

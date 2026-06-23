@@ -358,6 +358,18 @@ function urgeBuffKey(day) {
     return `${META_PREFIX.URGE_BUFF}${day}`;
 }
 
+export function getUrgeBuffStacks(monthData, day) {
+    const raw = monthData?.[urgeBuffKey(day)];
+    if (typeof raw === 'number' && raw > 0) return Math.floor(raw);
+    return raw ? 1 : 0;
+}
+
+function addUrgeBuffStack(monthData, day, layers = 1) {
+    const next = getUrgeBuffStacks(monthData, day) + layers;
+    monthData[urgeBuffKey(day)] = next;
+    return next;
+}
+
 function groupSplashUsedKey(day) {
     return `${META_PREFIX.GROUP_SPLASH}${day}`;
 }
@@ -644,10 +656,6 @@ function reviveDayEntry(entry) {
     entry.snap = 0;
     entry.dr = '';
     entry.dk = '';
-    entry.cur = 0;
-    entry.curR = 0;
-    entry.ble = 0;
-    entry.bleR = 0;
     return true;
 }
 
@@ -775,6 +783,7 @@ export function getRawDayCount(raw) {
 }
 
 export function adjustDayCount(entry, delta) {
+    if (entry?.d) return entry.snap ?? 0;
     entry.c = (entry.c ?? 0) + delta;
     return entry.c;
 }
@@ -1497,7 +1506,7 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
             blessRounds: bi.rounds,
             blessReducePct: Math.round(bi.deathReduce * 100),
         }))(),
-        urgeBuff: !!monthData?.[urgeBuffKey(day)],
+        urgeBuff: getUrgeBuffStacks(monthData, day),
         ...(() => {
             const js = getJobSkillSnapshot(monthData, day);
             return {
@@ -1533,8 +1542,6 @@ export function applyDeath(entry, { reason = DEATH_REASON.SELF, killerId = null 
     entry.dc += 1;
     entry.dr = reason;
     entry.dk = killerId ? String(killerId) : '';
-    clearCurse(entry);
-    clearBless(entry);
     return entry.snap;
 }
 
@@ -1658,7 +1665,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
     const blessBefore = mods.bless;
     const hadActiveCurse = curseBefore.active;
     const hadActiveBless = blessBefore.active;
-    const hadUrgeBuff = !!monthData[urgeBuffKey(day)];
+    const hadUrgeBuff = getUrgeBuffStacks(monthData, day) > 0;
     const safeLimit = mods.safeLimit;
     let urgeBonus = 0;
     let grinderBonus = 0;
@@ -1670,8 +1677,9 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
             grinderBonus = 1;
         }
         if (hadUrgeBuff) {
-            entry.c += 1;
-            urgeBonus = 1;
+            const urgeStacks = getUrgeBuffStacks(monthData, day);
+            entry.c += urgeStacks;
+            urgeBonus = urgeStacks;
             delete monthData[urgeBuffKey(day)];
         }
         if (hadActiveCurse) consumeCurseRound(entry);
@@ -1800,6 +1808,67 @@ export function runSoloLuSession(deerData, userId, date, day, gameContext = {}) 
         maxRoundsHit: results.length >= CART_SESSION_MAX_ROUNDS
             && !String(results[results.length - 1]?.type || '').startsWith('death'),
     };
+}
+
+const CHAIN_PLAY_MAX = 64;
+
+function runQuotaChain(runOnce, { stopIf = null } = {}) {
+    const results = [];
+    for (let i = 0; i < CHAIN_PLAY_MAX; i++) {
+        const r = runOnce();
+        if (!r.ok) {
+            if (results.length) break;
+            return { ok: false, result: r, results, count: 0 };
+        }
+        results.push(r);
+        if (stopIf?.(r)) break;
+        const leftKey = Object.keys(r).find((k) => k.endsWith('Left'));
+        if (leftKey != null && (r[leftKey] ?? 0) <= 0) break;
+    }
+    return { ok: results.length > 0, results, count: results.length };
+}
+
+/** 连催鹿：对同一目标耗尽当日催鹿配额 */
+export function runUrgeChainSession(deerData, userId, targetId, date, day) {
+    const session = runQuotaChain(
+        () => performUrgeDeer(deerData, userId, targetId, date, day),
+    );
+    return { ...session, targetId: String(targetId), userId: String(userId) };
+}
+
+/** 连抽鹿签：耗尽当日鹿签配额 */
+export function runLotteryChainSession(deerData, userId, date, day, gameContext = {}) {
+    const session = runQuotaChain(
+        () => performDeerLottery(deerData, userId, date, day, gameContext),
+    );
+    return { ...session, userId: String(userId) };
+}
+
+/** 连还阳签：鹿死专属，耗尽还阳签配额或还阳成功 */
+export function runReviveLotteryChainSession(deerData, userId, date, day) {
+    const session = runQuotaChain(
+        () => performReviveLottery(deerData, userId, date, day),
+        { stopIf: (r) => r.type === 'revive_lottery_full' || r.type === 'revive_lottery_weak' },
+    );
+    const last = session.results?.[session.results.length - 1];
+    const revived = last?.type === 'revive_lottery_full' || last?.type === 'revive_lottery_weak';
+    return { ...session, userId: String(userId), revived };
+}
+
+/** 连鹿鸣：耗尽当日鹿鸣配额 */
+export function runHowlChainSession(deerData, userId, date, day, gameContext = {}) {
+    const session = runQuotaChain(
+        () => performDeerHowl(deerData, userId, date, day, gameContext),
+    );
+    return { ...session, userId: String(userId) };
+}
+
+/** 连诈戒：耗尽当日诈戒配额 */
+export function runFakeWithdrawChainSession(deerData, userId, date, day) {
+    const session = runQuotaChain(
+        () => performFakeWithdrawal(deerData, userId, date, day),
+    );
+    return { ...session, userId: String(userId) };
 }
 
 /** 鹿车发车后自动连鹿：发车人 performLu，鹿死则帮鹿位 performHelpLu，直至帮鹿用尽散车（结束必散车） */
@@ -2339,17 +2408,16 @@ function beginExtraDeerSelfSkill(deerData, userId, date, day, extraId) {
     return { ok: true, monthData };
 }
 
-function normalizeSignOutcome(entry, outcome, { positive = 'plus', rollHint = Math.random() } = {}) {
+function normalizeSignOutcome(entry, outcome) {
+    if (entry?.d) return 'blank';
     if (outcome === 'cleanse' && !getActiveCurseStacks(entry)) {
-        return rollHint < 0.5 ? positive : 'blank';
-    }
-    if (outcome === 'urge' && entry.c > 0) {
-        return positive;
+        return 'blank';
     }
     return outcome;
 }
 
 function applySignOutcome(monthData, day, entry, outcome) {
+    if (entry?.d) return;
     switch (outcome) {
         case 'plus':
         case 'plus1':
@@ -2366,7 +2434,7 @@ function applySignOutcome(monthData, day, entry, outcome) {
             adjustDayCount(entry, -2);
             break;
         case 'urge':
-            monthData[urgeBuffKey(day)] = 1;
+            addUrgeBuffStack(monthData, day, 1);
             break;
         case 'curse':
             applyCurseStacks(entry, 1);
@@ -2405,7 +2473,7 @@ export function performXuyuezhenChaosSkill(deerData, userId, date, day) {
     entry.a += 1;
 
     let outcome = XUYUEZHEN_CHAOS_OUTCOMES[Math.floor(Math.random() * XUYUEZHEN_CHAOS_OUTCOMES.length)];
-    outcome = normalizeSignOutcome(entry, outcome, { positive: 'plus1' });
+    outcome = normalizeSignOutcome(entry, outcome);
     applySignOutcome(monthData, day, entry, outcome);
 
     const ci = getCurseInfo(entry);
@@ -2515,15 +2583,6 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 safeLimit: targetMods.safeLimit,
                 impotenceTriggered: impBonus > 0,
             };
-        } else if (entry.c >= targetMods.safeLimit) {
-            result = {
-                ok: true,
-                type: 'help_miss',
-                entry,
-                count: entry.c,
-                helpKillChance: helpFailChance,
-                safeLimit: targetMods.safeLimit,
-            };
         } else {
             entry.c += 1;
             entry.helped += 1;
@@ -2539,6 +2598,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 entry,
                 count: entry.c,
                 curseSoothe,
+                helpKillChance: helpFailChance,
                 safeLimit: targetMods.safeLimit,
                 weatherPatrolConsumed: patrolConsumed,
             };
@@ -3137,11 +3197,8 @@ export function performFakeWithdrawal(deerData, userId, date, day) {
     };
 }
 
-/** 催鹿：目标今日 0 次则叠 urge buff（下次安全🦌 +1） */
+/** 催鹿：叠催更符（任意次数均可，可与鹿福共存）；带咒则咒回合 -1 */
 export function performUrgeDeer(deerData, userId, targetId, date, day) {
-    if (String(userId) === String(targetId)) {
-        return { ok: false, type: 'urge_self' };
-    }
     const actorDead = rejectUnlessPlayReady(deerData, userId, date, day);
     if (actorDead) return actorDead;
     const selfMonth = ensureMonthData(deerData, userId, date);
@@ -3152,11 +3209,8 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
     const targetEntry = ensureDayEntry(targetMonth, day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     selfMonth[urgeUsedKey(day)] = used + 1;
-    const targetWasZero = targetEntry.c <= 0 && !targetEntry.d;
+    const buffStacks = addUrgeBuffStack(targetMonth, day, 1);
     let curseUrged = false;
-    if (targetWasZero) {
-        targetMonth[urgeBuffKey(day)] = 1;
-    }
     if (getCurseInfo(targetEntry).active) {
         targetEntry.curR = Math.max(0, (targetEntry.curR || 0) - 1);
         if (targetEntry.curR <= 0) clearCurse(targetEntry);
@@ -3166,14 +3220,17 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
     return {
         ok: true,
         type: 'urge',
+        selfTarget: String(userId) === String(targetId),
+        buffStacks,
+        buffApplied: true,
+        curseUrged,
+        targetCount: targetEntry.c,
+        blessStacks: getActiveBlessStacks(targetEntry),
+        curseRounds: getCurseRoundsLeft(targetEntry),
+        curseStacks: getActiveCurseStacks(targetEntry),
         urgeUsed: used + 1,
         urgeLeft: getProfessionQuotaLimit(selfMonth, day, QUOTA.urge) - used - 1,
         urgeMax: getProfessionQuotaLimit(selfMonth, day, QUOTA.urge),
-        buffApplied: targetWasZero,
-        curseUrged,
-        targetCount: targetEntry.c,
-        curseRounds: getCurseRoundsLeft(targetEntry),
-        curseStacks: getActiveCurseStacks(targetEntry),
     };
 }
 
@@ -3503,7 +3560,7 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     else if (roll < 0.73) outcome = 'curse';
     else if (roll < 0.85) outcome = 'cleanse';
     else outcome = 'blank';
-    outcome = normalizeSignOutcome(entry, outcome, { positive: 'plus', rollHint: roll });
+    outcome = normalizeSignOutcome(entry, outcome);
 
     applySignOutcome(monthData, day, entry, outcome);
 
@@ -3650,10 +3707,8 @@ export function performDreamDeer(deerData, ghostId, targetId, date, day) {
         targetEntry.curR = Math.max(0, (targetEntry.curR || 0) - 1);
         if (targetEntry.curR <= 0) clearCurse(targetEntry);
         dreamEffect = 'soothe';
-    } else if (targetEntry.c <= 0) {
-        targetMonth[urgeBuffKey(day)] = 1;
     } else {
-        targetMonth[urgeBuffKey(day)] = 1;
+        addUrgeBuffStack(targetMonth, day, 1);
     }
 
     return {
@@ -3702,8 +3757,6 @@ export function performReviveLottery(deerData, userId, date, day) {
         entry.snap = 0;
         entry.dr = '';
         entry.dk = '';
-        clearCurse(entry);
-        clearBless(entry);
         entry.revived += 1;
         return {
             ok: true,

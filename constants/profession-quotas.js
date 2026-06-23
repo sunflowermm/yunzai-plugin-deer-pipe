@@ -320,7 +320,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         urge: 4, sacrifice: 1, fakeWithdraw: 2, greed: 1, dream: 1,
 
-        spectralCurse: 1, vengeance: 1, reviveLottery: 1, together: 1,
+        spectralCurse: 1, vengeance: 1, reviveLottery: 2, together: 1,
 
     },
 
@@ -332,7 +332,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         cleanseCurse: 3, cleanseBless: 2, arena: 2, imperial: 1,
 
-        borrow: 3, dream: 3, reviveLottery: 3, howl: 2, lottery: 1,
+        borrow: 3, dream: 3, reviveLottery: 5, howl: 2, lottery: 1,
 
         spectralCurse: 1, vengeance: 0, sacrifice: 0, fakeWithdraw: 0,
 
@@ -352,7 +352,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         lottery: 1, borrow: 1, dream: 1, greed: 0, groupSplash: 0,
 
-        spectralCurse: 0, vengeance: 0, reviveLottery: 1, together: 1,
+        spectralCurse: 0, vengeance: 0, reviveLottery: 2, together: 1,
 
     },
 
@@ -368,7 +368,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         groupSplash: 1, sacrifice: 1, urge: 2, borrow: 1, dream: 1,
 
-        spectralCurse: 1, vengeance: 1, reviveLottery: 1, together: 2,
+        spectralCurse: 1, vengeance: 1, reviveLottery: 2, together: 2,
 
     },
 
@@ -384,7 +384,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         groupSplash: 3, together: 2, fakeWithdraw: 1, urge: 3, bumper: 2,
 
-        greed: 1, borrow: 0, lottery: 1, reviveLottery: 1,
+        greed: 1, borrow: 0, lottery: 1, reviveLottery: 2,
 
     },
 
@@ -400,7 +400,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         sacrifice: 1, dream: 2, bumper: 1, groupSplash: 1, greed: 0,
 
-        spectralCurse: 1, vengeance: 0, reviveLottery: 2, together: 1,
+        spectralCurse: 1, vengeance: 0, reviveLottery: 4, together: 1,
 
     },
 
@@ -416,7 +416,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         groupSplash: 3, sacrifice: 2, urge: 3, howl: 3, borrow: 1,
 
-        dream: 1, spectralCurse: 2, vengeance: 2, reviveLottery: 1, together: 2,
+        dream: 1, spectralCurse: 2, vengeance: 2, reviveLottery: 2, together: 2,
 
     },
 
@@ -428,7 +428,7 @@ export const PROFESSION_QUOTA_TABLE = {
 
         cleanseBless: 4, cleanseCurse: 3, urge: 8, howl: 6,
 
-        lottery: 4, borrow: 3, dream: 3, reviveLottery: 3, arena: 3,
+        lottery: 4, borrow: 3, dream: 3, reviveLottery: 5, arena: 3,
 
         imperial: 1, bumper: 2, fakeWithdraw: 1, sacrifice: 1,
 

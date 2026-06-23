@@ -11,14 +11,29 @@ import {
     performSacrificeDeer,
     performStealDeer,
     performUrgeDeer,
+    runFakeWithdrawChainSession,
+    runHowlChainSession,
+    runLotteryChainSession,
+    runUrgeChainSession,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { ERROR_MESSAGES } from '../constants/game.js';
-import { formatActionMessage, formatErrorMessage } from '../utils/messages.js';
+import {
+    buildFakeWithdrawChainForwardLines,
+    buildHowlChainForwardLines,
+    buildLotteryChainForwardLines,
+    buildUrgeChainForwardLines,
+    formatActionMessage,
+    formatErrorMessage,
+    formatFakeWithdrawChainSummary,
+    formatHowlChainSummary,
+    formatLotteryChainSummary,
+    formatUrgeChainSummary,
+} from '../utils/messages.js';
 import { REG } from '../constants/commands.js';
 import { getMemberName, resolveTargetId } from '../utils/plugin-common.js';
 import { loadGameContext } from '../utils/context.js';
-import { replyInteractionResult } from '../utils/panel.js';
+import { replyInteractionResult, replyPlayChainSession } from '../utils/panel.js';
 import { loadDeerData, loadFriends, saveDeerData } from '../utils/store.js';
 
 export class DeerPlayful extends plugin {
@@ -42,6 +57,10 @@ export class DeerPlayful extends plugin {
                 { reg: REG.borrow, fnc: 'borrowDeer' },
                 { reg: REG.bumper, fnc: 'bumperDeer' },
                 { reg: REG.lottery, fnc: 'deerLottery' },
+                { reg: REG.chainUrge, fnc: 'chainUrge' },
+                { reg: REG.chainLottery, fnc: 'chainLottery' },
+                { reg: REG.chainHowl, fnc: 'chainHowl' },
+                { reg: REG.chainFakeWithdraw, fnc: 'chainFakeWithdraw' },
             ],
         });
     }
@@ -55,14 +74,17 @@ export class DeerPlayful extends plugin {
         return true;
     }
 
-    async runTargetAction(fn, { needFriend = true, withPanel = true } = {}) {
+    async runTargetAction(fn, { needFriend = true, withPanel = true, selfIfNoTarget = false } = {}) {
         const { user_id, card, nickname } = this.e.sender;
-        const targetId = await resolveTargetId(this.e);
+        let targetId = await resolveTargetId(this.e);
         if (!targetId) {
-            await this.reply(ERROR_MESSAGES.no_target, true);
-            return;
+            if (selfIfNoTarget) targetId = user_id;
+            else {
+                await this.reply(ERROR_MESSAGES.no_target, true);
+                return;
+            }
         }
-        if (needFriend && !(await this.requireFriend(user_id, targetId))) return;
+        if (needFriend && String(targetId) !== String(user_id) && !(await this.requireFriend(user_id, targetId))) return;
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
@@ -110,7 +132,7 @@ export class DeerPlayful extends plugin {
     }
 
     async urgeDeer() {
-        await this.runTargetAction(performUrgeDeer, { withPanel: false });
+        await this.runTargetAction(performUrgeDeer, { withPanel: false, selfIfNoTarget: true });
     }
 
     async greedDeer() {
@@ -246,6 +268,93 @@ export class DeerPlayful extends plugin {
             deerData,
             dayOverride: day,
             withPanel: false,
+        });
+    }
+
+    async chainUrge() {
+        const { user_id, card, nickname } = this.e.sender;
+        let targetId = await resolveTargetId(this.e);
+        if (!targetId) targetId = user_id;
+        if (String(targetId) !== String(user_id) && !(await this.requireFriend(user_id, targetId))) return;
+
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const session = runUrgeChainSession(deerData, user_id, targetId, date, day);
+        if (!session.ok) {
+            await this.reply(formatErrorMessage(session.result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const helperName = card || nickname;
+        const targetName = await getMemberName(this.e, targetId);
+        await replyPlayChainSession(this.e, {
+            caption: '连催鹿！自动叠催更符至配额用尽（详情见聊天记录）',
+            summary: formatUrgeChainSummary(session),
+            forwardTitle: '⏰ 连催鹿记录',
+            buildLines: () => buildUrgeChainForwardLines(session, { helperName, targetName }),
+        });
+    }
+
+    async chainLottery() {
+        const { user_id, card, nickname } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const ctx = await loadGameContext(date);
+        const session = runLotteryChainSession(deerData, user_id, date, day, ctx);
+        if (!session.ok) {
+            await this.reply(formatErrorMessage(session.result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const helperName = card || nickname;
+        await replyPlayChainSession(this.e, {
+            caption: '连抽鹿签！自动抽至配额用尽（详情见聊天记录）',
+            summary: formatLotteryChainSummary(session),
+            forwardTitle: '🎴 连抽鹿签记录',
+            buildLines: () => buildLotteryChainForwardLines(session, { helperName }),
+        });
+    }
+
+    async chainHowl() {
+        const { user_id, card, nickname } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const ctx = await loadGameContext(date);
+        const session = runHowlChainSession(deerData, user_id, date, day, ctx);
+        if (!session.ok) {
+            await this.reply(formatErrorMessage(session.result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const helperName = card || nickname;
+        await replyPlayChainSession(this.e, {
+            caption: '连鹿鸣！自动鸣至配额用尽（详情见聊天记录）',
+            summary: formatHowlChainSummary(session),
+            forwardTitle: '📣 连鹿鸣记录',
+            buildLines: () => buildHowlChainForwardLines(session, { helperName }),
+        });
+    }
+
+    async chainFakeWithdraw() {
+        const { user_id, card, nickname } = this.e.sender;
+        const date = new Date();
+        const day = date.getDate();
+        const deerData = await loadDeerData();
+        const session = runFakeWithdrawChainSession(deerData, user_id, date, day);
+        if (!session.ok) {
+            await this.reply(formatErrorMessage(session.result), true);
+            return;
+        }
+        await saveDeerData(deerData);
+        const helperName = card || nickname;
+        await replyPlayChainSession(this.e, {
+            caption: '连诈戒！嘴上戒🦌至配额用尽（详情见聊天记录）',
+            summary: formatFakeWithdrawChainSummary(session),
+            forwardTitle: '🎭 连诈戒记录',
+            buildLines: () => buildFakeWithdrawChainForwardLines(session, { helperName }),
         });
     }
 }

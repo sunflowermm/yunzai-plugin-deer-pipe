@@ -218,7 +218,7 @@ export function resolveMeijiaTeamOnDeath(deerData, deadUserId, date, day, {
 
 export function applyYumumuHelpSynergy(helperMonth, targetMonth, day, result) {
     if (getDayProfessionId(helperMonth, day) !== 'yumumu') return;
-    if (result?.type !== 'help') return;
+    if (result?.type !== 'help' && result?.type !== 'revive') return;
     const chance = YUMUMU_IMPOTENCE_CHANCE;
     if (Math.random() >= chance) return;
     applyImpotence(targetMonth, day);

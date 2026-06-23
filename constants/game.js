@@ -25,8 +25,8 @@ export const OVERLIMIT_DEATH_CHANCE_BASE = 0.12;
 /** 自🦌每多尝试一次，鹿死概率递增量（第 5 次 14%、第 6 次 16%…） */
 export const OVERLIMIT_DEATH_CHANCE_STEP = 0.022;
 
-/** 帮🦌误伤/拉下马/救人失手：固定 10%，不递增 */
-export const HELP_FAIL_CHANCE = 0.10;
+/** 帮🦌误伤/拉下马/救人失手：固定 20%（基础），不递增 */
+export const HELP_FAIL_CHANCE = 0.20;
 
 /** 帮戒🦌失手：固定 30%，不扣对方次数但仍消耗配额 */
 export const HELP_WITHDRAW_FAIL_CHANCE = 0.30;
@@ -97,7 +97,7 @@ export const SACRIFICE_TRANSFER = 2;
 /** 诈戒：每日次数（口嫌体正直 +1） */
 export const DAILY_FAKE_WITHDRAW_QUOTA = 3;
 
-/** 催鹿：每日次数（为 0 次的🦌友叠一层下次 +1） */
+/** 催鹿：叠催更符（下次安全自🦌 +N，可与鹿福共存） */
 export const DAILY_URGE_QUOTA = 3;
 
 /** 鹿鸣：每日次数 / 小概率吉兆或反噬 */
@@ -133,7 +133,7 @@ export const VENGEANCE_DEDUCT_CHANCE = 0.25;
 /** 无凶手时冤魂替身索命叠咒率 */
 export const VENGEANCE_SUBSTITUTE_CURSE_CHANCE = 0.20;
 export const DAILY_DREAM_QUOTA = 1;
-export const DAILY_REVIVE_LOTTERY_QUOTA = 1;
+export const DAILY_REVIVE_LOTTERY_QUOTA = 2;
 /** 还阳签：满血还阳 / 残魂还阳(1次) */
 export const REVIVE_LOTTERY_FULL_CHANCE = 0.12;
 export const REVIVE_LOTTERY_WEAK_CHANCE = 0.18;
@@ -260,7 +260,7 @@ export const DEATH_MESSAGES = {
     help: [
         '帮🦌帮过头了！对方被你一手送走了…',
         '这手帮🦌属于医疗事故，对方已鹿死。',
-        '10% 的误伤率终于落到 ta 头上了…',
+        '20% 的误伤率终于落到 ta 头上了…',
         '本想代🦌，结果代送了，鹿友含泪。',
         '你这一帮，帮出了工伤鉴定书。',
         '代🦌变代葬，功德簿上记一笔大的。',
@@ -268,7 +268,7 @@ export const DEATH_MESSAGES = {
     pull: [
         '成功拉下马！对方今日🦌绩清零，现已鹿死。',
         '阴招奏效：帮🦌变帮倒忙，ta 被你送走了。',
-        '超限区拉下马，10% 阴招命中！',
+        '超限区拉下马，20% 阴招命中！',
         '一手拉坠鹿坛，今日🦌功尽付东流。',
         '你拽的是衣角，掉的是 ta 的整条鹿命。',
         '拉下马成功！对方今日从卷王变卷宗。',

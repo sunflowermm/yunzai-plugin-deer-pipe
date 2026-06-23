@@ -9,7 +9,12 @@ import {
 } from './prebuilt-images.js';
 import { resolveSkinContext } from './skin.js';
 import common from '../../../lib/common/common.js';
-import { buildCartForwardLines, buildSoloLuForwardLines, formatCartSessionSummary, formatSoloLuSessionSummary } from './messages.js';
+import {
+    buildCartForwardLines,
+    buildSoloLuForwardLines,
+    formatCartSessionSummary,
+    formatSoloLuSessionSummary,
+} from './messages.js';
 
 /** 从 deerData + userId 解析出图皮肤（避免各 app 漏 import getUserRecord） */
 export function skinCtxForSender(deerData, userId, date = new Date(), professionId = null) {
@@ -171,5 +176,25 @@ export async function replySoloLuSession(e, {
 
     lines.push(session.maxRoundsHit ? '…已达单趟连鹿上限' : '…连鹿结束');
     const forward = await common.makeForwardMsg(e, lines, '🦌 连鹿记录');
+    if (forward) await e.reply(forward);
+}
+
+/** 配额连玩：首条摘要 + 聊天记录转发 */
+export async function replyPlayChainSession(e, {
+    caption = '',
+    summary = '',
+    buildLines,
+    forwardTitle = '🦌 连玩记录',
+    endHint = '…配额耗尽',
+    extraLines = [],
+} = {}) {
+    const head = [caption, summary, ...extraLines].filter(Boolean).join('\n');
+    await e.reply(head, true);
+
+    const lines = buildLines?.() || [];
+    if (!lines.length) return;
+
+    lines.push(endHint);
+    const forward = await common.makeForwardMsg(e, lines, forwardTitle);
     if (forward) await e.reply(forward);
 }

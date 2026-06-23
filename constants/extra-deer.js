@@ -131,7 +131,7 @@ export const EXTRA_DEER_COMMON_QUOTAS = {
     [QUOTA.dream]: 1,
     [QUOTA.spectralCurse]: 1,
     [QUOTA.vengeance]: 1,
-    [QUOTA.reviveLottery]: 1,
+    [QUOTA.reviveLottery]: 2,
     [QUOTA.together]: 1,
 };
 
@@ -150,6 +150,7 @@ export const EXTRA_DEER_QUOTA_OVERRIDES = {
         [QUOTA.help]: 8,
         [QUOTA.urge]: 8,
         [QUOTA.imperial]: 4,
+        [QUOTA.reviveLottery]: 3,
     },
     xuyuezhen: {
         [QUOTA.lottery]: 4,

@@ -580,10 +580,76 @@ export function formatSoloLuSessionSummary(session) {
     return `🦌 连鹿 ×${n} · 本趟结束`;
 }
 
+function formatQuotaChainSummary(session, { emoji, label, tail = '配额耗尽' } = {}) {
+    const n = session.count || 0;
+    if (session.revived) return `${emoji} 连${label} ×${n} · 还阳成功`;
+    return `${emoji} 连${label} ×${n} · ${tail}`;
+}
+
+export function buildQuotaChainForwardLines(session, formatOne, ctx = {}) {
+    const lines = [];
+    for (const [i, result] of (session.results || []).entries()) {
+        if ((session.results?.length || 0) > 1) lines.push(`— 第 ${i + 1} 次 —`);
+        lines.push(formatOne(result, ctx));
+    }
+    return lines;
+}
+
+export function formatUrgeChainSummary(session) {
+    const last = session.results?.[session.results.length - 1];
+    const stacks = last?.buffStacks ?? 0;
+    return formatQuotaChainSummary(session, {
+        emoji: '⏰',
+        label: '催鹿',
+        tail: stacks ? `催更符 ×${stacks}` : '配额耗尽',
+    });
+}
+
+export function buildUrgeChainForwardLines(session, ctx = {}) {
+    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
+}
+
+export function formatLotteryChainSummary(session) {
+    return formatQuotaChainSummary(session, { emoji: '🎴', label: '抽鹿签' });
+}
+
+export function buildLotteryChainForwardLines(session, ctx = {}) {
+    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
+}
+
+export function formatHowlChainSummary(session) {
+    return formatQuotaChainSummary(session, { emoji: '📣', label: '鹿鸣' });
+}
+
+export function buildHowlChainForwardLines(session, ctx = {}) {
+    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
+}
+
+export function formatFakeWithdrawChainSummary(session) {
+    const last = session.results?.[session.results.length - 1];
+    const count = last?.count ?? 0;
+    return formatQuotaChainSummary(session, {
+        emoji: '🎭',
+        label: '诈戒',
+        tail: count ? `现 ${count} 次` : '配额耗尽',
+    });
+}
+
+export function buildFakeWithdrawChainForwardLines(session, ctx = {}) {
+    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
+}
+
+export function formatReviveLotteryChainSummary(session) {
+    return formatQuotaChainSummary(session, { emoji: '🪷', label: '还阳签' });
+}
+
+export function buildReviveLotteryChainForwardLines(session, ctx = {}) {
+    return buildQuotaChainForwardLines(session, (r) => formatActionMessage(r, ctx), ctx);
+}
+
 /** 操作结果文案 */
 export function formatActionMessage(result, ctx = {}) {
     const { helperName, targetName, dice, diceSide, choice } = ctx;
-    const helpFailPct = Math.round(HELP_FAIL_CHANCE * 100);
     if (!result.ok) return formatErrorMessage(result);
     const q = quotaHint(result);
     const wq = withdrawQuotaHint(result);
@@ -630,7 +696,7 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '🦌友'} 救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 咒印尽散）${bonus}${q}`;
         }
         case 'help_revive_fail':
-            return `${helperName || '你'} 救 ${targetName || 'ta'} ${pickRandom(HELP_REVIVE_FAIL_MESSAGES)}（${helpFailPct}% 固定概率 · 仍鹿死）${q}`;
+            return `${helperName || '你'} 救 ${targetName || 'ta'} ${pickRandom(HELP_REVIVE_FAIL_MESSAGES)}（${Math.round((result.failChance ?? HELP_FAIL_CHANCE) * 100)}% 概率 · 仍鹿死）${q}`;
         case 'help': {
             const soothe = result.curseSoothe ? ' · 顺手下咒回合 -1' : '';
             const medic = result.medicCleanse ? ' · 鹿医师撕咒' : (result.medicBless ? ' · 鹿医师贴福' : '');
@@ -638,11 +704,9 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${bonus}${q}${playActionSuffix(result)}`;
         }
         case 'help_kill':
-            return `${helperName || '你'} 误伤 ${targetName || 'ta'}！${pickDeathMessage(DEATH_REASON.HELP)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}${playActionSuffix(result)}`;
+            return `${helperName || '你'} 误伤 ${targetName || 'ta'}！${pickDeathMessage(DEATH_REASON.HELP)}（${Math.round((result.helpKillChance ?? HELP_FAIL_CHANCE) * 100)}% 概率 · 丢失 ${result.snap} 次）${q}${playActionSuffix(result)}`;
         case 'help_pull':
-            return `${helperName || '你'} 拉 ${targetName || 'ta'} 下马！${pickDeathMessage(DEATH_REASON.PULL)}（${helpFailPct}% 固定概率 · 丢失 ${result.snap} 次）${q}${playActionSuffix(result)}`;
-        case 'help_miss':
-            return `${helperName || '你'} 想拉 ${targetName || 'ta'} 下马，${pickRandom(HELP_FAIL_MESSAGES)}（${helpFailPct}% 未触发）${q}`;
+            return `${helperName || '你'} 拉 ${targetName || 'ta'} 下马！${pickDeathMessage(DEATH_REASON.PULL)}（${Math.round((result.helpKillChance ?? HELP_FAIL_CHANCE) * 100)}% 概率 · 丢失 ${result.snap} 次）${q}${playActionSuffix(result)}`;
         case 'withdrawal':
             return `${pickRandom(WITHDRAWAL_MESSAGES)}（剩余 ${result.count} 次）`;
         case 'withdrawal_ascetic':
@@ -720,9 +784,13 @@ export function formatActionMessage(result, ctx = {}) {
         case 'fake_withdraw':
             return `${pickRandom(FAKE_WITHDRAW_MESSAGES)}（对外显示约 ${result.fakeCount} 次，实际 ${result.count} 次 · ${result.fakeWithdrawUsed}/${qDenom(result, 'fakeWithdrawUsed', 'fakeWithdrawLeft', 'fakeWithdrawMax', DAILY_FAKE_WITHDRAW_QUOTA)}）`;
         case 'urge': {
-            const buff = result.buffApplied ? '已贴催🦌符，下次自🦌 +1' : 'ta 今日已有🦌绩，符咒未生效';
+            const who = result.selfTarget ? '你' : (targetName || 'ta');
+            const buff = result.buffApplied
+                ? `${who} 催更符 ×${result.buffStacks ?? 1}（下次安全自🦌 +${result.buffStacks ?? 1}）`
+                : '催更符未生效';
+            const bless = result.blessStacks ? ` · 鹿福 ×${result.blessStacks} 共存` : '';
             const curse = result.curseUrged ? ` · 咒回合 -1（剩 ${result.curseRounds}）` : '';
-            return `${helperName || '你'} ${pickRandom(URGE_MESSAGES)}（${buff}${curse} · ${result.urgeUsed}/${qDenom(result, 'urgeUsed', 'urgeLeft', 'urgeMax', DAILY_URGE_QUOTA)}）`;
+            return `${helperName || '你'} ${pickRandom(URGE_MESSAGES)}（${buff}${bless}${curse} · ${result.urgeUsed}/${qDenom(result, 'urgeUsed', 'urgeLeft', 'urgeMax', DAILY_URGE_QUOTA)}）`;
         }
         case 'howl': {
             const base = pickHowlMessage(result.count, false);

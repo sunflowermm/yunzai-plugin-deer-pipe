@@ -85,6 +85,11 @@ export const REG = {
     deerCart: '^鹿车',
     /** 单人连鹿（与鹿车独立） */
     soloLu: `^连${D}$`,
+    chainUrge: `^连催${D}`,
+    chainLottery: `^连抽${D}签$`,
+    chainHowl: `^连${D}鸣$`,
+    chainFakeWithdraw: `^连诈戒(${D})?[0-9]*$`,
+    chainReviveLottery: `^连还阳签$`,
     /** 鹿车「发车」由 setContext('deerCartDepart') 监听，勿加裸规则 */
     meijiaTeamSkill: '^组队',
     yumumuBindSkill: '^束缚',

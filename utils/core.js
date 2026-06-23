@@ -547,7 +547,7 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
     } else if (status.blessed) {
         auraLine = `鹿福 ×${status.blessStacks} · 剩 ${status.blessRounds} 回合 · 减鹿死 -${status.blessReducePct}%`;
     } else if (status.urgeBuff) {
-        auraLine = '被催更：下次安全自🦌 +1';
+        auraLine = `被催更：下次安全自🦌 +${status.urgeBuff}`;
     } else {
         auraLine = '咒福：无 · 今日气运看天';
     }
