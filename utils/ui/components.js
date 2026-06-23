@@ -7,8 +7,6 @@ import {
     buildFooterBar,
     buildMultilineText,
     buildSectionTitleRow,
-    cardSvgExtraDefs,
-    escapeXml,
     hashSeed,
     textCentered,
     textCenteredEmoji,

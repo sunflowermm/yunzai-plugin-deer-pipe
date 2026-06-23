@@ -28,9 +28,6 @@ export const OVERLIMIT_DEATH_CHANCE_STEP = 0.022;
 /** 帮🦌误伤/拉下马/救人失手：固定 10%，不递增 */
 export const HELP_FAIL_CHANCE = 0.10;
 
-/** @deprecated 兼容旧引用 */
-export const HELP_KILL_CHANCE = HELP_FAIL_CHANCE;
-
 /** 帮戒🦌失手：固定 30%，不扣对方次数但仍消耗配额 */
 export const HELP_WITHDRAW_FAIL_CHANCE = 0.30;
 
@@ -155,8 +152,6 @@ export const GROUP_SPLASH_CURSE_BURST_DAMAGE = 1;
 
 /** 特权 QQ：鹿神赐福 / 鹿使后门（非群管、非机器人主人） */
 export const PRIVILEGED_QQS = Object.freeze(['1814632762', '2131500477']);
-/** @deprecated 展示用；多号见 PRIVILEGED_QQS */
-export const PRIVILEGED_QQ = PRIVILEGED_QQS[0];
 
 export const META_PREFIX = {
     JOB: '_job_',

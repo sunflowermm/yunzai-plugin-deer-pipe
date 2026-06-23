@@ -1,4 +1,4 @@
-/** 用户档案上的皮肤偏好键（与 YYYY-MM 月键并列，由 migrateUserRecord 保留） */
+/** 用户档案上的皮肤偏好键（与 YYYY-MM 月键并列） */
 
 export const SKIN_DEFAULT = 'default';
 

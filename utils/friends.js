@@ -2,49 +2,12 @@ import { QQ_AVATAR } from '../constants/game.js';
 
 const FRIENDS_VERSION = 3;
 
-/**
- * 鹿友关系（一次添加、双向结缘）：
- * A 添加 B 后，A、B 互相出现在对方名单中，且双方均可帮🦌/帮戒🦌/救活对方
- * friends[userId] = [friendId, ...]
- */
-export function migrateFriendsData(friends) {
-    if (!friends || typeof friends !== 'object') return { data: {}, changed: false };
-    let data = { ...friends };
-    let changed = false;
-    if (data._version !== 2 && data._version !== FRIENDS_VERSION) {
-        const inverted = {};
-        for (const [targetId, helpers] of Object.entries(data)) {
-            if (targetId === '_version' || !Array.isArray(helpers)) continue;
-            for (const helperId of helpers) {
-                const h = String(helperId);
-                if (!inverted[h]) inverted[h] = [];
-                const t = String(targetId);
-                if (!inverted[h].includes(t)) inverted[h].push(t);
-            }
-        }
-        data = inverted;
-        changed = true;
-    } else if (data._version === FRIENDS_VERSION) {
-        const { _version, ...rest } = data;
-        return { data: rest, changed: false };
-    } else {
-        const { _version, ...rest } = data;
-        data = rest;
-    }
+/** 鹿友关系（一次添加、双向结缘）：friends[userId] = [friendId, ...] */
 
-    for (const [userId, list] of Object.entries(data)) {
-        if (!Array.isArray(list)) continue;
-        for (const friendId of list) {
-            const f = String(friendId);
-            if (!data[f]) data[f] = [];
-            if (!data[f].map(String).includes(String(userId))) {
-                data[f].push(String(userId));
-                changed = true;
-            }
-        }
-    }
-
-    return { data, changed: changed || friends._version !== FRIENDS_VERSION };
+export function unpackFriends(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    const { _version, ...rest } = raw;
+    return rest;
 }
 
 export function packFriends(data) {
@@ -107,6 +70,3 @@ export function buildFriendCards(friends, userId, membersMap) {
         });
 }
 
-/** @deprecated 兼容旧引用 */
-export const addFriendTarget = addFriendBond;
-export const removeFriendTarget = removeFriendBond;

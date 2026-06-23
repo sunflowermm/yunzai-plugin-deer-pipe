@@ -3,7 +3,6 @@
  */
 import {
     ALREADY_DEAD_MESSAGES,
-    ARENA_LOSE_MESSAGES,
     ARENA_WIN_MESSAGES,
     ARENA_BUSY_MESSAGES,
     ARENA_DECLINE_MESSAGES,
@@ -21,8 +20,6 @@ import {
     DAILY_CLEANSE_CURSE_QUOTA,
     DAILY_FAKE_WITHDRAW_QUOTA,
     DAILY_HOWL_QUOTA,
-    DAILY_SACRIFICE_QUOTA,
-    DAILY_STEAL_QUOTA,
     DAILY_URGE_QUOTA,
     DAILY_GROUP_SPLASH_QUOTA,
     FAKE_WITHDRAW_MESSAGES,
@@ -84,7 +81,6 @@ import {
     ERROR_MESSAGES,
     HELP_FAIL_MESSAGES,
     HELP_FAIL_CHANCE,
-    HELP_KILL_CHANCE,
     HELP_QUOTA_MESSAGES,
     HELP_SUCCESS_MESSAGES,
     HELP_WITHDRAW_SUCCESS,
@@ -95,14 +91,12 @@ import {
     HELPER_DEAD_MESSAGES,
     IMPERIAL_LOSE_MESSAGES,
     IMPERIAL_WIN_MESSAGES,
-    IMPERIAL_PK_HINTS,
     IMPERIAL_CLEARANCE_MESSAGES,
     HELP_QUOTA_CLEARANCE_MESSAGES,
     PLAYFUL_CLEARANCE_MESSAGES,
     AMNESTY_ALL_MESSAGES,
     ACTOR_DEAD_MESSAGES,
     TARGET_DEAD_MESSAGES,
-    OVERLIMIT_DEATH_CHANCE_STEP,
     PRIVILEGE_REVIVE_MESSAGES,
     TOGETHER_FALL_MESSAGES,
     formatChancePercent,
@@ -121,7 +115,7 @@ import {
     FRIEND_REMOVE_MESSAGES,
     UI_MESSAGES,
 } from '../constants/game.js';
-import { YUMUMU_IMPOTENCE_HELP_FAIL, YUMUMU_IMPOTENCE_CHANCE, YUMUMU_BIND_MINUTES, formatYumumuBindCutoffHint } from '../constants/extra-deer.js';
+import { YUMUMU_IMPOTENCE_HELP_FAIL, YUMUMU_IMPOTENCE_CHANCE, YUMUMU_BIND_MINUTES, formatYumumuBindCutoffHint, XUYUEZHEN_CHAOS_OUTCOME_LABELS } from '../constants/extra-deer.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
 import { resolveQuotaDenom } from '../constants/profession-quotas.js';
 
@@ -589,7 +583,7 @@ export function formatSoloLuSessionSummary(session) {
 /** 操作结果文案 */
 export function formatActionMessage(result, ctx = {}) {
     const { helperName, targetName, dice, diceSide, choice } = ctx;
-    const helpFailPct = Math.round((HELP_FAIL_CHANCE ?? HELP_KILL_CHANCE) * 100);
+    const helpFailPct = Math.round(HELP_FAIL_CHANCE * 100);
     if (!result.ok) return formatErrorMessage(result);
     const q = quotaHint(result);
     const wq = withdrawQuotaHint(result);
@@ -907,6 +901,12 @@ export function formatActionMessage(result, ctx = {}) {
             return `${helperName || '你'} 束缚！${targetName || 'ta'} ${result.banMinutes ?? YUMUMU_BIND_MINUTES} 分钟内无法自鹿（仍可被帮鹿）· 仅 ${formatYumumuBindCutoffHint()}可用`;
         case 'job_skill_yujie_daipai':
             return `${helperName || '你'} 带派！脚丫子蓄势 · 下一次皇城鹿掷骰必胜`;
+        case 'job_skill_xuyuezhen_chaos': {
+            const tag = XUYUEZHEN_CHAOS_OUTCOME_LABELS[result.outcome] || result.outcome;
+            const extra = result.curseStacks ? ` · 咒 ${result.curseStacks} 层` : '';
+            const blessNote = result.blessStacks ? ` · 福 ${result.blessStacks} 层` : '';
+            return `${helperName || '你'} 操你血妈！${tag} · 现 ${result.count} 次${extra}${blessNote}`;
+        }
         default:
             return result.message || '操作完成';
     }

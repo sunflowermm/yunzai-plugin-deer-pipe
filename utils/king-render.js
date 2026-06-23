@@ -6,7 +6,6 @@ import {
     buildFooterBar,
     buildRibbonBadge,
     buildStatGrid,
-    CARD_THEMES,
     escapeXml,
     fetchCircleAvatar,
     hashSeed,

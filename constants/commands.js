@@ -89,6 +89,7 @@ export const REG = {
     meijiaTeamSkill: '^组队',
     yumumuBindSkill: '^束缚',
     yujieDaipaiSkill: '^带派$',
+    xuyuezhenChaosSkill: '^操你血妈$',
     addFriend: `^添加${D}友(.*)`,
     delFriend: `^绝交${D}友(.*)`,
     myFriend: `^我的${D}友$`,

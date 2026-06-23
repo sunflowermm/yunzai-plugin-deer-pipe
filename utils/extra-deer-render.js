@@ -23,15 +23,12 @@ import { statusHeaderOffset } from './ui/skin-assets.js';
 import { renderSkinnedCardStacked } from './ui/shell.js';
 import {
     buildFooterBar,
-    buildMultilineText,
     buildSectionTitle,
     buildSideArtCell,
     DEFAULT_CARD_W,
     deerTextForSvg,
-    escapeXml,
     hashSeed,
     textCentered,
-    wrapTextLines,
     TXT,
     TXT_SOFT,
 } from './svg-base.js';

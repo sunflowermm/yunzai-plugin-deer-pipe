@@ -8,7 +8,6 @@ import {
     getTodayStatus,
     getUserRecord,
     hasMonthData,
-    ensureMonthData,
     performHelpLu,
     performLu,
     runDeerCartSession,
@@ -29,7 +28,7 @@ import {
     performDeerCartDepart,
     performYumumuBindSkill,
     performYujieDaipaiSkill,
-    resolveImperialChallengerWin,
+    performXuyuezhenChaosSkill,
 } from '../utils/data.js';
 import { canHelpFriend } from '../utils/friends.js';
 import { generateImage } from '../utils/core.js';
@@ -104,6 +103,7 @@ export class DeerPipe extends plugin {
                 { reg: REG.meijiaTeamSkill, fnc: 'meijiaTeamSkill' },
                 { reg: REG.yumumuBindSkill, fnc: 'yumumuBindSkill' },
                 { reg: REG.yujieDaipaiSkill, fnc: 'yujieDaipaiSkill' },
+                { reg: REG.xuyuezhenChaosSkill, fnc: 'xuyuezhenChaosSkill' },
             ],
         });
     }
@@ -716,20 +716,12 @@ export class DeerPipe extends plugin {
         return true;
     }
 
-    async meijiaTeamSkill() {
-        await this._runTargetSkill(performMeijiaTeamSkill);
-    }
-
-    async yumumuBindSkill() {
-        await this._runTargetSkill(performYumumuBindSkill);
-    }
-
-    async yujieDaipaiSkill() {
+    async _runSelfSkill(performFn) {
         const { user_id, card, nickname } = this.e.sender;
         const date = new Date();
         const day = date.getDate();
         const deerData = await loadDeerData();
-        const result = performYujieDaipaiSkill(deerData, user_id, date, day);
+        const result = performFn(deerData, user_id, date, day);
         if (!result.ok) {
             await this.reply(formatErrorMessage(result), true);
             return;
@@ -748,5 +740,21 @@ export class DeerPipe extends plugin {
             dayOverride: day,
             withPanel: true,
         });
+    }
+
+    async meijiaTeamSkill() {
+        await this._runTargetSkill(performMeijiaTeamSkill);
+    }
+
+    async yumumuBindSkill() {
+        await this._runTargetSkill(performYumumuBindSkill);
+    }
+
+    async yujieDaipaiSkill() {
+        await this._runSelfSkill(performYujieDaipaiSkill);
+    }
+
+    async xuyuezhenChaosSkill() {
+        await this._runSelfSkill(performXuyuezhenChaosSkill);
     }
 }

@@ -42,11 +42,6 @@ export function shouldBypassPrebuiltExtraCatalog(opts = {}) {
     return needsLiveExtraDeerCatalog(opts.userRecord ?? null);
 }
 
-/** @deprecated 使用 shouldBypassPrebuiltProfessionCard */
-export function needsLiveProfessionCard(opts = {}) {
-    return shouldBypassPrebuiltProfessionCard(opts);
-}
-
 export function clearPrebuiltCache() {
     bufferCache.clear();
 }

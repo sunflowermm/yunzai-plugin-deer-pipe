@@ -2,8 +2,35 @@
 
 import { QUOTA, QUOTA_GROUPS, QUOTA_LABELS } from './profession-quotas.js';
 import { formatTalentCatalogLine, formatTalentPerkBrief, formatTalentTagline } from './talent-text.js';
+import {
+    YUMUMU_BIND_MINUTES,
+    YUMUMU_IMPOTENCE_CHANCE,
+    YUMUMU_IMPOTENCE_HELP_FAIL,
+    formatYumumuBindCutoffHint,
+    EXTRA_DEER_TRANSFER_HINT,
+    YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_CUTOFF_LABEL,
+    YUMUMU_LU_BAN_MS,
+    YUJIE_IMPERIAL_WIN_BONUS,
+    isYumumuBindAfterCutoff,
+    XUYUEZHEN_CHAOS_OUTCOME_LABELS,
+} from './extra-deer-meta.js';
 
-export const EXTRA_DEER_IDS = Object.freeze(['meijia', 'yumumu', 'yujie']);
+export {
+    EXTRA_DEER_TRANSFER_HINT,
+    YUMUMU_BIND_CUTOFF_HOUR,
+    YUMUMU_BIND_CUTOFF_LABEL,
+    YUMUMU_BIND_MINUTES,
+    YUMUMU_IMPOTENCE_CHANCE,
+    YUMUMU_IMPOTENCE_HELP_FAIL,
+    YUMUMU_LU_BAN_MS,
+    YUJIE_IMPERIAL_WIN_BONUS,
+    isYumumuBindAfterCutoff,
+    formatYumumuBindCutoffHint,
+    XUYUEZHEN_CHAOS_OUTCOME_LABELS,
+};
+
+export const EXTRA_DEER_IDS = Object.freeze(['meijia', 'yumumu', 'yujie', 'xuyuezhen']);
 
 /** 天赋数值（tagline/synergyTip 由 talent-text 生成） */
 export const EXTRA_DEER = {
@@ -28,6 +55,13 @@ export const EXTRA_DEER = {
         deathDelta: -0.02,
         imperialWinBonus: 0.20,
     },
+    xuyuezhen: {
+        id: 'xuyuezhen',
+        name: '许月珍鹿',
+        emoji: '🦖',
+        lotteryLuckDelta: 0.10,
+        helpFailDelta: 0.03,
+    },
 };
 
 export const EXTRA_DEER_SKILLS = {
@@ -49,6 +83,12 @@ export const EXTRA_DEER_SKILLS = {
         cmd: '带派',
         desc: '脚丫子蓄势：下一次皇城鹿掷骰必胜 · 天赋皇城胜势 +20% · 1 次/日',
     },
+    xuyuezhen: {
+        id: 'xuyuezhen',
+        name: '操你血妈',
+        cmd: '操你血妈',
+        desc: '绿恐龙暴走：随机 ±2/±1/咒/福/催更/空签 · 抽鹿签吉兆 +10% · 1 次/日',
+    },
 };
 
 export const EXTRA_DEER_ALIASES = {
@@ -62,59 +102,60 @@ export const EXTRA_DEER_ALIASES = {
     木木鹿: 'yumumu',
     语姐: 'yujie',
     语姐鹿: 'yujie',
+    许月珍: 'xuyuezhen',
+    许月珍鹿: 'xuyuezhen',
+    月珍: 'xuyuezhen',
+    月珍鹿: 'xuyuezhen',
 };
 
-export const EXTRA_DEER_QUOTA_TABLE = {
+/** 番外鹿通用基底：未在 overrides 单列的玩法继承此表，避免 0 次封印 */
+export const EXTRA_DEER_COMMON_QUOTAS = {
+    [QUOTA.help]: 6,
+    [QUOTA.helpWithdraw]: 2,
+    [QUOTA.steal]: 2,
+    [QUOTA.curse]: 2,
+    [QUOTA.bless]: 2,
+    [QUOTA.cleanseCurse]: 2,
+    [QUOTA.cleanseBless]: 1,
+    [QUOTA.arena]: 2,
+    [QUOTA.imperial]: 2,
+    [QUOTA.lottery]: 2,
+    [QUOTA.urge]: 4,
+    [QUOTA.borrow]: 2,
+    [QUOTA.bumper]: 2,
+    [QUOTA.fakeWithdraw]: 2,
+    [QUOTA.howl]: 2,
+    [QUOTA.greed]: 1,
+    [QUOTA.groupSplash]: 1,
+    [QUOTA.sacrifice]: 1,
+    [QUOTA.dream]: 1,
+    [QUOTA.spectralCurse]: 1,
+    [QUOTA.vengeance]: 1,
+    [QUOTA.reviveLottery]: 1,
+    [QUOTA.together]: 1,
+};
+
+/** 相对 common 的专精覆盖（只写与基底不同的项） */
+export const EXTRA_DEER_QUOTA_OVERRIDES = {
     meijia: {
-        [QUOTA.help]: 6,
-        [QUOTA.helpWithdraw]: 2,
         [QUOTA.steal]: 1,
-        [QUOTA.arena]: 2,
-        [QUOTA.bless]: 2,
         [QUOTA.cleanseCurse]: 1,
-        [QUOTA.urge]: 4,
         [QUOTA.lottery]: 1,
     },
     yumumu: {
         [QUOTA.help]: 18,
         [QUOTA.helpWithdraw]: 3,
-        [QUOTA.curse]: 2,
-        [QUOTA.bless]: 2,
-        [QUOTA.cleanseCurse]: 2,
-        [QUOTA.cleanseBless]: 1,
-        [QUOTA.urge]: 4,
-        [QUOTA.lottery]: 2,
     },
     yujie: {
         [QUOTA.help]: 8,
-        [QUOTA.helpWithdraw]: 2,
         [QUOTA.urge]: 8,
         [QUOTA.imperial]: 4,
-        [QUOTA.curse]: 2,
-        [QUOTA.bless]: 2,
-        [QUOTA.lottery]: 2,
+    },
+    xuyuezhen: {
+        [QUOTA.lottery]: 4,
+        [QUOTA.cleanseCurse]: 1,
     },
 };
-
-import {
-    YUMUMU_BIND_MINUTES,
-    YUMUMU_IMPOTENCE_CHANCE,
-    YUMUMU_IMPOTENCE_HELP_FAIL,
-    formatYumumuBindCutoffHint,
-} from './extra-deer-meta.js';
-
-export {
-    EXTRA_DEER_TRANSFER_HINT,
-    YUMUMU_BIND_CUTOFF_HOUR,
-    YUMUMU_BIND_CUTOFF_LABEL,
-    YUMUMU_BIND_MINUTES,
-    YUMUMU_IMPOTENCE_CHANCE,
-    YUMUMU_IMPOTENCE_HELP_FAIL,
-    YUMUMU_LU_BAN_MS,
-    YUJIE_IMPERIAL_WIN_BONUS,
-    isYumumuBindAfterCutoff,
-    formatYumumuBindCutoffHint,
-} from './extra-deer-meta.js';
 
 export function isExtraDeerId(id) {
     return !!id && EXTRA_DEER_IDS.includes(String(id));
@@ -167,7 +208,7 @@ export function resolveExtraDeerId(token) {
 }
 
 export function resolveExtraDeerQuotas(id) {
-    return EXTRA_DEER_QUOTA_TABLE[id] || {};
+    return { ...EXTRA_DEER_COMMON_QUOTAS, ...(EXTRA_DEER_QUOTA_OVERRIDES[id] || {}) };
 }
 
 export function listExtraDeerQuotaGroups(id) {
@@ -209,6 +250,7 @@ export function buildExtraDeerMods(def) {
         impotenceChance: full.impotenceChance || 0,
         impotenceHelpFailBonus: full.impotenceHelpFailBonus || 0,
         imperialWinBonus: full.imperialWinBonus || 0,
+        lotteryLuckDelta: full.lotteryLuckDelta || 0,
         extraDeer: true,
     };
 }

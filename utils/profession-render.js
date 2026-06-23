@@ -48,7 +48,6 @@ import {
     buildSideArtCell,
     DEFAULT_CARD_W,
     deerTextForSvg,
-    escapeXml,
     hashSeed,
     textCentered,
     wrapTextLines,

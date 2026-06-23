@@ -1,4 +1,4 @@
-/** 签到数据读写、游戏逻辑与格式迁移 */
+/** 签到数据读写与游戏逻辑 */
 
 import {
     ARENA_STAKE,
@@ -7,43 +7,25 @@ import {
     CURSE_MAX_ROUNDS,
     CURSE_MAX_STACKS,
     DAILY_ARENA_QUOTA,
-    DAILY_BORROW_QUOTA,
     BORROW_MIN_TARGET_COUNT,
-    DAILY_BUMPER_QUOTA,
     BUMPER_WIN_CHANCE,
     BUMPER_DRAW_CHANCE,
     BUMPER_FAIL_PENALTY,
     BUMPER_CURSE_ON_WIN_CHANCE,
-    DAILY_LOTTERY_QUOTA,
-    DAILY_SPECTRAL_CURSE_QUOTA,
-    DAILY_VENGEANCE_QUOTA,
     VENGEANCE_CURSE_CHANCE,
     VENGEANCE_DEDUCT_CHANCE,
     VENGEANCE_SUBSTITUTE_CURSE_CHANCE,
-    DAILY_DREAM_QUOTA,
-    DAILY_REVIVE_LOTTERY_QUOTA,
     REVIVE_LOTTERY_FULL_CHANCE,
     REVIVE_LOTTERY_WEAK_CHANCE,
     REVIVE_LOTTERY_WEAK_COUNT,
     GHOST_HOWL_KILLER_CURSE_CHANCE,
-    DAILY_CLEANSE_CURSE_QUOTA,
-    DAILY_BLESS_QUOTA,
     BLESS_DEATH_REDUCE,
     BLESS_MAX_STACKS,
     BLESS_MAX_ROUNDS,
-    DAILY_CLEANSE_BLESS_QUOTA,
-    DAILY_CURSE_QUOTA,
-    DAILY_FAKE_WITHDRAW_QUOTA,
-    DAILY_GREED_QUOTA,
-    DAILY_GROUP_SPLASH_QUOTA,
     DAILY_HELP_QUOTA,
     DAILY_HELP_WITHDRAW_QUOTA,
-    DAILY_HOWL_QUOTA,
     DAILY_IMPERIAL_QUOTA,
-    DAILY_SACRIFICE_QUOTA,
     DAILY_SAFE_LIMIT,
-    DAILY_STEAL_QUOTA,
-    DAILY_URGE_QUOTA,
     GREED_FAIL_PENALTY,
     GREED_SUCCESS_CHANCE,
     GROUP_SPLASH_CURSE_BURST_DAMAGE,
@@ -60,7 +42,6 @@ import {
     STEAL_SUCCESS_CHANCE,
     DEATH_REASON,
     HELP_FAIL_CHANCE,
-    HELP_KILL_CHANCE,
     HELP_WITHDRAW_FAIL_CHANCE,
     IMPERIAL_LOSE_DEDUCT,
     IMPERIAL_WIN_DEDUCT,
@@ -302,12 +283,6 @@ export function parseMonthInput(text, defaultDate = new Date()) {
         }
     }
     return null;
-}
-
-function inferYearFromMonth(lastSignMonth, now = new Date()) {
-    const curMonth = now.getMonth() + 1;
-    const curYear = now.getFullYear();
-    return lastSignMonth > curMonth ? curYear - 1 : curYear;
 }
 
 function isMonthKey(key) {
@@ -1254,72 +1229,6 @@ function consumeHelperQuota(helperMonthData, day, targetId) {
 
 function attachQuota(result, quota) {
     return { ...result, ...quota };
-}
-
-function migrateMonthDays(monthData) {
-    const out = {};
-    for (const [k, v] of Object.entries(monthData)) {
-        if (isDayKey(k)) out[k] = normalizeDayEntry(v);
-        else if (isMetaKey(k)) out[k] = v;
-    }
-    return out;
-}
-
-export function migrateUserRecord(userRecord, now = new Date()) {
-    if (!userRecord || typeof userRecord !== 'object') return {};
-    if (Object.keys(userRecord).some(isMonthKey)) {
-        const cleaned = {};
-        for (const [k, v] of Object.entries(userRecord)) {
-            if (isMonthKey(k) && v && typeof v === 'object') cleaned[k] = migrateMonthDays(v);
-            else if (isUserProfileKey(k)) cleaned[k] = v;
-        }
-        return cleaned;
-    }
-
-    const monthData = {};
-    for (const [k, v] of Object.entries(userRecord)) {
-        if (isDayKey(k)) monthData[k] = normalizeDayEntry(v);
-    }
-    if (!Object.keys(monthData).length) return {};
-    let year = now.getFullYear();
-    if (userRecord.lastSignMonth !== undefined) {
-        year = inferYearFromMonth(userRecord.lastSignMonth, now);
-    }
-    const month = String(userRecord.lastSignMonth ?? (now.getMonth() + 1)).padStart(2, '0');
-    const out = { [`${year}-${month}`]: monthData };
-    for (const [k, v] of Object.entries(userRecord)) {
-        if (isUserProfileKey(k)) out[k] = v;
-    }
-    return out;
-}
-
-export function migrateAllData(deerData, now = new Date()) {
-    if (!deerData || typeof deerData !== 'object') return false;
-    let changed = false;
-    for (const userId of Object.keys(deerData)) {
-        const raw = deerData[userId];
-        if (!raw || typeof raw !== 'object') continue;
-        const needsMigrate = raw.lastSignMonth !== undefined
-            || Object.keys(raw).some(k => isDayKey(k))
-            || Object.values(raw).some(v => typeof v === 'number');
-        if (needsMigrate || !Object.keys(raw).some(isMonthKey)) {
-            const migrated = migrateUserRecord(raw, now);
-            if (JSON.stringify(raw) !== JSON.stringify(migrated)) {
-                deerData[userId] = migrated;
-                changed = true;
-            }
-        } else {
-            for (const monthKey of Object.keys(raw)) {
-                if (!isMonthKey(monthKey)) continue;
-                const migratedMonth = migrateMonthDays(raw[monthKey]);
-                if (JSON.stringify(raw[monthKey]) !== JSON.stringify(migratedMonth)) {
-                    raw[monthKey] = migratedMonth;
-                    changed = true;
-                }
-            }
-        }
-    }
-    return changed;
 }
 
 export function getUserRecord(deerData, userId) {
@@ -2417,20 +2326,99 @@ export function performYumumuBindSkill(deerData, yumumuId, targetId, date, day) 
 }
 
 /** 语姐鹿专属：带派 — 下一次皇城鹿掷骰必胜 */
-export function performYujieDaipaiSkill(deerData, userId, date, day) {
+function beginExtraDeerSelfSkill(deerData, userId, date, day, extraId) {
     const blocked = rejectUnlessPlayReady(deerData, userId, date, day);
     if (blocked) return blocked;
     const monthData = ensureMonthData(deerData, userId, date);
-    const wrong = rejectIfWrongExtraDeer(monthData, day, 'yujie');
+    const wrong = rejectIfWrongExtraDeer(monthData, day, extraId);
     if (wrong) return wrong;
     if (hasUsedJobSkill(monthData, day)) {
         return { ok: false, type: 'job_skill_used' };
     }
     markJobSkillUsed(monthData, day);
-    applyYujieImperialGuarantee(monthData, day);
+    return { ok: true, monthData };
+}
+
+function normalizeSignOutcome(entry, outcome, { positive = 'plus', rollHint = Math.random() } = {}) {
+    if (outcome === 'cleanse' && !getActiveCurseStacks(entry)) {
+        return rollHint < 0.5 ? positive : 'blank';
+    }
+    if (outcome === 'urge' && entry.c > 0) {
+        return positive;
+    }
+    return outcome;
+}
+
+function applySignOutcome(monthData, day, entry, outcome) {
+    switch (outcome) {
+        case 'plus':
+        case 'plus1':
+            adjustDayCount(entry, 1);
+            break;
+        case 'plus2':
+            adjustDayCount(entry, 2);
+            break;
+        case 'minus':
+        case 'minus1':
+            adjustDayCount(entry, -1);
+            break;
+        case 'minus2':
+            adjustDayCount(entry, -2);
+            break;
+        case 'urge':
+            monthData[urgeBuffKey(day)] = 1;
+            break;
+        case 'curse':
+            applyCurseStacks(entry, 1);
+            break;
+        case 'cleanse':
+            stripOneCurseStack(entry);
+            break;
+        case 'bless':
+            applyBlessStacks(entry, 1);
+            break;
+        default:
+            break;
+    }
+}
+
+export function performYujieDaipaiSkill(deerData, userId, date, day) {
+    const ready = beginExtraDeerSelfSkill(deerData, userId, date, day, 'yujie');
+    if (!ready.ok) return ready;
+    applyYujieImperialGuarantee(ready.monthData, day);
     return {
         ok: true,
         type: 'job_skill_yujie_daipai',
+    };
+}
+
+const XUYUEZHEN_CHAOS_OUTCOMES = Object.freeze([
+    'plus2', 'minus2', 'plus1', 'minus1', 'curse', 'cleanse', 'urge', 'bless', 'blank',
+]);
+
+/** 许月珍鹿专属：操你血妈 — 随机触发签运类效果 */
+export function performXuyuezhenChaosSkill(deerData, userId, date, day) {
+    const ready = beginExtraDeerSelfSkill(deerData, userId, date, day, 'xuyuezhen');
+    if (!ready.ok) return ready;
+    const monthData = ready.monthData;
+    const entry = ensureDayEntry(monthData, day);
+    entry.a += 1;
+
+    let outcome = XUYUEZHEN_CHAOS_OUTCOMES[Math.floor(Math.random() * XUYUEZHEN_CHAOS_OUTCOMES.length)];
+    outcome = normalizeSignOutcome(entry, outcome, { positive: 'plus1' });
+    applySignOutcome(monthData, day, entry, outcome);
+
+    const ci = getCurseInfo(entry);
+    const bi = getBlessInfo(entry);
+    return {
+        ok: true,
+        type: 'job_skill_xuyuezhen_chaos',
+        outcome,
+        count: entry.c,
+        curseStacks: ci.stacks,
+        curseRounds: ci.rounds,
+        blessStacks: bi.stacks,
+        blessRounds: bi.rounds,
     };
 }
 
@@ -3515,32 +3503,9 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     else if (roll < 0.73) outcome = 'curse';
     else if (roll < 0.85) outcome = 'cleanse';
     else outcome = 'blank';
-    if (outcome === 'cleanse' && !getActiveCurseStacks(entry)) {
-        outcome = roll < 0.5 ? 'plus' : 'blank';
-    }
-    if (outcome === 'urge' && entry.c > 0) {
-        outcome = 'plus';
-    }
+    outcome = normalizeSignOutcome(entry, outcome, { positive: 'plus', rollHint: roll });
 
-    switch (outcome) {
-        case 'plus':
-            adjustDayCount(entry, 1);
-            break;
-        case 'minus':
-            adjustDayCount(entry, -1);
-            break;
-        case 'urge':
-            monthData[urgeBuffKey(day)] = 1;
-            break;
-        case 'curse':
-            applyCurseStacks(entry, 1);
-            break;
-        case 'cleanse':
-            stripOneCurseStack(entry);
-            break;
-        default:
-            break;
-    }
+    applySignOutcome(monthData, day, entry, outcome);
 
     const ci = getCurseInfo(entry);
     return {
@@ -3848,7 +3813,6 @@ export {
     OVERLIMIT_DEATH_CHANCE_BASE,
     OVERLIMIT_DEATH_CHANCE_STEP,
     HELP_FAIL_CHANCE,
-    HELP_KILL_CHANCE,
     DEATH_REASON,
     calcOverlimitDeathChance,
     TOGETHER_FALL_COST,

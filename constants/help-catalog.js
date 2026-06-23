@@ -7,7 +7,7 @@ import { PRIVILEGED_QQS } from './game.js';
 
 const PRIVILEGED_QQ_HINT = `仅 QQ ${PRIVILEGED_QQS.join('、')}`;
 import { PROFESSION_HELP_RANGE, PROFESSION_WITHDRAW_RANGE } from './profession.js';
-import { PROFESSION_QUOTA_TABLE } from './profession-quotas.js';
+import { PROFESSION_QUOTA_TABLE, QUOTA } from './profession-quotas.js';
 import {
     EXTRA_DEER_SKILLS,
     YUMUMU_BIND_MINUTES,
@@ -15,11 +15,11 @@ import {
     formatExtraDeerQuotaBrief,
     formatYumumuBindCutoffHint,
     getExtraDeerDef,
+    resolveExtraDeerQuotas,
 } from './extra-deer.js';
 import {
     ARENA_STAKE,
     DAILY_ARENA_QUOTA,
-    DAILY_CURSE_QUOTA,
     DAILY_CLEANSE_CURSE_QUOTA,
     DAILY_BLESS_QUOTA,
     BLESS_MAX_STACKS,
@@ -38,7 +38,6 @@ import {
     DAILY_IMPERIAL_QUOTA,
     DAILY_SAFE_LIMIT,
     DAILY_SACRIFICE_QUOTA,
-    DAILY_STEAL_QUOTA,
     DAILY_URGE_QUOTA,
     DAILY_BORROW_QUOTA,
     BORROW_MIN_TARGET_COUNT,
@@ -123,7 +122,7 @@ export const HELP_SECTIONS = {
             { cmd: '转职鹿医师 / 转职戒师 / 转职卷王 / 转职巡游 等', desc: '8 职业：含向日葵鹿 · 详见鹿职业一览', quota: '首次转职后当日锁定 · 各职业全玩法次数不同' },
             { cmd: `${D_SHOW}技`, desc: '查看今日专属技状态', quota: '每职业 1 次/日' },
             { cmd: `${D_SHOW}巡 / 愈鹿@ / 清规@ / 卷冲`, desc: '巡游/鹿医师/戒灵师/卷王专属技', quota: '须对应职业 · 鹿医师帮鹿成功 12% 帮鹿次数+1' },
-            { cmd: '咒缚@ / 广福@ / 夜袭@ / 向阳@ / 组队@ / 束缚@ / 带派', desc: '叠咒/福鹿使/窃光/向日葵/王美嘉/雨木木/语姐专属技', quota: '不占对应玩法配额 · 1 次/日' },
+            { cmd: '咒缚@ / 广福@ / 夜袭@ / 向阳@ / 组队@ / 束缚@ / 带派 / 操你血妈', desc: '叠咒/福鹿使/窃光/向日葵/王美嘉/雨木木/语姐/许月珍专属技', quota: '不占对应玩法配额 · 1 次/日' },
         ],
     },
     extraDeer: {
@@ -131,9 +130,9 @@ export const HELP_SECTIONS = {
         emoji: '✨',
         items: [
             {
-                cmd: '转职王美嘉 / 转职雨木木 / 转职语姐',
+                cmd: '转职王美嘉 / 转职雨木木 / 转职语姐 / 转职许月珍',
                 desc: '与八职业互斥 · 当日锁定 · 「鹿职业」第二张图',
-                quota: `王美嘉 ${formatExtraDeerQuotaBrief('meijia')} · 雨木木 ${formatExtraDeerQuotaBrief('yumumu')} · 语姐 ${formatExtraDeerQuotaBrief('yujie')}`,
+                quota: `王美嘉 ${formatExtraDeerQuotaBrief('meijia')} · 雨木木 ${formatExtraDeerQuotaBrief('yumumu')} · 语姐 ${formatExtraDeerQuotaBrief('yujie')} · 许月珍 ${formatExtraDeerQuotaBrief('xuyuezhen')}`,
             },
             {
                 cmd: EXTRA_DEER_SKILLS.meijia.cmd,
@@ -149,6 +148,11 @@ export const HELP_SECTIONS = {
                 cmd: EXTRA_DEER_SKILLS.yujie.cmd,
                 desc: '语姐专属 · 带派脚丫子蓄势：下一次皇城鹿掷骰必胜',
                 quota: `催鹿/皇城配额偏高 · 天赋皇城胜势 +20% · 1 次/日`,
+            },
+            {
+                cmd: EXTRA_DEER_SKILLS.xuyuezhen.cmd,
+                desc: '许月珍专属 · 绿恐龙暴走：随机 ±2/±1/咒/福/催更/空签',
+                quota: `抽鹿签配额 ${resolveExtraDeerQuotas('xuyuezhen')[QUOTA.lottery] ?? 0} · 天赋吉兆 +10% · 1 次/日`,
             },
             {
                 cmd: '看鹿职业卡雨木木 / 雨木木鹿端午 / 语姐鹿年限',

@@ -27,7 +27,6 @@ import { resolveQuotaDenom } from '../constants/profession-quotas.js';
 import {
     escapeXml,
     truncText,
-    CARD_THEMES,
     fetchCircleAvatar,
     hashSeed,
     buildVsBadge,
