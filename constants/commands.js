@@ -2,13 +2,15 @@
  * 鹿/🦌 等价指令 token 与 rule 正则（全插件唯一数据源）
  * loader 会将 reg 字符串转为 RegExp，此处用字符串拼接便于维护
  */
-import { D, D_OPT, D_SHOW } from './command-tokens.js';
+import { D, D_OPT, D_HELP, D_SHOW } from './command-tokens.js';
 import { PORTRAIT_PROF_SWITCH } from './portrait-skin-command.js';
 
-export { D, D_OPT, D_SHOW };
+export { D, D_OPT, D_HELP, D_SHOW };
 
 /** 查鹿林天象（不与通用「天气」插件抢匹配） */
 export const WEATHER_CMD_SHOW = `${D_SHOW}环境 / 天气${D_SHOW}`;
+/** 帮助图展示（Twemoji 渲染，不含 /鹿 等价串） */
+export const WEATHER_HELP_CMD = `${D_HELP}环境 / 天气${D_HELP}`;
 export const WEATHER_CMD_HINT = '鹿环境 / 天气鹿';
 
 export const REG = {

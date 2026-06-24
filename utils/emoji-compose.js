@@ -7,6 +7,55 @@ import { escapeXml, estimateTextWidth, textCenteredEmoji, TXT } from './svg-base
 
 const INLINE_EMOJI_RE = /(\p{Extended_Pictographic}(?:\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F)?)*)/gu;
 
+/** emoji 与 @/# 等窄符号邻接时额外留白（Twemoji 方框比字形宽） */
+function leadGapBeforeEmoji(prevText, fontSize) {
+    if (!prevText) return 0;
+    if (/[@#/:]$/.test(prevText)) return Math.max(5, Math.round(fontSize * 0.32));
+    return 0;
+}
+
+function tailGapAfterEmoji(nextText, fontSize) {
+    if (!nextText) return Math.max(4, Math.round(fontSize * 0.22));
+    if (/^[@#/:]/.test(nextText)) return Math.max(7, Math.round(fontSize * 0.42));
+    return Math.max(4, Math.round(fontSize * 0.22));
+}
+
+function splitInlineParts(text) {
+    const s = String(text ?? '');
+    const parts = [];
+    let last = 0;
+    for (const m of s.matchAll(INLINE_EMOJI_RE)) {
+        const idx = m.index ?? 0;
+        if (idx > last) parts.push({ t: 'text', v: s.slice(last, idx) });
+        parts.push({ t: 'emoji', v: m[0] });
+        last = idx + m[0].length;
+    }
+    if (last < s.length) parts.push({ t: 'text', v: s.slice(last) });
+    return parts;
+}
+
+/** 混排行宽（换行估算，与 buildInlineEmojiText 间距一致） */
+export function estimateInlineEmojiWidth(text, fontSize, emojiScale = 1.12) {
+    const parts = splitInlineParts(text);
+    if (!parts.some((p) => p.t === 'emoji')) return estimateTextWidth(String(text ?? ''), fontSize);
+    const emojiSize = Math.round(fontSize * emojiScale);
+    let width = 0;
+    for (let i = 0; i < parts.length; i += 1) {
+        const p = parts[i];
+        if (p.t === 'text' && p.v) {
+            width += estimateTextWidth(p.v, fontSize);
+            continue;
+        }
+        if (p.t !== 'emoji') continue;
+        const prev = i > 0 ? parts[i - 1] : null;
+        const next = i < parts.length - 1 ? parts[i + 1] : null;
+        width += leadGapBeforeEmoji(prev?.t === 'text' ? prev.v : '', fontSize);
+        width += emojiSize;
+        width += tailGapAfterEmoji(next?.t === 'text' ? next.v : '', fontSize);
+    }
+    return width;
+}
+
 /** 单行混排：中文走 DeerFont，emoji 走 Twemoji 栅格 */
 export async function buildInlineEmojiText(x, y, text, {
     style = TXT,
@@ -17,15 +66,7 @@ export async function buildInlineEmojiText(x, y, text, {
 } = {}) {
     const s = String(text ?? '');
     if (!s) return '';
-    const parts = [];
-    let last = 0;
-    for (const m of s.matchAll(INLINE_EMOJI_RE)) {
-        const idx = m.index ?? 0;
-        if (idx > last) parts.push({ t: 'text', v: s.slice(last, idx) });
-        parts.push({ t: 'emoji', v: m[0] });
-        last = idx + m[0].length;
-    }
-    if (last < s.length) parts.push({ t: 'text', v: s.slice(last) });
+    const parts = splitInlineParts(s);
     if (!parts.some((p) => p.t === 'emoji')) {
         const w = weight ? ` font-weight="${weight}"` : '';
         return `<text ${style} x="${x}" y="${y}" font-size="${fontSize}" fill="${fill}"${w}>${escapeXml(s)}</text>`;
@@ -34,14 +75,19 @@ export async function buildInlineEmojiText(x, y, text, {
     const emojiCy = y - Math.round(fontSize * 0.3);
     let cx = x;
     let out = '';
-    for (const p of parts) {
+    for (let i = 0; i < parts.length; i += 1) {
+        const p = parts[i];
         if (p.t === 'text' && p.v) {
             const w = weight ? ` font-weight="${weight}"` : '';
             out += `<text ${style} x="${cx}" y="${y}" font-size="${fontSize}" fill="${fill}"${w}>${escapeXml(p.v)}</text>`;
             cx += estimateTextWidth(p.v, fontSize);
         } else if (p.t === 'emoji') {
+            const prev = i > 0 ? parts[i - 1] : null;
+            const next = i < parts.length - 1 ? parts[i + 1] : null;
+            cx += leadGapBeforeEmoji(prev?.t === 'text' ? prev.v : '', fontSize);
             out += await emojiSvgImage(cx + emojiSize / 2, emojiCy, p.v, emojiSize);
-            cx += emojiSize + 3;
+            cx += emojiSize;
+            cx += tailGapAfterEmoji(next?.t === 'text' ? next.v : '', fontSize);
         }
     }
     return out;
@@ -106,6 +152,25 @@ export async function emojiSvgImage(cx, cy, emoji, size) {
     const x = Math.round(cx - s / 2);
     const y = Math.round(cy - s / 2);
     return `<image x="${x}" y="${y}" width="${s}" height="${s}" href="data:image/png;base64,${b64}"/>`;
+}
+
+/** 左对齐多行：每行走 buildInlineEmojiText（desc / quota 等） */
+export async function buildMultilineEmojiText(x, startY, lines, opts = {}) {
+    const {
+        style = TXT,
+        fontSize = 12,
+        lineHeight = 15,
+        fill = '#000',
+        weight = '',
+    } = opts;
+    if (!lines?.length) return '';
+    const parts = [];
+    for (let i = 0; i < lines.length; i += 1) {
+        parts.push(await buildInlineEmojiText(x, startY + i * lineHeight, lines[i] || '', {
+            style, fontSize, fill, weight,
+        }));
+    }
+    return parts.join('\n');
 }
 
 /** sharp composite 图层 */

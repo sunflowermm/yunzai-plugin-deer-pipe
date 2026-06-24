@@ -1,7 +1,7 @@
 import { HELP_SECTION_ART } from '../constants/deer-assets.js';
 import {
     escapeXml, textCentered, estimateTextWidth, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled, hashSeed,
-    wrapTextLines, buildMultilineText, deerTextForSvg,
+    wrapTextLines,
 } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
@@ -11,7 +11,7 @@ import {
     HELP_TAGLINE,
 } from '../constants/help-catalog.js';
 import { pickRandom } from '../constants/game.js';
-import { buildInlineEmojiText } from './emoji-compose.js';
+import { buildInlineEmojiText, buildMultilineEmojiText, estimateInlineEmojiWidth } from './emoji-compose.js';
 import {
     loadCatalogArt,
     loadSectionArt,
@@ -39,17 +39,25 @@ const SECTION_GAP = 14;
 const HEADER_H = 188;
 const SECTION_ICON = 28;
 
+function wrapHelpLines(text, maxWidthPx, fontSize, maxLines = 2) {
+    return wrapTextLines(text, maxWidthPx, fontSize, maxLines, (seg) => estimateInlineEmojiWidth(seg, fontSize));
+}
+
 function cmdLines(item) {
     const raw = `${item.cmd || ''}${item.tag ? ` [${item.tag}]` : ''}`.trim();
-    return wrapTextLines(deerTextForSvg(raw), TEXT_MAX_W, 15, 2);
+    return wrapHelpLines(raw, TEXT_MAX_W, 15, 2);
 }
 
 function descLines(item) {
-    return wrapTextLines(deerTextForSvg(item.desc || ''), TEXT_MAX_W, 13, 2);
+    return wrapHelpLines(item.desc || '', TEXT_MAX_W, 13, 2);
 }
 
 function quotaLines(item) {
-    return wrapTextLines(deerTextForSvg(`配额 · ${item.quota || ''}`), TEXT_MAX_W, 12, 2);
+    return wrapHelpLines(`配额 · ${item.quota || ''}`, TEXT_MAX_W, 12, 2);
+}
+
+function sectionHeading(sec) {
+    return sec.emoji ? `${sec.emoji} ${sec.title}` : sec.title;
 }
 
 function itemBlockHeight(item) {
@@ -98,33 +106,25 @@ async function buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, 
     for (const sec of sections) {
         y += 26;
         const titleX = HELP_SECTION_ART[sec.key] ? PAD + SECTION_ICON + 8 : PAD + 28;
-        if (!HELP_SECTION_ART[sec.key]) {
-            blocks.push(await buildInlineEmojiText(PAD, y, `${sec.emoji} ${sec.title}`, {
-                style: TXT, fontSize: 20, fill: colors.title, weight: 'bold',
-            }));
-        } else {
-            blocks.push(`<text ${TXT} x="${titleX}" y="${y}" font-size="20" fill="${colors.title}" font-weight="bold">${escapeXml(sec.title)}</text>`);
-        }
+        blocks.push(await buildInlineEmojiText(titleX, y, sectionHeading(sec), {
+            style: TXT, fontSize: 20, fill: colors.title, weight: 'bold',
+        }));
         y += 6;
         for (const item of sec.items) {
             y += ITEM_PAD;
             const cLines = cmdLines(item);
             const dLines = descLines(item);
             const qLines = quotaLines(item);
-            blocks.push(await buildInlineEmojiText(CMD_X, y + 14, cLines[0] || '', {
-                style: TXT_PLAIN, fontSize: 15, fill: colors.cmd, weight: 'bold',
+            let cy = y + 14;
+            blocks.push(await buildMultilineEmojiText(CMD_X, cy, cLines, {
+                style: TXT_PLAIN, fontSize: 15, lineHeight: CMD_LINE_H, fill: colors.cmd, weight: 'bold',
             }));
-            if (cLines.length > 1) {
-                blocks.push(buildMultilineText(CMD_X, y + 14 + CMD_LINE_H, cLines.slice(1), {
-                    style: TXT_PLAIN, fontSize: 15, lineHeight: CMD_LINE_H, fill: colors.cmd, weight: 'bold',
-                }));
-            }
-            const descY = y + 14 + cLines.length * CMD_LINE_H + 2;
-            blocks.push(buildMultilineText(CMD_X, descY, dLines, {
+            const descY = cy + cLines.length * CMD_LINE_H + 2;
+            blocks.push(await buildMultilineEmojiText(CMD_X, descY, dLines, {
                 style: TXT_PLAIN, fontSize: 13, lineHeight: DESC_LINE_H, fill: colors.desc,
             }));
             const quotaY = descY + dLines.length * DESC_LINE_H + 2;
-            blocks.push(buildMultilineText(CMD_X, quotaY, qLines, {
+            blocks.push(await buildMultilineEmojiText(CMD_X, quotaY, qLines, {
                 style: TXT_PLAIN, fontSize: 12, lineHeight: QUOTA_LINE_H, fill: colors.muted,
             }));
             y += itemBlockHeight(item) - ITEM_PAD;
@@ -133,7 +133,9 @@ async function buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, 
     }
 
     const foot = `${HELP_FOOTER} · ${pageIndex + 1}/${totalPages}`;
-    blocks.push(textCentered(IMG_W / 2, imgH - 28, escapeXml(foot), TXT_SOFT, { size: 13, fill: colors.muted }));
+    blocks.push(await buildInlineEmojiText(IMG_W / 2 - estimateTextWidth(foot, 13) / 2, imgH - 28, foot, {
+        style: TXT_SOFT, fontSize: 13, fill: colors.muted,
+    }));
     const body = `
         ${buildHelpPageBackgroundSvg(IMG_W, imgH, theme)}
         <rect x="8" y="8" width="${IMG_W - 16}" height="${imgH - 16}" fill="none" stroke="${theme.accent}" stroke-width="3" rx="14" stroke-dasharray="8 6"/>

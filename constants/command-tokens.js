@@ -6,5 +6,8 @@ export const D = '(🦌|鹿)';
 /** 可选前缀（非捕获） */
 export const D_OPT = '(?:🦌|鹿)?';
 
-/** 帮助图展示：🦌/鹿 可互换 */
+/** 帮助图指令展示（单 token，Twemoji 渲染） */
+export const D_HELP = '🦌';
+
+/** 等价说明用：🦌/鹿 可互换（勿与 D_HELP 混用于指令名） */
 export const D_SHOW = '🦌/鹿';

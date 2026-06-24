@@ -37,12 +37,13 @@ export function estimateTextWidth(text, fontSize) {
     return lineWidth(text, fontSize);
 }
 
-function wrapLongSegment(segment, maxWidthPx, fontSize) {
+function wrapLongSegment(segment, maxWidthPx, fontSize, measureFn) {
+    const widthOf = measureFn || ((seg) => lineWidth(seg, fontSize));
     const out = [];
     let line = '';
     let w = 0;
     for (const ch of segment) {
-        const cw = charWidth(ch, fontSize);
+        const cw = widthOf(ch);
         if (line && w + cw > maxWidthPx) {
             out.push(line);
             line = ch;
@@ -57,7 +58,8 @@ function wrapLongSegment(segment, maxWidthPx, fontSize) {
 }
 
 /** 按像素宽度换行（优先在 · 处断行）；maxLines 足够大时不截断 */
-export function wrapTextLines(text, maxWidthPx, fontSize, maxLines = 2) {
+export function wrapTextLines(text, maxWidthPx, fontSize, maxLines = 2, measureFn) {
+    const widthOf = measureFn || ((seg) => lineWidth(seg, fontSize));
     const s = String(text ?? '').trim();
     if (!s || maxWidthPx <= 0 || maxLines < 1) return [];
     const parts = s.split(/\s*·\s*/);
@@ -65,15 +67,15 @@ export function wrapTextLines(text, maxWidthPx, fontSize, maxLines = 2) {
     let current = '';
     let currentW = 0;
     const sep = ' · ';
-    const sepW = lineWidth(sep, fontSize);
+    const sepW = widthOf(sep);
 
     for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
-        const segments = lineWidth(part, fontSize) > maxWidthPx
-            ? wrapLongSegment(part, maxWidthPx, fontSize)
+        const segments = widthOf(part) > maxWidthPx
+            ? wrapLongSegment(part, maxWidthPx, fontSize, widthOf)
             : [part];
         for (const segment of segments) {
-            const segW = lineWidth(segment, fontSize);
+            const segW = widthOf(segment);
             const addSep = current.length > 0;
             const needed = (addSep ? sepW : 0) + segW;
             if (current && currentW + needed > maxWidthPx && lines.length < maxLines - 1) {
@@ -82,7 +84,7 @@ export function wrapTextLines(text, maxWidthPx, fontSize, maxLines = 2) {
                 currentW = segW;
             } else {
                 current = addSep ? `${current}${sep}${segment}` : segment;
-                currentW = lineWidth(current, fontSize);
+                currentW = widthOf(current);
             }
         }
     }
