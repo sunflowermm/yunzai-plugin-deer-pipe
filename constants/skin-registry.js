@@ -61,10 +61,11 @@ export const PORTRAIT_SKINS = {
         name: '年限带翅膀',
         emoji: '🪽',
         unlock: PORTRAIT_UNLOCK_MODE.FREE,
-        desc: '语姐鹿专属 · 金翼年限立绘（免费随时切换）',
-        professions: ['yujie'],
+        desc: '语姐鹿 · 向日葵鹿 年限金翼立绘（免费随时切换）',
+        professions: ['yujie', 'sunflower'],
         switchHints: [
             '语姐鹿年限 / 语姐鹿翅膀 / 语姐鹿默认（语姐专属 · 免费切换）',
+            '向日葵鹿年限 / 向日葵鹿翅膀 / 葵鹿年限 / 向日葵鹿默认（向日葵专属 · 免费切换）',
         ],
     },
 };

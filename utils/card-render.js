@@ -224,7 +224,7 @@ const PLAYFUL_META = {
     revive: { emoji: '💚', title: '救活成功', theme: 'help' },
     help_withdraw: { emoji: '📘', title: '帮戒成功', theme: 'help' },
     help_withdraw_fail: { emoji: '😅', title: '帮戒失手', theme: 'fail' },
-    spectral_curse: { emoji: '👻', title: '冥咒', theme: 'curse' },
+    spectral_curse: { emoji: '👻', title: '冥鹿咒', theme: 'curse' },
     vengeance_curse: { emoji: '⚡', title: '索命 · 叠咒', theme: 'curse' },
     vengeance_deduct: { emoji: '⚔️', title: '索命 · 扣次', theme: 'pvp' },
     vengeance_substitute: { emoji: '🎭', title: '索命 · 替身', theme: 'curse' },

@@ -49,7 +49,18 @@ import {
     META_PREFIX,
     PATROL_WEATHER_AMP,
     GRINDER_SKILL_LU_GAIN,
+    GRINDER_SKILL_ARENA_BONUS,
+    RANGER_SKILL_LOTTERY_BONUS,
     ASCETIC_SKILL_WITHDRAW,
+    CURSER_SKILL_CURSE_LAYERS,
+    BLESSER_SKILL_BLESS_LAYERS,
+    ROGUE_NIGHT_RAID_CHANCE,
+    SUNFLOWER_FACING_URGE_STACKS,
+    SUNFLOWER_FACING_BLESS_LAYERS,
+    SUNFLOWER_FACING_COUNT_GAIN,
+    MEDIC_SKILL_HELP_QUOTA_BONUS,
+    GRINDER_RUSH_DEATH_MULT,
+    RANGER_SKILL_LOTTERY_LUCK,
     OVERLIMIT_DEATH_CHANCE_BASE,
     OVERLIMIT_DEATH_CHANCE_STEP,
     TOGETHER_FALL_COST,
@@ -67,7 +78,7 @@ import {
     computeBalancedScore,
     formatBalancedBreakdown,
 } from './balanced-score.js';
-import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
+import { getProfessionQuotaLimit, QUOTA, helpQuotaBonusKey, grantJobSkillQuotaBonus, jobSkillQuotaBonusKey, formatProfessionQuotaSummary } from './profession-quota.js';
 import { YUMUMU_BIND_MINUTES, formatExtraDeerQuotaBrief, isYumumuBindAfterCutoff, YUJIE_IMPERIAL_WIN_BONUS } from '../constants/extra-deer.js';
 import {
     getProfessionDef,
@@ -85,6 +96,8 @@ import {
     markJobSkillUsed,
     setPatrolBuff,
     hasPatrolBuff,
+    setPatrolLotteryLuck,
+    consumePatrolLotteryLuck,
     getJobSkillSnapshot,
     rejectIfWrongProfession,
     patrolBuffKey,
@@ -370,6 +383,22 @@ function addUrgeBuffStack(monthData, day, layers = 1) {
     return next;
 }
 
+/** 自🦌存活时兑现催更符：+N 并清空叠层，返回 N（0=无符） */
+function consumeUrgeBuffOnLu(monthData, day, entry) {
+    const urgeStacks = getUrgeBuffStacks(monthData, day);
+    if (urgeStacks <= 0) return 0;
+    entry.c += urgeStacks;
+    delete monthData[urgeBuffKey(day)];
+    return urgeStacks;
+}
+
+function applyUrgeProfessionConsumeBonus(entry, profMods, urgeBonus) {
+    const extra = profMods?.urgeBuffConsumeBonus || 0;
+    if (urgeBonus <= 0 || extra <= 0) return urgeBonus;
+    entry.c += extra;
+    return urgeBonus + extra;
+}
+
 function groupSplashUsedKey(day) {
     return `${META_PREFIX.GROUP_SPLASH}${day}`;
 }
@@ -566,6 +595,8 @@ export function resetUserDayMeta(monthData, day) {
     delete monthData[jobMetaKey(day)];
     delete monthData[jobSkillUsedKey(day)];
     delete monthData[patrolBuffKey(day)];
+    delete monthData[`${META_PREFIX.PATROL_LOTTERY_LUCK}${day}`];
+    delete monthData[`${META_PREFIX.GRINDER_RUSH_SHIELD}${day}`];
     delete monthData[togetherUsedKey(day)];
     delete monthData[imperialUsedKey(day)];
     delete monthData[arenaUsedKey(day)];
@@ -594,6 +625,9 @@ export function resetUserDayMeta(monthData, day) {
     delete monthData[meijiaTeamKey(day)];
     delete monthData[luBanUntilKey(day)];
     delete monthData[impotenceKey(day)];
+    for (const quotaId of Object.values(QUOTA)) {
+        delete monthData[jobSkillQuotaBonusKey(day, quotaId)];
+    }
 }
 
 const PLAYFUL_META_KEYS = [
@@ -932,8 +966,17 @@ function rejectUnlessGhostReady(deerData, userId, date, day) {
         || rejectUnlessActorDead(deerData, userId, date, day);
 }
 
-function applyMedicHelpSynergy(entry, helperProf, result) {
+function applyMedicHelpSynergy(entry, helperProf, result, { skill = false } = {}) {
     if (!helperProf || !entry) return;
+    if (skill) {
+        if (getActiveCurseStacks(entry) > 0) {
+            clearCurse(entry);
+            result.medicCleanse = true;
+        }
+        applyBlessStacks(entry, 1);
+        result.medicBless = true;
+        return;
+    }
     if (helperProf.helpCurseCleanseChance > 0 && getActiveCurseStacks(entry) > 0
         && rollChance(helperProf.helpCurseCleanseChance)) {
         stripOneCurseStack(entry);
@@ -1234,6 +1277,73 @@ function consumeHelperQuota(helperMonthData, day, targetId) {
         helpQuotaLeft: Math.max(0, limit - q.used),
         helpQuotaMax: limit,
     };
+}
+
+function refundHelperQuota(helperMonthData, day, targetId) {
+    const limit = getHelpQuotaLimit(helperMonthData, day);
+    const q = getHelperQuota(helperMonthData, day);
+    if (q.used <= 0) {
+        return {
+            helpQuotaUsed: q.used,
+            helpQuotaLeft: Math.max(0, limit - q.used),
+            helpQuotaMax: limit,
+        };
+    }
+    q.used -= 1;
+    const t = String(targetId);
+    if (q.to[t]) {
+        q.to[t] -= 1;
+        if (q.to[t] <= 0) delete q.to[t];
+    }
+    return {
+        helpQuotaUsed: q.used,
+        helpQuotaLeft: Math.max(0, limit - q.used),
+        helpQuotaMax: limit,
+    };
+}
+
+function refundHelperWithdrawQuota(helperMonthData, day, targetId) {
+    const limit = getHelpWithdrawQuotaLimit(helperMonthData, day);
+    const q = getHelperWithdrawQuota(helperMonthData, day);
+    if (q.used <= 0) {
+        return {
+            helpWithdrawUsed: q.used,
+            helpWithdrawLeft: Math.max(0, limit - q.used),
+            helpWithdrawMax: limit,
+        };
+    }
+    q.used -= 1;
+    const t = String(targetId);
+    if (q.to[t]) {
+        q.to[t] -= 1;
+        if (q.to[t] <= 0) delete q.to[t];
+    }
+    return {
+        helpWithdrawUsed: q.used,
+        helpWithdrawLeft: Math.max(0, limit - q.used),
+        helpWithdrawMax: limit,
+    };
+}
+
+function refundPlayQuotaUsed(monthData, day, usedKey) {
+    const used = readDailyUsed(monthData, day, usedKey);
+    if (used <= 0) return false;
+    monthData[usedKey(day)] = used - 1;
+    return true;
+}
+
+function grinderRushShieldKey(day) {
+    return `${META_PREFIX.GRINDER_RUSH_SHIELD}${day}`;
+}
+
+function setGrinderRushShield(monthData, day) {
+    monthData[grinderRushShieldKey(day)] = GRINDER_RUSH_DEATH_MULT;
+}
+
+function consumeGrinderRushShield(monthData, day) {
+    const mult = monthData?.[grinderRushShieldKey(day)];
+    if (mult) delete monthData[grinderRushShieldKey(day)];
+    return typeof mult === 'number' ? mult : 1;
 }
 
 function attachQuota(result, quota) {
@@ -1677,10 +1787,8 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
             grinderBonus = 1;
         }
         if (hadUrgeBuff) {
-            const urgeStacks = getUrgeBuffStacks(monthData, day);
-            entry.c += urgeStacks;
-            urgeBonus = urgeStacks;
-            delete monthData[urgeBuffKey(day)];
+            urgeBonus = consumeUrgeBuffOnLu(monthData, day, entry);
+            urgeBonus = applyUrgeProfessionConsumeBonus(entry, profMods, urgeBonus);
         }
         if (hadActiveCurse) consumeCurseRound(entry);
         if (hadActiveBless) consumeBlessRound(entry);
@@ -1713,6 +1821,10 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
         calcOverlimitDeathChance(entry.c, safeLimit, mods.overlimitStepReduce) + mods.deathDelta,
     );
     deathChance = applyOverlimitDeathCap(deathChance, profMods);
+    const grinderShield = consumeGrinderRushShield(monthData, day);
+    if (grinderShield < 1) {
+        deathChance = clampDeathChance(deathChance * grinderShield);
+    }
     const preLuCount = entry.c;
     if (rollChance(deathChance)) {
         const snap = applyDeath(entry, { reason: DEATH_REASON.SELF });
@@ -1741,20 +1853,25 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
     }
 
     entry.c += 1;
+    if (hadUrgeBuff) {
+        urgeBonus = consumeUrgeBuffOnLu(monthData, day, entry);
+        urgeBonus = applyUrgeProfessionConsumeBonus(entry, profMods, urgeBonus);
+    }
     if (hadActiveCurse) consumeCurseRound(entry);
     if (hadActiveBless) consumeBlessRound(entry);
     const curseAfter = getCurseInfo(entry);
     const blessAfter = getBlessInfo(entry);
-    let type = 'risky';
-    if (hadActiveCurse && hadActiveBless) type = 'risky_mixed';
-    else if (hadActiveCurse) type = 'risky_cursed';
-    else if (hadActiveBless) type = 'risky_blessed';
+    let type = urgeBonus ? 'risky_urged' : 'risky';
+    if (hadActiveCurse && hadActiveBless) type = urgeBonus ? 'risky_urged_mixed' : 'risky_mixed';
+    else if (hadActiveCurse) type = urgeBonus ? 'risky_urged_cursed' : 'risky_cursed';
+    else if (hadActiveBless) type = urgeBonus ? 'risky_urged_blessed' : 'risky_blessed';
     return finalizeLuResult(deerData, userId, date, day, {
         ok: true,
         type,
         entry,
         count: entry.c,
         preLuCount,
+        urgeBonus,
         deathChance,
         nextDeathChance: computeSelfLuDeathChance(entry, wx, profMods),
         hadCurse: hadActiveCurse,
@@ -2089,7 +2206,15 @@ export function performRangerPatrol(deerData, userId, date, day) {
     }
     markJobSkillUsed(monthData, day);
     setPatrolBuff(monthData, day);
-    return { ok: true, type: 'job_skill_patrol', amp: PATROL_WEATHER_AMP };
+    setPatrolLotteryLuck(monthData, day);
+    grantJobSkillQuotaBonus(monthData, day, QUOTA.lottery, RANGER_SKILL_LOTTERY_BONUS);
+    return {
+        ok: true,
+        type: 'job_skill_patrol',
+        amp: PATROL_WEATHER_AMP,
+        lotteryQuotaBonus: RANGER_SKILL_LOTTERY_BONUS,
+        lotteryLuckBonus: RANGER_SKILL_LOTTERY_LUCK,
+    };
 }
 
 /** 卷王鹿专属：卷王冲 — 强制安全自🦌 +2 */
@@ -2118,6 +2243,8 @@ export function performGrinderRush(deerData, userId, date, day, gameContext = {}
     entry.c += GRINDER_SKILL_LU_GAIN;
     if (hadActiveCurse) consumeCurseRound(entry);
     if (hadActiveBless) consumeBlessRound(entry);
+    setGrinderRushShield(monthData, day);
+    grantJobSkillQuotaBonus(monthData, day, QUOTA.arena, GRINDER_SKILL_ARENA_BONUS);
     return {
         ok: true,
         type: 'job_skill_grinder_rush',
@@ -2125,6 +2252,8 @@ export function performGrinderRush(deerData, userId, date, day, gameContext = {}
         count: entry.c,
         gain: GRINDER_SKILL_LU_GAIN,
         safeLimit: mods.safeLimit,
+        arenaQuotaBonus: GRINDER_SKILL_ARENA_BONUS,
+        rushShieldMult: GRINDER_RUSH_DEATH_MULT,
         weatherTip: gameContext.weatherEffects?.tip || '',
         weatherPatrolConsumed: patrolConsumed,
     };
@@ -2147,6 +2276,7 @@ export function performMedicHealSkill(deerData, helperId, targetId, date, day, g
     const targetMods = resolvePlayModifiers(entry, wx);
     const helpKey = String(helperId);
     markJobSkillUsed(helperMonth, day);
+    helperMonth[helpQuotaBonusKey(day)] = (helperMonth[helpQuotaBonusKey(day)] || 0) + MEDIC_SKILL_HELP_QUOTA_BONUS;
     let result;
     if (entry.d) {
         entry.d = 0;
@@ -2184,7 +2314,8 @@ export function performMedicHealSkill(deerData, helperId, targetId, date, day, g
             weatherPatrolConsumed: patrolConsumed,
         };
     }
-    applyMedicHelpSynergy(entry, helperProf, result);
+    applyMedicHelpSynergy(entry, helperProf, result, { skill: true });
+    result.skillHelpQuotaBonus = MEDIC_SKILL_HELP_QUOTA_BONUS;
     recordHelpAction('help_lu', helperId, targetId, date, {
         revive: result.type === 'job_skill_medic_revive',
         skill: true,
@@ -2210,6 +2341,7 @@ export function performAsceticCleanseSkill(deerData, helperId, targetId, date, d
     markJobSkillUsed(helperMonth, day);
     entry.a += 1;
     adjustDayCount(entry, -ASCETIC_SKILL_WITHDRAW);
+    grantJobSkillQuotaBonus(helperMonth, day, QUOTA.helpWithdraw, 1);
     recordHelpAction('help_withdraw', helperId, targetId, date, { withdrawSkill: true });
     return {
         ok: true,
@@ -2217,6 +2349,7 @@ export function performAsceticCleanseSkill(deerData, helperId, targetId, date, d
         entry,
         count: entry.c,
         withdrawAmount: ASCETIC_SKILL_WITHDRAW,
+        helpWithdrawQuotaBonus: 1,
     };
 }
 
@@ -2235,13 +2368,26 @@ export function performCurserBindSkill(deerData, userId, targetId, date, day) {
     if (entry.d) return { ok: false, type: 'target_dead' };
     markJobSkillUsed(monthData, day);
     entry.a += 1;
-    const stacks = applyCurseStacks(entry, 1);
+    const stacksBefore = getActiveCurseStacks(entry);
+    let stacks;
+    if (stacksBefore >= CURSE_MAX_STACKS) {
+        entry.curR = CURSE_MAX_ROUNDS;
+        stacks = stacksBefore;
+    } else {
+        stacks = applyCurseStacks(entry, CURSER_SKILL_CURSE_LAYERS);
+        if (stacksBefore > 0 && stacks <= stacksBefore) {
+            entry.curR = CURSE_MAX_ROUNDS;
+        }
+    }
+    grantJobSkillQuotaBonus(monthData, day, QUOTA.curse, 1);
     return {
         ok: true,
         type: 'job_skill_curser_bind',
         entry,
         count: entry.c,
         curseStacks: stacks,
+        curseRefreshed: stacksBefore >= CURSE_MAX_STACKS || (stacksBefore > 0 && stacks <= stacksBefore),
+        curseQuotaBonus: 1,
     };
 }
 
@@ -2260,14 +2406,16 @@ export function performSunflowerFacingSkill(deerData, helperId, targetId, date, 
     if (entry.d) return { ok: false, type: 'target_dead' };
     markJobSkillUsed(helperMonth, day);
     entry.a += 1;
-    targetMonth[urgeBuffKey(day)] = 1;
-    const blessStacks = applyBlessStacks(entry, 2);
-    let curseReduced = 0;
-    if (getCurseInfo(entry).active && entry.curR > 0) {
-        curseReduced = Math.min(2, entry.curR);
-        entry.curR -= curseReduced;
-        if (entry.curR <= 0) clearCurse(entry);
+    addUrgeBuffStack(targetMonth, day, SUNFLOWER_FACING_URGE_STACKS);
+    const blessStacks = applyBlessStacks(entry, SUNFLOWER_FACING_BLESS_LAYERS);
+    let curseCleared = 0;
+    if (getCurseInfo(entry).active) {
+        curseCleared = getActiveCurseStacks(entry);
+        clearCurse(entry);
     }
+    adjustDayCount(entry, SUNFLOWER_FACING_COUNT_GAIN);
+    grantJobSkillQuotaBonus(helperMonth, day, QUOTA.urge, 1);
+    grantJobSkillQuotaBonus(helperMonth, day, QUOTA.bless, 1);
     recordHelpAction('help_lu', helperId, targetId, date, { sunflowerSkill: true });
     return {
         ok: true,
@@ -2275,9 +2423,13 @@ export function performSunflowerFacingSkill(deerData, helperId, targetId, date, 
         entry,
         count: entry.c,
         blessStacks,
-        blessLayers: 2,
-        curseReduced,
+        blessLayers: SUNFLOWER_FACING_BLESS_LAYERS,
+        urgeStacks: SUNFLOWER_FACING_URGE_STACKS,
+        countGain: SUNFLOWER_FACING_COUNT_GAIN,
+        curseCleared,
         urged: true,
+        urgeQuotaBonus: 1,
+        blessQuotaBonus: 1,
     };
 }
 
@@ -2296,13 +2448,22 @@ export function performBlesserGrantSkill(deerData, userId, targetId, date, day) 
     if (entry.d) return { ok: false, type: 'target_dead' };
     markJobSkillUsed(monthData, day);
     entry.a += 1;
-    const stacks = applyBlessStacks(entry, 1);
+    let curseStripped = 0;
+    if (getActiveCurseStacks(entry) > 0) {
+        stripOneCurseStack(entry);
+        curseStripped = 1;
+    }
+    const stacks = applyBlessStacks(entry, BLESSER_SKILL_BLESS_LAYERS);
+    grantJobSkillQuotaBonus(monthData, day, QUOTA.bless, 1);
     return {
         ok: true,
         type: 'job_skill_blesser_grant',
         entry,
         count: entry.c,
         blessStacks: stacks,
+        blessLayers: BLESSER_SKILL_BLESS_LAYERS,
+        curseStripped,
+        blessQuotaBonus: 1,
     };
 }
 
@@ -2326,10 +2487,14 @@ export function performRogueNightRaidSkill(deerData, thiefId, targetId, date, da
     markJobSkillUsed(thiefMonth, day);
     const thiefEntry = ensureDayEntry(thiefMonth, day);
     thiefEntry.a += 1;
-    const nightChance = 0.85;
+    const nightChance = ROGUE_NIGHT_RAID_CHANCE;
+    grantJobSkillQuotaBonus(thiefMonth, day, QUOTA.steal, 1);
     if (rollChance(nightChance)) {
         adjustStealableCount(targetEntry, -1);
         adjustDayCount(thiefEntry, 1);
+        if (getActiveCurseStacks(targetEntry) > 0) {
+            stripOneCurseStack(targetEntry);
+        }
         return {
             ok: true,
             type: 'job_skill_rogue_raid_success',
@@ -2337,9 +2502,9 @@ export function performRogueNightRaidSkill(deerData, thiefId, targetId, date, da
             targetCount: getStealableCount(targetEntry),
             stolenFromSnap: !!targetEntry.d,
             nightChance,
+            stealQuotaBonus: 1,
         };
     }
-    adjustDayCount(thiefEntry, -1);
     return {
         ok: true,
         type: 'job_skill_rogue_raid_fail',
@@ -2347,6 +2512,8 @@ export function performRogueNightRaidSkill(deerData, thiefId, targetId, date, da
         targetCount: getStealableCount(targetEntry),
         stolenFromSnap: !!targetEntry.d,
         nightChance,
+        stealQuotaBonus: 1,
+        noSelfPenalty: true,
     };
 }
 
@@ -2702,6 +2869,11 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
     }
 
     const quota = consumeHelperQuota(helperMonth, day, targetId);
+    if (result?.ok && (result.type === 'help' || result.type === 'revive')
+        && helperProf?.helpQuotaSaveChance && rollChance(helperProf.helpQuotaSaveChance)) {
+        Object.assign(quota, refundHelperQuota(helperMonth, day, targetId));
+        result.helpQuotaSaved = true;
+    }
     if (result?.ok && (result.type === 'help' || result.type === 'revive')) {
         recordHelpAction('help_lu', helperId, targetId, date, {
             revive: result.type === 'revive',
@@ -2841,6 +3013,11 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
     }
     if (withdrawExtra > 0) adjustDayCount(entry, -withdrawExtra);
     const quota = consumeHelperWithdrawQuota(helperMonth, day, targetId);
+    let helpWithdrawSaved = false;
+    if (helperProf?.helpWithdrawSaveChance && rollChance(helperProf.helpWithdrawSaveChance)) {
+        Object.assign(quota, refundHelperWithdrawQuota(helperMonth, day, targetId));
+        helpWithdrawSaved = true;
+    }
     recordHelpAction('help_withdraw', helperId, targetId, date);
     return {
         ok: true,
@@ -2848,6 +3025,7 @@ export function performHelpWithdrawal(deerData, helperId, targetId, date, day, g
         entry,
         count: entry.c,
         withdrawExtra,
+        helpWithdrawSaved,
         ...quota,
     };
 }
@@ -3038,16 +3216,24 @@ export function performStealDeer(deerData, thiefId, targetId, date, day, gameCon
     if (roll < successCap) {
         adjustStealableCount(targetEntry, -1);
         adjustDayCount(thiefEntry, 1);
+        let stealUsedCount = used + 1;
+        let stealQuotaSaved = false;
+        if (thiefProf?.stealQuotaSaveChance && rollChance(thiefProf.stealQuotaSaveChance)) {
+            refundPlayQuotaUsed(thiefMonth, day, stealUsedKey);
+            stealUsedCount = used;
+            stealQuotaSaved = true;
+        }
         return {
             ok: true,
             type: 'steal_success',
             thiefCount: thiefEntry.c,
             targetCount: getStealableCount(targetEntry),
-            stealUsed: used + 1,
-            stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - used - 1,
+            stealUsed: stealUsedCount,
+            stealLeft: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal) - stealUsedCount,
             stealMax: getProfessionQuotaLimit(thiefMonth, day, QUOTA.steal),
             curseStacks,
             stealBonus,
+            stealQuotaSaved,
             ...snapNote,
         };
     }
@@ -3116,16 +3302,25 @@ export function performCurseDeer(deerData, casterId, targetId, date, day, gameCo
         stacks = applyCurseStacks(targetEntry, 1);
     }
 
+    let curseUsedCount = used + 1;
+    let curseQuotaSaved = false;
+    if (casterProf?.curseQuotaSaveChance && rollChance(casterProf.curseQuotaSaveChance)) {
+        refundPlayQuotaUsed(casterMonth, day, curseUsedKey);
+        curseUsedCount = used;
+        curseQuotaSaved = true;
+    }
+
     return {
         ok: true,
         type: 'curse',
-        curseUsed: used + 1,
-        curseLeft: getProfessionQuotaLimit(casterMonth, day, QUOTA.curse) - used - 1,
+        curseUsed: curseUsedCount,
+        curseLeft: getProfessionQuotaLimit(casterMonth, day, QUOTA.curse) - curseUsedCount,
         curseMax: getProfessionQuotaLimit(casterMonth, day, QUOTA.curse),
         curseStacks: stacks,
         curseRounds: targetEntry.curR,
         bonus: CURSE_DEATH_BONUS,
         ascended: stacks >= CURSE_ASCENDED_STACKS,
+        curseQuotaSaved,
     };
 }
 
@@ -3295,7 +3490,9 @@ export function performUrgeDeer(deerData, userId, targetId, date, day) {
     const targetEntry = ensureDayEntry(targetMonth, day);
     if (targetEntry.d) return { ok: false, type: 'target_dead' };
     selfMonth[urgeUsedKey(day)] = used + 1;
-    const buffStacks = addUrgeBuffStack(targetMonth, day, 1);
+    const actorProf = getProfessionMods(selfMonth, day);
+    const urgeLayers = 1 + (actorProf?.urgeCastStackBonus || 0);
+    const buffStacks = addUrgeBuffStack(targetMonth, day, urgeLayers);
     let curseUrged = false;
     if (getCurseInfo(targetEntry).active) {
         targetEntry.curR = Math.max(0, (targetEntry.curR || 0) - 1);
@@ -3639,7 +3836,8 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     const prof = getProfessionMods(monthData, day);
     const { wx } = weatherForAction(gameContext, monthData, day);
     const scaledWx = scaleWeatherForProfession(wx, prof);
-    let roll = Math.random() - (scaledWx.lotteryLuckDelta || 0);
+    const patrolLuck = consumePatrolLotteryLuck(monthData, day);
+    let roll = Math.random() - (scaledWx.lotteryLuckDelta || 0) - patrolLuck;
     roll = Math.max(0, Math.min(0.999, roll));
     let outcome;
     if (roll < 0.28) outcome = 'plus';
@@ -3653,11 +3851,13 @@ export function performDeerLottery(deerData, userId, date, day, gameContext = {}
     applySignOutcome(monthData, day, entry, outcome);
 
     const ci = getCurseInfo(entry);
+    const buffStacks = outcome === 'urge' ? getUrgeBuffStacks(monthData, day) : 0;
     return {
         ok: true,
         type: 'lottery',
         outcome,
         count: entry.c,
+        buffStacks,
         curseStacks: ci.stacks,
         curseRounds: ci.rounds,
         lotteryUsed: used + 1,

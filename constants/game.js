@@ -183,8 +183,14 @@ export const META_PREFIX = {
     REVIVE_LOT: '_rl_',
     /** 当日职业专属技已用 */
     JOB_SKILL: '_jsk_',
+    /** 专属技释放后当日玩法配额加成（按 quotaId 分键） */
+    JOB_SKILL_QUOTA: '_jsq_',
     /** 巡游鹿：下一次玩法天象正向加成 pending */
     PATROL_BUFF: '_ptl_',
+    /** 巡游专属技：下一次抽鹿签额外吉运 */
+    PATROL_LOTTERY_LUCK: '_ptll_',
+    /** 卷王冲：下一次超限自🦌减伤 */
+    GRINDER_RUSH_SHIELD: '_grs_',
     /** 王美嘉：当日组队搭档 userId */
     MEIJIA_TEAM: '_tm_',
     /** 王美嘉：当日已向搭档同步 +1 次数 */
@@ -204,13 +210,42 @@ export const META_PREFIX = {
 };
 
 /** 巡游专属技：下一次玩法天象正向再 × 此倍率（叠在职业天象 amp 之前） */
-export const PATROL_WEATHER_AMP = 1.35;
+export const PATROL_WEATHER_AMP = 1.42;
+
+/** 巡游专属技：释放后当日鹿签配额 +N */
+export const RANGER_SKILL_LOTTERY_BONUS = 1;
+
+/** 巡游专属技：下一次抽鹿签额外吉运偏移 */
+export const RANGER_SKILL_LOTTERY_LUCK = 0.08;
 
 /** 卷王专属技：强制安全自🦌次数 */
 export const GRINDER_SKILL_LU_GAIN = 2;
 
+/** 卷王专属技：释放后当日擂台配额 +N */
+export const GRINDER_SKILL_ARENA_BONUS = 1;
+
+/** 卷王专属技：下一次超限自🦌鹿死乘数（0.82 = -18%） */
+export const GRINDER_RUSH_DEATH_MULT = 0.82;
+
 /** 戒灵专属技：帮戒幅度（不占配额、零失手） */
 export const ASCETIC_SKILL_WITHDRAW = 2;
+
+/** 叠咒专属技：叠层数（已满层则只续回合） */
+export const CURSER_SKILL_CURSE_LAYERS = 1;
+
+/** 福鹿使专属技：贴福层数（带咒则优先撕 1 层咒） */
+export const BLESSER_SKILL_BLESS_LAYERS = 1;
+
+/** 窃光专属技：夜袭成功率 */
+export const ROGUE_NIGHT_RAID_CHANCE = 0.88;
+
+/** 向日葵专属技：催更符叠层 / 鹿福层数 / 向光滋养 +N 次 */
+export const SUNFLOWER_FACING_URGE_STACKS = 2;
+export const SUNFLOWER_FACING_BLESS_LAYERS = 2;
+export const SUNFLOWER_FACING_COUNT_GAIN = 1;
+
+/** 鹿医师专属技：释放后当日帮鹿配额 +N */
+export const MEDIC_SKILL_HELP_QUOTA_BONUS = 1;
 
 /** QQ 头像 */
 export const QQ_AVATAR = (userId, size = 100) =>
@@ -623,13 +658,13 @@ export const FAKE_WITHDRAW_MESSAGES = [
 ];
 
 export const URGE_MESSAGES = [
-    '催🦌成功！ta 若今日 0 次，下次自🦌 +1 加成',
+    '催🦌成功！催更符叠层 +1，不改净值',
     '你在 ta 耳边敲锣：该🦌了该🦌了',
     '催命…不对，催🦌符已贴',
 ];
 
 export const URGE_BUFF_MESSAGES = [
-    '被催更了！额外 +1，感谢🦌友的夺命连环催',
+    '被催更了！安全自🦌额外加成已兑现',
     '催🦌生效，这一发算欠 ta 的人情',
 ];
 
@@ -719,7 +754,7 @@ export const LOTTERY_MINUS_MESSAGES = [
 ];
 
 export const LOTTERY_URGE_MESSAGES = [
-    '中签：催更符已贴，下次 0 次开局自🦌 +1',
+    '中签：催更符已贴（不改净值，下次自🦌兑现）',
     '签文写着「有人催」，buff 已到账',
 ];
 
@@ -929,12 +964,48 @@ export const ERROR_MESSAGES = {
 };
 
 export const STATUS_TAGLINES = {
-    dead: ['鹿灵已散，冥界业务照常营业', '社死现场，可索命托梦还阳签', '功德归零，尸体仍能搞事'],
-    risk: ['鞭刑预备役，再🦌可能当场去世', '高危赌徒，鹿神在盯着你', '超限区蹦迪，谨慎发🦌'],
-    withdrawal: ['戒鹿区营业中，今日次数为负', '回头是岸，但账本还在记', '自律大师，再🦌才能回安全线'],
-    safe: ['荤素搭配区，鹿德尚充沛', '优雅选手，尚未丧心病狂', '今日人设：节制鹿'],
-    cursed: ['咒印缠身，自🦌如走钢丝', '叠毒生效中，别手贱', '天咒候选席请入座'],
-    blessed: ['鹿福护体，今日欧气在线', '金光护体，超限也敢试探', '福咒加身，阎王爷让三分'],
+    dead: [
+        '鹿灵已散，冥界业务照常营业',
+        '社死现场，可索命托梦还阳签',
+        '功德归零，尸体仍能搞事',
+        '冥界 KPI 照常打卡，活人还能捞',
+        '鹿碑已立，亡魂仍可叠冥鹿咒',
+    ],
+    risk: [
+        '鞭刑预备役，再🦌可能当场去世',
+        '高危赌徒，鹿神在盯着你',
+        '超限区蹦迪，谨慎发🦌',
+        '下一发可能社死，建议先写遗书',
+        '阎王爷在后台排队取号',
+    ],
+    withdrawal: [
+        '戒鹿区营业中，今日次数为负',
+        '回头是岸，但账本还在记',
+        '自律大师，再🦌才能回安全线',
+        '蓝色心情：负净值还债中',
+        '帮戒比自🦌更划算的一天',
+    ],
+    safe: [
+        '荤素搭配区，鹿德尚充沛',
+        '优雅选手，尚未丧心病狂',
+        '今日人设：节制鹿',
+        '安全区内零鹿死，且🦌且珍惜',
+        '配额充足，适合日常打卡',
+    ],
+    cursed: [
+        '咒印缠身，自🦌如走钢丝',
+        '叠毒生效中，别手贱',
+        '天咒候选席请入座',
+        '带咒鹿鸣必震一层，连鸣可清咒',
+        '撕咒请找解鹿咒@，别硬扛',
+    ],
+    blessed: [
+        '鹿福护体，今日欧气在线',
+        '金光护体，超限也敢试探',
+        '福咒加身，阎王爷让三分',
+        '每层福咒下调鹿死概率',
+        '贴福与催更符可共存，别浪费',
+    ],
 };
 
 export const CALENDAR_TAGLINES = [

@@ -1,6 +1,7 @@
 import { HELP_SECTION_ART } from '../constants/deer-assets.js';
 import {
-    escapeXml, truncText, textCentered, estimateTextWidth, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled, hashSeed,
+    escapeXml, textCentered, estimateTextWidth, TXT, TXT_SOFT, TXT_PLAIN, svgTextStyled, hashSeed,
+    wrapTextLines, buildMultilineText, deerTextForSvg,
 } from './svg-base.js';
 import { HELP_EASTER_FOOTNOTES } from '../constants/eco.js';
 import {
@@ -29,25 +30,34 @@ import { overlayPlacedRect, resolveSkinStickerProfile } from './ui/skin-stickers
 const IMG_W = 720;
 const PAD = 20;
 const CMD_X = PAD + 6;
-const CMD_MAX = 28;
-const DESC_MAX = 52;
-const LINE_H = 32;
+const TEXT_MAX_W = IMG_W - CMD_X - PAD;
+const CMD_LINE_H = 18;
+const DESC_LINE_H = 16;
+const QUOTA_LINE_H = 14;
 const ITEM_PAD = 8;
-const ITEM_H = 56;
-const SECTION_GAP = 12;
+const SECTION_GAP = 14;
 const HEADER_H = 188;
 const SECTION_ICON = 28;
 
-function truncCmd(text) {
-    return truncText(text, CMD_MAX);
+function cmdLines(item) {
+    const raw = `${item.cmd || ''}${item.tag ? ` [${item.tag}]` : ''}`.trim();
+    return wrapTextLines(deerTextForSvg(raw), TEXT_MAX_W, 15, 2);
 }
 
-function truncDesc(text) {
-    return truncText(text, DESC_MAX);
+function descLines(item) {
+    return wrapTextLines(deerTextForSvg(item.desc || ''), TEXT_MAX_W, 13, 2);
 }
 
-function itemBlockHeight() {
-    return ITEM_PAD + ITEM_H;
+function quotaLines(item) {
+    return wrapTextLines(deerTextForSvg(`配额 · ${item.quota || ''}`), TEXT_MAX_W, 12, 2);
+}
+
+function itemBlockHeight(item) {
+    return ITEM_PAD
+        + cmdLines(item).length * CMD_LINE_H
+        + descLines(item).length * DESC_LINE_H
+        + quotaLines(item).length * QUOTA_LINE_H
+        + 8;
 }
 
 function sectionsForPage(pageDef) {
@@ -57,8 +67,8 @@ function sectionsForPage(pageDef) {
 function estimatePageHeight(pageDef) {
     let h = HEADER_H + PAD;
     for (const sec of sectionsForPage(pageDef)) {
-        h += LINE_H + 6;
-        h += sec.items.length * itemBlockHeight();
+        h += 26 + 6;
+        for (const item of sec.items) h += itemBlockHeight(item);
         h += SECTION_GAP;
     }
     return h + 72;
@@ -83,10 +93,10 @@ async function buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, 
         ${textCentered(IMG_W / 2, yTag, escapeXml(HELP_TAGLINE), TXT, { size: 28, fill: colors.tagline, weight: 'bold' })}
         ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.title, 20), yTitle, pageDef.title, { style: TXT, fontSize: 20, fill: colors.title, weight: 'bold' })}
         ${await buildInlineEmojiText(IMG_W / 2 - estimateTitleHalf(pageDef.subtitle, 15), ySub, pageDef.subtitle, { style: TXT_SOFT, fontSize: 15, fill: colors.subtitle })}
-        ${textCentered(IMG_W / 2, yFoot, truncText(pickRandom(HELP_EASTER_FOOTNOTES) || '', 52), TXT_SOFT, { size: 13, fill: colors.muted })}
+        ${textCentered(IMG_W / 2, yFoot, escapeXml(pickRandom(HELP_EASTER_FOOTNOTES) || ''), TXT_SOFT, { size: 13, fill: colors.muted })}
     `);
     for (const sec of sections) {
-        y += LINE_H;
+        y += 26;
         const titleX = HELP_SECTION_ART[sec.key] ? PAD + SECTION_ICON + 8 : PAD + 28;
         if (!HELP_SECTION_ART[sec.key]) {
             blocks.push(await buildInlineEmojiText(PAD, y, `${sec.emoji} ${sec.title}`, {
@@ -98,17 +108,26 @@ async function buildPageContent(pageDef, imgH, pageIndex, totalPages, uiSkinId, 
         y += 6;
         for (const item of sec.items) {
             y += ITEM_PAD;
-            const tag = item.tag ? ` [${item.tag}]` : '';
-            blocks.push(await buildInlineEmojiText(CMD_X, y + 16, `${truncCmd(item.cmd)}${tag}`, {
+            const cLines = cmdLines(item);
+            const dLines = descLines(item);
+            const qLines = quotaLines(item);
+            blocks.push(await buildInlineEmojiText(CMD_X, y + 14, cLines[0] || '', {
                 style: TXT_PLAIN, fontSize: 15, fill: colors.cmd, weight: 'bold',
             }));
-            blocks.push(await buildInlineEmojiText(CMD_X, y + 34, truncDesc(item.desc), {
-                style: TXT_PLAIN, fontSize: 14, fill: colors.desc,
+            if (cLines.length > 1) {
+                blocks.push(buildMultilineText(CMD_X, y + 14 + CMD_LINE_H, cLines.slice(1), {
+                    style: TXT_PLAIN, fontSize: 15, lineHeight: CMD_LINE_H, fill: colors.cmd, weight: 'bold',
+                }));
+            }
+            const descY = y + 14 + cLines.length * CMD_LINE_H + 2;
+            blocks.push(buildMultilineText(CMD_X, descY, dLines, {
+                style: TXT_PLAIN, fontSize: 13, lineHeight: DESC_LINE_H, fill: colors.desc,
             }));
-            blocks.push(await buildInlineEmojiText(CMD_X, y + 50, `└ ${truncText(item.quota, 54)}`, {
-                style: TXT_PLAIN, fontSize: 12, fill: colors.muted,
+            const quotaY = descY + dLines.length * DESC_LINE_H + 2;
+            blocks.push(buildMultilineText(CMD_X, quotaY, qLines, {
+                style: TXT_PLAIN, fontSize: 12, lineHeight: QUOTA_LINE_H, fill: colors.muted,
             }));
-            y += ITEM_H;
+            y += itemBlockHeight(item) - ITEM_PAD;
         }
         y += SECTION_GAP;
     }
@@ -161,7 +180,7 @@ async function composePage(pageDef, pageIndex, totalPages, uiSkinId, theme, colo
 
     let y = HEADER_H + PAD;
     for (let i = 0; i < pageDef.sectionKeys.length; i += 1) {
-        y += LINE_H;
+        y += 26;
         const icon = sectionIcons[i];
         if (icon) {
             const overlay = stickerOverlay(icon, y - SECTION_ICON + 4, PAD);
@@ -172,7 +191,9 @@ async function composePage(pageDef, pageIndex, totalPages, uiSkinId, theme, colo
             }
         }
         const sec = HELP_SECTIONS[pageDef.sectionKeys[i]];
-        y += 6 + sec.items.length * itemBlockHeight() + SECTION_GAP;
+        y += 6;
+        for (const item of sec.items) y += itemBlockHeight(item);
+        y += SECTION_GAP;
     }
 
     const stickerBase = resolveSkinStickerProfile(uiSkinId);

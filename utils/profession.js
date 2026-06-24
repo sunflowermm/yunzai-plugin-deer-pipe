@@ -1,4 +1,4 @@
-import { META_PREFIX, PATROL_WEATHER_AMP } from '../constants/game.js';
+import { META_PREFIX, PATROL_WEATHER_AMP, RANGER_SKILL_LOTTERY_LUCK } from '../constants/game.js';
 import {
     getProfessionDef,
     getProfessionSkill,
@@ -45,6 +45,21 @@ export function hasPatrolBuff(monthData, day) {
 export function setPatrolBuff(monthData, day) {
     if (!monthData) return;
     monthData[patrolBuffKey(day)] = 1;
+}
+
+function patrolLotteryLuckKey(day) {
+    return `${META_PREFIX.PATROL_LOTTERY_LUCK}${day}`;
+}
+
+export function setPatrolLotteryLuck(monthData, day, delta = RANGER_SKILL_LOTTERY_LUCK) {
+    if (!monthData || !delta) return;
+    monthData[patrolLotteryLuckKey(day)] = delta;
+}
+
+export function consumePatrolLotteryLuck(monthData, day) {
+    const delta = monthData?.[patrolLotteryLuckKey(day)];
+    if (delta) delete monthData[patrolLotteryLuckKey(day)];
+    return typeof delta === 'number' ? delta : 0;
 }
 
 /** 放大天象正向修正（巡游专属技 pending 消费） */
@@ -168,8 +183,14 @@ export function buildProfessionMods(def) {
         weatherPositiveAmp: def.weatherPositiveAmp || 1,
         lotteryLuckDelta: def.lotteryLuckDelta || 0,
         helpQuotaBonusChance: def.helpQuotaBonusChance || 0,
+        helpQuotaSaveChance: def.helpQuotaSaveChance || 0,
+        helpWithdrawSaveChance: def.helpWithdrawSaveChance || 0,
+        stealQuotaSaveChance: def.stealQuotaSaveChance || 0,
+        curseQuotaSaveChance: def.curseQuotaSaveChance || 0,
         overlimitDeathCap: def.overlimitDeathCap ?? null,
         asceticZoneBonus: def.asceticZoneBonus || 0,
+        urgeCastStackBonus: def.urgeCastStackBonus || 0,
+        urgeBuffConsumeBonus: def.urgeBuffConsumeBonus || 0,
     };
 }
 

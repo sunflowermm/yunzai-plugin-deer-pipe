@@ -180,13 +180,13 @@ export const QUOTA_LABELS = {
 
     [QUOTA.curse]: '鹿咒',
 
-    [QUOTA.cleanseCurse]: '解咒',
+    [QUOTA.cleanseCurse]: '解鹿咒',
 
     [QUOTA.bless]: '鹿福',
 
-    [QUOTA.cleanseBless]: '解福',
+    [QUOTA.cleanseBless]: '解鹿福',
 
-    [QUOTA.sacrifice]: '献祭',
+    [QUOTA.sacrifice]: '献祭鹿',
 
     [QUOTA.fakeWithdraw]: '诈戒',
 
@@ -194,25 +194,25 @@ export const QUOTA_LABELS = {
 
     [QUOTA.howl]: '鹿鸣',
 
-    [QUOTA.greed]: '倒贴',
+    [QUOTA.greed]: '倒贴鹿',
 
-    [QUOTA.groupSplash]: '群溅',
+    [QUOTA.groupSplash]: '群鹿溅',
 
     [QUOTA.borrow]: '借鹿',
 
-    [QUOTA.bumper]: '碰瓷',
+    [QUOTA.bumper]: '碰瓷鹿',
 
-    [QUOTA.lottery]: '鹿签',
+    [QUOTA.lottery]: '抽鹿签',
 
-    [QUOTA.spectralCurse]: '冥咒',
+    [QUOTA.spectralCurse]: '冥鹿咒',
 
-    [QUOTA.vengeance]: '索命',
+    [QUOTA.vengeance]: '索命鹿',
 
-    [QUOTA.dream]: '托梦',
+    [QUOTA.dream]: '托梦鹿',
 
     [QUOTA.reviveLottery]: '还阳签',
 
-    [QUOTA.together]: '同归',
+    [QUOTA.together]: '同归鹿尽',
 
 };
 
@@ -424,11 +424,11 @@ export const PROFESSION_QUOTA_TABLE = {
 
     sunflower: {
 
-        help: 11, helpWithdraw: 3, steal: 0, curse: 0, bless: 7,
+        help: 12, helpWithdraw: 3, steal: 0, curse: 0, bless: 8,
 
-        cleanseBless: 4, cleanseCurse: 3, urge: 8, howl: 6,
+        cleanseBless: 4, cleanseCurse: 3, urge: 9, howl: 7,
 
-        lottery: 4, borrow: 3, dream: 3, reviveLottery: 5, arena: 3,
+        lottery: 5, borrow: 3, dream: 3, reviveLottery: 5, arena: 3,
 
         imperial: 1, bumper: 2, fakeWithdraw: 1, sacrifice: 1,
 

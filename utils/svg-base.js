@@ -56,7 +56,7 @@ function wrapLongSegment(segment, maxWidthPx, fontSize) {
     return out;
 }
 
-/** 按像素宽度换行（优先在 · 处断行） */
+/** 按像素宽度换行（优先在 · 处断行）；maxLines 足够大时不截断 */
 export function wrapTextLines(text, maxWidthPx, fontSize, maxLines = 2) {
     const s = String(text ?? '').trim();
     if (!s || maxWidthPx <= 0 || maxLines < 1) return [];
@@ -113,6 +113,22 @@ export function buildMultilineText(x, startY, lines, {
         `<tspan x="${x}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`,
     ).join('');
     return `<text ${style} x="${x}" y="${startY}" font-size="${fontSize}" fill="${fill}"${weightAttr}>${tspans}</text>`;
+}
+
+/** 居中多行 SVG 文本 */
+export function buildMultilineTextCentered(cx, startY, lines, {
+    style = TXT_SOFT,
+    fontSize = 12,
+    lineHeight = 15,
+    fill = '#000',
+    weight = '',
+} = {}) {
+    if (!lines?.length) return '';
+    const weightAttr = weight ? ` font-weight="${weight}"` : '';
+    const tspans = lines.map((line, i) =>
+        `<tspan x="${cx}" dy="${i === 0 ? 0 : lineHeight}" text-anchor="middle">${escapeXml(line)}</tspan>`,
+    ).join('');
+    return `<text ${style} x="${cx}" y="${startY}" font-size="${fontSize}" fill="${fill}" text-anchor="middle"${weightAttr}>${tspans}</text>`;
 }
 
 function svgFontFace() {
@@ -643,7 +659,7 @@ export function buildRibbonBadge(cx, y, text, kind = 'win') {
  */
 export function buildSideArtCell({
     x, y, cellW, cellH: cellHIn, artSize, artPad = 10, theme,
-    title, subtitle = '', meta = '', badgeText = '', badgeKind = 'neutral',
+    title, subtitle = '', subtitleLines: subtitleLinesIn = null, meta = '', badgeText = '', badgeKind = 'neutral',
     titleSize = 17, subSize = 12, metaSize = 11,
     subtitleMaxLines = 3, metaMaxLines = 2,
 }) {
@@ -653,7 +669,9 @@ export function buildSideArtCell({
     const textMaxW = cellW - (textLeft - x) - textPadRight;
     const subLineH = subSize + 4;
     const metaLineH = metaSize + 3;
-    const subLines = subtitle ? wrapTextLines(subtitle, textMaxW, subSize, subtitleMaxLines) : [];
+    const subLines = Array.isArray(subtitleLinesIn) && subtitleLinesIn.length
+        ? subtitleLinesIn
+        : (subtitle ? wrapTextLines(subtitle, textMaxW, subSize, subtitleMaxLines) : []);
     const metaLines = meta ? wrapTextLines(meta, textMaxW, metaSize, metaMaxLines) : [];
     const padTop = 12;
     const titleY = y + padTop + titleSize;
@@ -680,9 +698,10 @@ export function buildSideArtCell({
 /** 统计 chip（圆角条，值侧截断防溢出） */
 export function buildStatChip(x, y, label, value, color, theme) {
     const val = truncText(String(value ?? ''), 10);
+    const lab = truncText(String(label ?? ''), 12);
     return `
         <rect x="${x}" y="${y - 18}" width="${STAT_CHIP_W}" height="34" rx="9" fill="${theme.panel}" stroke="${color}" stroke-width="1.2" opacity="0.92"/>
-        <text ${TXT_SOFT} x="${x + 10}" y="${y + 1}" font-size="11" fill="${theme.muted}">${escapeXml(label)}</text>
+        <text ${TXT_SOFT} x="${x + 10}" y="${y + 1}" font-size="11" fill="${theme.muted}">${escapeXml(lab)}</text>
         <text ${TXT_SOFT} x="${x + STAT_CHIP_W - 10}" y="${y + 1}" font-size="13" fill="${color}" text-anchor="end" font-weight="bold">${val}</text>
     `;
 }

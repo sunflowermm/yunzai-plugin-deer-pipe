@@ -81,7 +81,23 @@ export function collectTalentParts(def) {
     }
 
     if (def.helpQuotaBonusChance) {
-        parts.push(`帮鹿成功 ${pct(def.helpQuotaBonusChance)} 当日帮鹿次数 +1`);
+        parts.push(`帮鹿成功 ${pct(def.helpQuotaBonusChance)} 当日帮鹿上限 +1`);
+    }
+
+    if (def.helpQuotaSaveChance) {
+        parts.push(`帮鹿成功 ${pct(def.helpQuotaSaveChance)} 不消耗帮鹿次数`);
+    }
+
+    if (def.helpWithdrawSaveChance) {
+        parts.push(`帮戒成功 ${pct(def.helpWithdrawSaveChance)} 不消耗帮戒次数`);
+    }
+
+    if (def.stealQuotaSaveChance) {
+        parts.push(`偷鹿成功 ${pct(def.stealQuotaSaveChance)} 不消耗偷鹿次数`);
+    }
+
+    if (def.curseQuotaSaveChance) {
+        parts.push(`鹿咒成功 ${pct(def.curseQuotaSaveChance)} 不消耗鹿咒次数`);
     }
 
     if (def.withdrawExtraChance) {
@@ -99,6 +115,14 @@ export function collectTalentParts(def) {
 
     if (def.safeLuDoubleChance) {
         parts.push(`安全自鹿 ${pct(def.safeLuDoubleChance)} 连 +2 次（共 +2）`);
+    }
+
+    if (def.urgeCastStackBonus) {
+        parts.push(`催鹿/催更符额外 +${def.urgeCastStackBonus} 层`);
+    }
+
+    if (def.urgeBuffConsumeBonus) {
+        parts.push(`催更符兑现额外 +${def.urgeBuffConsumeBonus} 次`);
     }
 
     if (def.overlimitStepReduce) {
@@ -144,4 +168,11 @@ export function formatTalentPerkBrief(def, maxParts = 3) {
     const parts = collectTalentParts(def);
     if (!parts.length) return '';
     return ` · ${parts.slice(0, maxParts).join(' · ')}`;
+}
+
+/** 鹿况/职业卡：逐条天赋原文（完整展示，由渲染层折行） */
+export function formatTalentDetailParts(def) {
+    const parts = collectTalentParts(def);
+    if (!parts.length) return [def?.tagline || '无额外天赋数值修正'];
+    return parts;
 }

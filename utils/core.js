@@ -36,6 +36,7 @@ import {
     pickRandom,
 } from '../constants/game.js';
 import { TRANSFER_PROFESSION_HINT } from '../constants/profession.js';
+import { buildStatusProfessionDetail } from './profession-detail-render.js';
 import { resolveSurfaceTheme, UI_SURFACES } from './ui/theme.js';
 import {
     buildStatusHeader,
@@ -179,17 +180,27 @@ const STATUS_PLAY_FIELDS = {
 
 function buildStatusPlaySections(status, qv) {
     if (status.dead) {
+        const deadIds = [
+            QUOTA.spectralCurse,
+            QUOTA.vengeance,
+            QUOTA.dream,
+            QUOTA.reviveLottery,
+            QUOTA.howl,
+        ];
+        const items = deadIds.map((id) => {
+            const fields = STATUS_PLAY_FIELDS[id];
+            if (!fields) return null;
+            return {
+                label: QUOTA_LABELS[id] || id,
+                value: qv(status[fields.used], status[fields.max]),
+                color: quotaChipColor(id, '#e8b4ff'),
+            };
+        }).filter(Boolean);
+        items.push({ label: '鹿碑', value: '可用', color: '#cccccc' });
         return [{
             sectionKey: 'harm',
-            title: '亡魂玩法',
-            items: [
-                { label: '冥咒', value: qv(status.spectralCurseUsed, status.spectralCurseMax), color: '#e8b4ff' },
-                { label: '索命', value: qv(status.vengeanceUsed, status.vengeanceMax), color: '#ff8888' },
-                { label: '托梦', value: qv(status.dreamUsed, status.dreamMax), color: '#88c8ff' },
-                { label: '还阳签', value: qv(status.reviveLotteryUsed, status.reviveLotteryMax), color: '#88ffaa' },
-                { label: '鹿鸣', value: qv(status.howlUsed, status.howlMax), color: '#88ffcc' },
-                { label: '鹿碑', value: '可用', color: '#cccccc' },
-            ],
+            title: '亡魂玩法（须发完整指令）',
+            items,
         }];
     }
     const sections = QUOTA_GROUPS
@@ -212,8 +223,11 @@ function buildStatusPlaySections(status, qv) {
         .filter((s) => s.items.length > 0);
     const last = sections[sections.length - 1];
     if (last) {
+        const skillLabel = status.jobSkillCmd
+            ? String(status.jobSkillCmd).split(/[/\s]/)[0].trim()
+            : '专属技';
         last.items.push({
-            label: '专属技',
+            label: skillLabel,
             value: status.professionRequired
                 ? '未转职'
                 : (status.jobSkillUsed ? '已用' : (status.patrolBuffPending ? '巡游蓄势' : '可用')),
@@ -587,8 +601,10 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         const rows = labelValueGridRowCount(sec.items.length, GRID_COLS);
         playY = gridTop + rows * GRID_GAP_Y + 18;
     }
-    const flavorY = playY + 24;
-    const H = flavorY + 40;
+    const detailTop = playY + 12;
+    const detailBlock = await buildStatusProfessionDetail(status, theme, detailTop, W, skinCtx);
+    const flavorY = detailTop + detailBlock.height + (detailBlock.height ? 16 : 24);
+    const H = flavorY + 56;
 
     const helpMax = resolveQuotaDenom({
         used: helpUsed,
@@ -659,6 +675,7 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         ${helpHeader.svg}
         ${quotaSvg}
         ${playSvg}
+        ${detailBlock.svg}
         ${buildPanelFooter(W, flavorY, `${flavorLine} · ${dateMeta}`, theme, 56)}
     `;
 
@@ -684,6 +701,7 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
         const icon = playIcons[i];
         if (icon) layers.push(stickerOverlay(icon, header.slot.top, header.slot.left));
     });
+    detailBlock.overlays?.forEach((o) => layers.push(o));
     const occupiedRects = [];
     if (thumbOverlay) {
         const r = await overlayPlacedRect(thumbOverlay, 10);

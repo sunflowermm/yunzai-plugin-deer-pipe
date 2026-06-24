@@ -630,13 +630,13 @@ const CHAIN_PLAY_META = {
     },
     spectralCurse: {
         emoji: '👻',
-        label: '冥咒',
+        label: '冥鹿咒',
         tail: (session) => {
             const last = session.results?.[session.results.length - 1];
-            return last?.curseStacks ? `冥咒 ×${last.curseStacks} 层` : '配额耗尽';
+            return last?.curseStacks ? `冥鹿咒 ×${last.curseStacks} 层` : '配额耗尽';
         },
     },
-    dream: { emoji: '💤', label: '托梦' },
+    dream: { emoji: '💤', label: '托梦鹿' },
 };
 
 export function formatPlayChainSummary(session, kind) {
@@ -669,16 +669,36 @@ export function formatActionMessage(result, ctx = {}) {
             return `${pickRandom(SAFE_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}${playActionSuffix(result)}`;
         case 'safe_grinder':
             return `${pickRandom(SAFE_MESSAGES)} 卷王连击 +${result.grinderBonus || 1}！（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}${playActionSuffix(result)}`;
-        case 'safe_urged':
-            return `${pickRandom(SAFE_MESSAGES)} ${pickRandom(URGE_BUFF_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}${playActionSuffix(result)}`;
+        case 'safe_urged': {
+            const urgeNote = result.urgeBonus
+                ? `催更符 ×${result.urgeBonus} 已兑现（+1 基础 +${result.urgeBonus}）`
+                : pickRandom(URGE_BUFF_MESSAGES);
+            return `${pickRandom(SAFE_MESSAGES)} ${urgeNote}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}${playActionSuffix(result)}`;
+        }
         case 'risky':
             return `${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        case 'risky_urged': {
+            const urgeNote = `催更符 ×${result.urgeBonus} 已兑现（+1 基础 +${result.urgeBonus}）`;
+            return `${pickRandom(RISKY_SURVIVE_MESSAGES)} ${urgeNote} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        }
         case 'risky_cursed':
             return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        case 'risky_urged_cursed': {
+            const urgeNote = `催更符 ×${result.urgeBonus} 已兑现（+1 基础 +${result.urgeBonus}）`;
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} ${urgeNote} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        }
         case 'risky_blessed':
             return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        case 'risky_urged_blessed': {
+            const urgeNote = `催更符 ×${result.urgeBonus} 已兑现（+1 基础 +${result.urgeBonus}）`;
+            return `${pickRandom(BLESSED_LU_MESSAGES)} ${pickRandom(RISKY_SURVIVE_MESSAGES)} ${urgeNote} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        }
         case 'risky_mixed':
             return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(BLESSED_LU_MESSAGES)} 福咒对冲！今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        case 'risky_urged_mixed': {
+            const urgeNote = `催更符 ×${result.urgeBonus} 已兑现（+1 基础 +${result.urgeBonus}）`;
+            return `${pickRandom(CURSED_LU_MESSAGES)} ${pickRandom(BLESSED_LU_MESSAGES)} 福咒对冲！${urgeNote} 今日 ${result.count} 次${riskHint(result)}${weatherHint(result)}${playActionSuffix(result)}`;
+        }
         case 'death': {
             const pct = formatChancePercent(result.deathChance ?? 0);
             const pctText = pct ? `（触发 ${pct}% 判定）` : '';
@@ -703,16 +723,18 @@ export function formatActionMessage(result, ctx = {}) {
             return `${pickDeathMessage(DEATH_REASON.SELF)}${pctText}（丢失 ${result.snap} 次）${weatherHint(result)}${playActionSuffix(result)}`;
         }
         case 'revive': {
-            const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿次数+1' : '';
-            return `${helperName || '🦌友'} 救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 咒印尽散）${bonus}${q}`;
+            const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿上限+1' : '';
+            const saved = result.helpQuotaSaved ? ' · 妙手留存：本次不耗帮鹿次数' : '';
+            return `${helperName || '🦌友'} 救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 咒印尽散）${bonus}${saved}${q}`;
         }
         case 'help_revive_fail':
             return `${helperName || '你'} 救 ${targetName || 'ta'} ${pickRandom(HELP_REVIVE_FAIL_MESSAGES)}（${Math.round((result.failChance ?? HELP_FAIL_CHANCE) * 100)}% 概率 · 仍鹿死）${q}`;
         case 'help': {
             const soothe = result.curseSoothe ? ' · 顺手下咒回合 -1' : '';
             const medic = result.medicCleanse ? ' · 鹿医师撕咒' : (result.medicBless ? ' · 鹿医师贴福' : '');
-            const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿次数+1' : '';
-            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${bonus}${q}${playActionSuffix(result)}`;
+            const bonus = result.helpQuotaBonus ? ' · 鹿医师：帮鹿上限+1' : '';
+            const saved = result.helpQuotaSaved ? ' · 妙手留存：本次不耗帮鹿次数' : '';
+            return `${helperName || '你'} 帮 ${targetName || 'ta'} ${pickRandom(HELP_SUCCESS_MESSAGES)}（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${soothe}${medic}${bonus}${saved}${q}${playActionSuffix(result)}`;
         }
         case 'help_kill':
             return `${helperName || '你'} 误伤 ${targetName || 'ta'}！${pickDeathMessage(DEATH_REASON.HELP)}（${Math.round((result.helpKillChance ?? HELP_FAIL_CHANCE) * 100)}% 概率 · 丢失 ${result.snap} 次）${q}${playActionSuffix(result)}`;
@@ -725,9 +747,9 @@ export function formatActionMessage(result, ctx = {}) {
         case 'together_fall':
             return `${pickRandom(TOGETHER_FALL_MESSAGES)}\n你：${result.selfCount} 次 · ${targetName || 'ta'}：${result.targetCount} 次（各 -${result.cost}）`;
         case 'help_withdraw':
-            return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)}（现 ${result.count} 次）${wq}`;
+            return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)}（现 ${result.count} 次）${result.helpWithdrawSaved ? ' · 清规留存：本次不耗帮戒次数' : ''}${wq}`;
         case 'help_withdraw_extra':
-            return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)} 戒灵师联动再 -${result.withdrawExtra || 1}！（现 ${result.count} 次）${wq}`;
+            return `${helperName || '你'} ${pickRandom(HELP_WITHDRAW_SUCCESS)} 戒灵师联动再 -${result.withdrawExtra || 1}！（现 ${result.count} 次）${result.helpWithdrawSaved ? ' · 清规留存：本次不耗帮戒次数' : ''}${wq}`;
         case 'help_withdraw_fail': {
             const failPct = Math.round((result.failChance ?? HELP_WITHDRAW_FAIL_CHANCE) * 100);
             return `${helperName || '你'} 帮戒 ${targetName || 'ta'} ${pickRandom(HELP_WITHDRAW_FAIL_MESSAGES)}（${failPct}% 失手 · 仍为 ${result.count} 次）${wq}`;
@@ -765,7 +787,8 @@ export function formatActionMessage(result, ctx = {}) {
                 ? ` · 借咒 +${Math.round(result.stealBonus * 100)}%`
                 : '';
             const snap = result.stolenFromSnap ? ' · 偷自冥库' : '';
-            return `${helperName || '你'} ${pickRandom(STEAL_SUCCESS_MESSAGES)}${bonus}${snap}\n你：${result.thiefCount} 次 · ${targetName}：${result.targetCount} 次（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
+            const saved = result.stealQuotaSaved ? ' · 窃影留存：本次不耗偷鹿次数' : '';
+            return `${helperName || '你'} ${pickRandom(STEAL_SUCCESS_MESSAGES)}${bonus}${snap}${saved}\n你：${result.thiefCount} 次 · ${targetName}：${result.targetCount} 次（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
         }
         case 'steal_fail':
             return `${helperName || '你'} ${pickRandom(STEAL_FAIL_MESSAGES)}（偷鹿 ${result.stealUsed}/${qDenom(result, 'stealUsed', 'stealLeft', 'stealMax', DAILY_STEAL_QUOTA)}）`;
@@ -778,7 +801,8 @@ export function formatActionMessage(result, ctx = {}) {
         case 'curse': {
             const asc = result.ascended ? ` ${pickRandom(CURSE_ASCENDED_MESSAGES)}` : '';
             const pct = Math.round((result.bonus ?? 0.1) * result.curseStacks * 100);
-            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(CURSE_MESSAGES)}（${result.curseStacks} 层 · 剩 ${result.curseRounds}/${CURSE_MAX_ROUNDS} 回合 · 叠毒 +${pct}%）${asc}（${result.curseUsed}/${qDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA)}）`;
+            const saved = result.curseQuotaSaved ? ' · 咒缚留存：本次不耗鹿咒次数' : '';
+            return `${helperName || '你'} 对 ${targetName || 'ta'} ${pickRandom(CURSE_MESSAGES)}（${result.curseStacks} 层 · 剩 ${result.curseRounds}/${CURSE_MAX_ROUNDS} 回合 · 叠毒 +${pct}%）${asc}${saved}（${result.curseUsed}/${qDenom(result, 'curseUsed', 'curseLeft', 'curseMax', DAILY_CURSE_QUOTA)}）`;
         }
         case 'cleanse_curse':
             return `${helperName || '你'} 为 ${targetName || 'ta'} ${pickRandom(CLEANSE_CURSE_MESSAGES)}（撕掉 ${result.clearedStacks} 层 · ${result.cleanseUsed}/${qDenom(result, 'cleanseUsed', 'cleanseLeft', 'cleanseMax', DAILY_CLEANSE_CURSE_QUOTA)}）`;
@@ -797,7 +821,7 @@ export function formatActionMessage(result, ctx = {}) {
         case 'urge': {
             const who = result.selfTarget ? '你' : (targetName || 'ta');
             const buff = result.buffApplied
-                ? `${who} 催更符 ×${result.buffStacks ?? 1}（下次安全自🦌 +${result.buffStacks ?? 1}）`
+                ? `${who} 催更符 ×${result.buffStacks ?? 1}（下次自🦌 +1 再 +${result.buffStacks ?? 1}）`
                 : '催更符未生效';
             const bless = result.blessStacks ? ` · 鹿福 ×${result.blessStacks} 共存` : '';
             const curse = result.curseUrged ? ` · 咒回合 -1（剩 ${result.curseRounds}）` : '';
@@ -862,7 +886,10 @@ export function formatActionMessage(result, ctx = {}) {
             const curseNote = result.curseStacks > 0
                 ? ` · 咒 ${result.curseStacks} 层`
                 : '';
-            return `${pickRandom(msgs)} 现 ${result.count} 次${curseNote}（鹿签 ${result.lotteryUsed}/${qDenom(result, 'lotteryUsed', 'lotteryLeft', 'lotteryMax', DAILY_LOTTERY_QUOTA)}）`;
+            const urgeNote = result.outcome === 'urge' && result.buffStacks
+                ? ` · 催更符 ×${result.buffStacks}（下次自🦌 +1 再 +${result.buffStacks}）`
+                : '';
+            return `${pickRandom(msgs)} 现 ${result.count} 次${urgeNote}${curseNote}（鹿签 ${result.lotteryUsed}/${qDenom(result, 'lotteryUsed', 'lotteryLeft', 'lotteryMax', DAILY_LOTTERY_QUOTA)}）`;
         }
         case 'spectral_curse': {
             const asc = result.ascended ? ` ${pickRandom(CURSE_ASCENDED_MESSAGES)}` : '';
@@ -945,32 +972,42 @@ export function formatActionMessage(result, ctx = {}) {
             ].filter(Boolean).join('\n');
         }
         case 'job_skill_patrol':
-            return `🦌 天象巡游开启！下一次玩法天象正向修正 ×${result.amp || 1.35}（与巡游被动叠加）`;
+            return `🦌 天象巡游开启！下一次玩法天象正向修正 ×${result.amp || 1.42}（与巡游被动叠加）${result.lotteryLuckBonus ? ` · 下一次抽鹿签吉运 +${Math.round(result.lotteryLuckBonus * 100)}%` : ''}${result.lotteryQuotaBonus ? ` · 当日鹿签 +${result.lotteryQuotaBonus}` : ''}`;
         case 'job_skill_grinder_rush':
-            return `🔥 卷王冲锋！强制安全 +${result.gain || 2}（现 ${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${weatherHint(result)}`;
+            return `🔥 卷王冲锋！强制安全 +${result.gain || 2}（现 ${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT}）${result.rushShieldMult ? ` · 下一次超限自🦌鹿死 ×${result.rushShieldMult}` : ''}${result.arenaQuotaBonus ? ` · 当日擂台 +${result.arenaQuotaBonus}` : ''}${weatherHint(result)}`;
         case 'job_skill_medic_revive': {
-            const medic = result.medicCleanse ? ' · 妙手撕咒' : (result.medicBless ? ' · 顺手贴福' : '');
-            return `${helperName || '你'} 妙手愈鹿救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 不占帮鹿配额）${medic}`;
+            const medic = result.medicCleanse ? ' · 妙手清咒' : (result.medicBless ? ' · 顺手贴福' : '');
+            const quota = result.skillHelpQuotaBonus ? ` · 当日帮鹿 +${result.skillHelpQuotaBonus}` : '';
+            return `${helperName || '你'} 妙手愈鹿救活 ${targetName || 'ta'}！${pickRandom(REVIVE_MESSAGES)}（恢复 ${result.count} 次 · 不占帮鹿配额）${medic}${quota}`;
         }
         case 'job_skill_medic_help': {
-            const medic = result.medicCleanse ? ' · 妙手撕咒' : (result.medicBless ? ' · 顺手贴福' : '');
-            return `${helperName || '你'} 妙手愈鹿帮 ${targetName || 'ta'} +1（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT} · 零失手 · 不占配额）${medic}${weatherHint(result)}`;
+            const medic = result.medicCleanse ? ' · 妙手清咒' : (result.medicBless ? ' · 顺手贴福' : '');
+            const quota = result.skillHelpQuotaBonus ? ` · 当日帮鹿 +${result.skillHelpQuotaBonus}` : '';
+            return `${helperName || '你'} 妙手愈鹿帮 ${targetName || 'ta'} +1（${result.count}/${result.safeLimit ?? DAILY_SAFE_LIMIT} · 零失手 · 不占配额）${medic}${quota}${weatherHint(result)}`;
         }
         case 'job_skill_ascetic_cleanse':
-            return `${helperName || '你'} 清规戒律！帮 ${targetName || 'ta'} -${result.withdrawAmount || 2}（现 ${result.count} 次 · 零失手 · 不占帮戒配额）`;
-        case 'job_skill_curser_bind':
-            return `${helperName || '你'} 咒缚！${targetName || 'ta'} 叠咒至 ${result.curseStacks} 层（不占鹿咒配额）`;
-        case 'job_skill_blesser_grant':
-            return `${helperName || '你'} 广福！${targetName || 'ta'} 鹿福至 ${result.blessStacks} 层（不占鹿福配额）`;
+            return `${helperName || '你'} 清规戒律！帮 ${targetName || 'ta'} -${result.withdrawAmount || 3}（现 ${result.count} 次 · 零失手 · 不占帮戒配额）${result.helpWithdrawQuotaBonus ? ` · 当日帮戒 +${result.helpWithdrawQuotaBonus}` : ''}`;
+        case 'job_skill_curser_bind': {
+            const note = result.curseRefreshed ? ' · 满层续回合' : '';
+            return `${helperName || '你'} 咒缚！${targetName || 'ta'} 叠咒至 ${result.curseStacks} 层${note}（不占鹿咒配额）${result.curseQuotaBonus ? ` · 当日鹿咒 +${result.curseQuotaBonus}` : ''}`;
+        }
+        case 'job_skill_blesser_grant': {
+            const strip = result.curseStripped ? ' · 先撕 1 层咒' : '';
+            return `${helperName || '你'} 广福！${targetName || 'ta'} 鹿福至 ${result.blessStacks} 层${strip}（不占鹿福配额）${result.blessQuotaBonus ? ` · 当日鹿福 +${result.blessQuotaBonus}` : ''}`;
+        }
         case 'job_skill_sunflower_facing': {
-            const parts = ['催更+1', `鹿福 ${result.blessStacks} 层`];
-            if (result.curseReduced) parts.push(`咒回合-${result.curseReduced}`);
-            return `${helperName || '你'} 向阳！${targetName || 'ta'} ${parts.join(' · ')}（不占催鹿/鹿福配额）`;
+            const parts = [`催更 +${result.urgeStacks || 2}`, `鹿福 ${result.blessStacks} 层`];
+            if (result.countGain) parts.push(`滋养 +${result.countGain}`);
+            if (result.curseCleared) parts.push(`清咒 ${result.curseCleared} 层`);
+            const quota = (result.urgeQuotaBonus || result.blessQuotaBonus)
+                ? ` · 当日催鹿 +${result.urgeQuotaBonus || 0} · 鹿福 +${result.blessQuotaBonus || 0}`
+                : '';
+            return `${helperName || '你'} 向阳！${targetName || 'ta'} ${parts.join(' · ')}（现 ${result.count} 次 · 不占催鹿/鹿福配额）${quota}`;
         }
         case 'job_skill_rogue_raid_success':
-            return `${helperName || '你'} 夜袭得手！你 ${result.thiefCount} 次 · ${targetName || 'ta'} ${result.targetCount} 次（不占偷鹿配额）`;
+            return `${helperName || '你'} 夜袭得手！你 ${result.thiefCount} 次 · ${targetName || 'ta'} ${result.targetCount} 次（${Math.round((result.nightChance ?? 0.92) * 100)}% · 不占偷鹿配额）${result.stealQuotaBonus ? ` · 当日偷鹿 +${result.stealQuotaBonus}` : ''}`;
         case 'job_skill_rogue_raid_fail':
-            return `${helperName || '你'} 夜袭失手，自损 1 次（现 ${result.thiefCount} 次 · 不占偷鹿配额）`;
+            return `${helperName || '你'} 夜袭失手，全身而退（不占偷鹿配额 · 不扣次数）${result.stealQuotaBonus ? ` · 当日偷鹿 +${result.stealQuotaBonus}` : ''}`;
         case 'deer_cart_invite':
             return ERROR_MESSAGES.cart_invited(targetName || 'ta');
         case 'deer_cart_depart':

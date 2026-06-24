@@ -5,7 +5,11 @@ import {
     getExtraDeerSkill,
     formatExtraDeerQuotaBrief,
 } from '../constants/extra-deer.js';
-import { collectTalentParts } from '../constants/talent-text.js';
+import { formatTalentDetailParts } from '../constants/talent-text.js';
+import {
+    expandTalentTextLines,
+    sideArtCellTextMaxW,
+} from './profession-detail-render.js';
 import { resolveProfessionArtSkin } from './skin.js';
 import {
     buildCenteredEmojiTitleRaster,
@@ -41,10 +45,7 @@ const GAP = 14;
 const PAD_X = 20;
 const SKILL_ICON = 40;
 const GRID_COLS = 2;
-
-function extraDeerCatalogTalentLine(def) {
-    return collectTalentParts(def).slice(0, 4).join(' · ');
-}
+const EXTRA_TEXT_MAX_W = sideArtCellTextMaxW(CELL_W, THUMB, 10, '转职');
 
 async function buildExtraDeerGrid(theme, topY, thumbs) {
     const ids = EXTRA_DEER_IDS;
@@ -55,6 +56,7 @@ async function buildExtraDeerGrid(theme, topY, thumbs) {
         const id = ids[i];
         const d = getExtraDeerDef(id);
         const row = Math.floor(i / GRID_COLS);
+        const subtitleLines = expandTalentTextLines(formatTalentDetailParts(d), EXTRA_TEXT_MAX_W, 10, 2);
         const measure = buildSideArtCell({
             x: 0,
             y: 0,
@@ -62,14 +64,13 @@ async function buildExtraDeerGrid(theme, topY, thumbs) {
             artSize: THUMB,
             theme,
             title: d.name,
-            subtitle: deerTextForSvg(extraDeerCatalogTalentLine(d)),
+            subtitleLines,
             meta: formatExtraDeerQuotaBrief(id),
             badgeText: `转职${d.name.replace(/鹿$/, '')}`,
             badgeKind: 'accent',
             titleSize: 17,
-            subSize: 12,
-            metaSize: 11,
-            subtitleMaxLines: 4,
+            subSize: 10,
+            metaSize: 10,
             metaMaxLines: 1,
         });
         rowHeights[row] = Math.max(rowHeights[row], measure.cellH + GAP);
@@ -88,6 +89,7 @@ async function buildExtraDeerGrid(theme, topY, thumbs) {
         const row = Math.floor(i / GRID_COLS);
         const x = PAD_X + col * (CELL_W + GAP);
         const y = rowTops[row];
+        const subtitleLines = expandTalentTextLines(formatTalentDetailParts(d), EXTRA_TEXT_MAX_W, 10, 2);
         const cell = buildSideArtCell({
             x,
             y,
@@ -95,14 +97,13 @@ async function buildExtraDeerGrid(theme, topY, thumbs) {
             artSize: THUMB,
             theme,
             title: d.name,
-            subtitle: deerTextForSvg(extraDeerCatalogTalentLine(d)),
+            subtitleLines,
             meta: formatExtraDeerQuotaBrief(id),
             badgeText: `转职${d.name.replace(/鹿$/, '')}`,
             badgeKind: 'accent',
             titleSize: 17,
-            subSize: 12,
-            metaSize: 11,
-            subtitleMaxLines: 4,
+            subSize: 10,
+            metaSize: 10,
             metaMaxLines: 1,
         });
         const emojiArt = !thumbs[i] && d.emoji
@@ -137,8 +138,8 @@ async function buildExtraSkillGrid(theme, topY, skillIcons) {
             title: `${skill.name} · ${d.name}`,
             subtitle: deerTextForSvg(skill.desc),
             titleSize: 14,
-            subSize: 11,
-            subtitleMaxLines: 5,
+            subSize: 10,
+            subtitleMaxLines: 48,
         });
         rowHeights[row] = Math.max(rowHeights[row], measure.cellH + GAP);
     }
@@ -167,8 +168,8 @@ async function buildExtraSkillGrid(theme, topY, skillIcons) {
             title: `${skill.name} · ${d.name}`,
             subtitle: deerTextForSvg(skill.desc),
             titleSize: 14,
-            subSize: 11,
-            subtitleMaxLines: 5,
+            subSize: 10,
+            subtitleMaxLines: 48,
         });
         const iconIdx = EXTRA_DEER_IDS.indexOf(id);
         const icon = iconIdx >= 0 ? skillIcons[iconIdx] : null;
