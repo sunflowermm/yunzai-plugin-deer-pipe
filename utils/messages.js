@@ -914,8 +914,10 @@ export function formatActionMessage(result, ctx = {}) {
         }
         case 'revive_lottery_full':
             return `${pickRandom(REVIVE_LOTTERY_FULL_MESSAGES)} 恢复 ${result.restored} 次（还阳签 ${result.reviveLotteryUsed}/${qDenom(result, 'reviveLotteryUsed', 'reviveLotteryLeft', 'reviveLotteryMax', DAILY_REVIVE_LOTTERY_QUOTA)}）`;
-        case 'revive_lottery_weak':
-            return `${pickRandom(REVIVE_LOTTERY_WEAK_MESSAGES)} 现 ${result.count} 次（还阳签 ${result.reviveLotteryUsed}/${qDenom(result, 'reviveLotteryUsed', 'reviveLotteryLeft', 'reviveLotteryMax', DAILY_REVIVE_LOTTERY_QUOTA)}）`;
+        case 'revive_lottery_weak': {
+            const poolNote = result.poolLeft > 0 ? `，另有 ${result.poolLeft} 次待还阳` : '';
+            return `${pickRandom(REVIVE_LOTTERY_WEAK_MESSAGES)} 现 ${result.count} 次${poolNote}（还阳签 ${result.reviveLotteryUsed}/${qDenom(result, 'reviveLotteryUsed', 'reviveLotteryLeft', 'reviveLotteryMax', DAILY_REVIVE_LOTTERY_QUOTA)}）`;
+        }
         case 'revive_lottery_blank':
             return `${pickRandom(REVIVE_LOTTERY_BLANK_MESSAGES)} 仍丢失 ${result.lostCount} 次（还阳签 ${result.reviveLotteryUsed}/${qDenom(result, 'reviveLotteryUsed', 'reviveLotteryLeft', 'reviveLotteryMax', DAILY_REVIVE_LOTTERY_QUOTA)}）`;
         case 'tombstone': {

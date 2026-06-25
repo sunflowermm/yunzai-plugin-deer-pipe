@@ -682,12 +682,22 @@ function clearMetaKeysForAll(deerData, date, day, ...keyFns) {
     return cleared;
 }
 
-/** 解除单日 entry 鹿死（写回 ensureDayEntry 后的对象） */
-function reviveDayEntry(entry) {
+/**
+ * 解除单日 entry 鹿死（写回 ensureDayEntry 后的对象）
+ * @param {object} [opts]
+ * @param {number|null} [opts.restoreCount] 指定恢复次数（小吉还阳签）；省略则全额恢复 snap
+ */
+function reviveDayEntry(entry, { restoreCount = null } = {}) {
     if (!entry?.d) return false;
+    const lost = entry.snap ?? 0;
     entry.d = 0;
-    entry.c = entry.snap || 0;
-    entry.snap = 0;
+    if (restoreCount != null) {
+        entry.c = lost > 0 ? Math.min(restoreCount, lost) : restoreCount;
+        entry.snap = lost > 0 ? Math.max(0, lost - entry.c) : 0;
+    } else {
+        entry.c = lost;
+        entry.snap = 0;
+    }
     entry.dr = '';
     entry.dk = '';
     return true;
@@ -1644,9 +1654,12 @@ function rollChance(rate) {
     return Math.random() < rate;
 }
 
-/** 施加鹿死状态 */
+/** 施加鹿死状态（已鹿死时不覆写 snap，避免连坐/重复结算清零丢失次数） */
 export function applyDeath(entry, { reason = DEATH_REASON.SELF, killerId = null } = {}) {
-    entry.snap = entry.c;
+    if (entry.d) return entry.snap ?? 0;
+    const pool = entry.snap ?? 0;
+    const live = entry.c ?? 0;
+    entry.snap = live + pool;
     entry.c = 0;
     entry.d = 1;
     entry.dc += 1;
@@ -1889,13 +1902,18 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
 
 /** 单人连鹿：反复 performLu 直至鹿死或达单趟上限 */
 export function runSoloLuSession(deerData, userId, date, day, gameContext = {}) {
+    const preflight = rejectUnlessPlayReady(deerData, userId, date, day);
+    if (preflight) {
+        return { ok: false, lu: preflight, results: [], count: 0, userId: String(userId) };
+    }
+    reconcileStaleDeerCart(deerData, userId, date, day);
     const monthData = ensureMonthData(deerData, userId, date);
     const cartRole = getDeerCartRole(monthData, day);
     if (cartRole === 'helper') {
-        return { ok: false, type: 'cart_helper_no_lu' };
+        return { ok: false, type: 'cart_helper_no_lu', results: [], count: 0, userId: String(userId) };
     }
     if (cartRole === 'driver') {
-        return { ok: false, type: 'cart_driver_no_lu' };
+        return { ok: false, type: 'cart_driver_no_lu', results: [], count: 0, userId: String(userId) };
     }
 
     const results = [];
@@ -2279,11 +2297,7 @@ export function performMedicHealSkill(deerData, helperId, targetId, date, day, g
     helperMonth[helpQuotaBonusKey(day)] = (helperMonth[helpQuotaBonusKey(day)] || 0) + MEDIC_SKILL_HELP_QUOTA_BONUS;
     let result;
     if (entry.d) {
-        entry.d = 0;
-        entry.c = entry.snap || 0;
-        entry.snap = 0;
-        entry.dr = '';
-        entry.dk = '';
+        reviveDayEntry(entry);
         entry.revived += 1;
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
@@ -2810,11 +2824,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
                 failChance: reviveFail,
             }, quota);
         }
-        entry.d = 0;
-        entry.c = entry.snap || 0;
-        entry.snap = 0;
-        entry.dr = '';
-        entry.dk = '';
+        reviveDayEntry(entry);
         entry.revived += 1;
         if (!entry.helpBy) entry.helpBy = {};
         entry.helpBy[helpKey] = (entry.helpBy[helpKey] || 0) + 1;
@@ -4040,16 +4050,13 @@ export function performReviveLottery(deerData, userId, date, day) {
         };
     }
     if (roll < REVIVE_LOTTERY_FULL_CHANCE + REVIVE_LOTTERY_WEAK_CHANCE) {
-        entry.d = 0;
-        entry.c = REVIVE_LOTTERY_WEAK_COUNT;
-        entry.snap = 0;
-        entry.dr = '';
-        entry.dk = '';
+        reviveDayEntry(entry, { restoreCount: REVIVE_LOTTERY_WEAK_COUNT });
         entry.revived += 1;
         return {
             ok: true,
             type: 'revive_lottery_weak',
             count: entry.c,
+            poolLeft: entry.snap ?? 0,
             reviveLotteryUsed: used + 1,
             reviveLotteryLeft: reviveLeft,
             reviveLotteryMax: reviveMax,
