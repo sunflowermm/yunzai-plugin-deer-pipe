@@ -211,7 +211,7 @@ export class DeerPipe extends plugin {
         const status = getTodayStatus(
             getMonthData(getUserRecord(deerData, subject.userId), date),
             day,
-            { weather: ctx.weatherState, weatherEffects: ctx.weatherEffects },
+            { weather: ctx.weatherState, weatherEffects: ctx.weatherEffects, date },
         );
         if (status.killerId) {
             status.killedByName = await getMemberName(this.e, status.killerId);

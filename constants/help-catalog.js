@@ -17,6 +17,7 @@ import {
     getExtraDeerDef,
     resolveExtraDeerQuotas,
 } from './extra-deer.js';
+import { SPECIAL_EVENT_DAYS } from './special-events.js';
 import {
     ARENA_STAKE,
     DAILY_ARENA_QUOTA,
@@ -179,6 +180,7 @@ export const HELP_SECTIONS = {
         emoji: '🧬',
         items: [
             { cmd: '机制·安全/超限', desc: `安全区=前 N 次自🦌零鹿死（默认 ${DAILY_SAFE_LIMIT}）；超限后每次 +2% 鹿死`, quota: '卷王/天象 safeBonus 可抬高 N · 鹿况图可见' },
+            { cmd: '626 活动', desc: `每年 ${SPECIAL_EVENT_DAYS.day626.month} 月 ${SPECIAL_EVENT_DAYS.day626.day} 日全员安全区集体 +${SPECIAL_EVENT_DAYS.day626.safeBonus}`, quota: '与卷王/天象 safeBonus 叠加 · 零鹿死' },
             { cmd: '机制·咒福叠层', desc: `咒 ${CURSE_MAX_STACKS} 层上限 · 福 ${BLESS_MAX_STACKS} 层 · 满层再贴只续回合 · 鹿死保留`, quota: `${CURSE_MAX_ROUNDS} 回合内生效 · ${CURSE_ASCENDED_STACKS} 层称天咒 · 连咒/连福可快速叠层续回合` },
             { cmd: '机制·鹿鸣震咒', desc: '带鹿咒时每次鹿鸣必震散 1 层；无咒才走吉兆/陷阱', quota: '连鹿鸣须先有咒 · 咒清自动停' },
             { cmd: '机制·催更符', desc: '叠层 buff 不改净值 · 下次自🦌存活时 +N（基础+1 再 +N，含超限区）· 被帮不消耗', quota: '可与鹿福共存 · 催带咒 = 咒回合 -1 · 鹿死判定失败则符保留' },

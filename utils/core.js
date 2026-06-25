@@ -532,7 +532,9 @@ export async function generateStatusImage(now, name, status, skinCtx = null) {
             ? `戒鹿区 · 当月净值 ${status.monthNet ?? status.count} · 再 🦌 ${status.recoveryNeeded} 次回安全线`
             : (status.inRiskZone
                 ? `高危区 · 下次自🦌 ${status.riskPercent || 0}% 鹿死`
-                : `安全区 · 还可 🦌 ${status.safeLeft} 次`));
+                : (status.eventSafeBonus
+                    ? `安全区 · 还可 🦌 ${status.safeLeft} 次 · 活动集体 +${status.eventSafeBonus}`
+                    : `安全区 · 还可 🦌 ${status.safeLeft} 次`)));
     const wx = status.weather?.weatherId
         ? (WEATHER_CATALOG[status.weather.weatherId] || WEATHER_CATALOG.sunny)
         : null;

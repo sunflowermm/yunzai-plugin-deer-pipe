@@ -71,6 +71,8 @@ import {
     getDeathReasonText,
 } from '../constants/game.js';
 
+import { getSpecialEventSafeBonus } from '../constants/special-events.js';
+
 import { recordHelpAction, peekHelperStats } from './help-log.js';
 import { isUserProfileKey } from './skin.js';
 import {
@@ -1056,8 +1058,11 @@ function resolveBalancedDayContext(monthData, day, entry, opts = {}) {
         const dayDate = new Date(opts.date.getFullYear(), opts.date.getMonth(), day);
         helperStats = peekHelperStats(opts.userId, dayDate);
     }
+    const dayDate = opts.date instanceof Date
+        ? new Date(opts.date.getFullYear(), opts.date.getMonth(), day)
+        : new Date();
     return {
-        safeLimit: DAILY_SAFE_LIMIT + (prof?.safeBonus || 0),
+        safeLimit: DAILY_SAFE_LIMIT + (prof?.safeBonus || 0) + getSpecialEventSafeBonus(dayDate),
         chaosActions: sumChaosActionsForDay(monthData, day),
         curse: getCurseInfo(entry),
         bless: getBlessInfo(entry),
@@ -1222,17 +1227,19 @@ function clampDeathChance(v) {
     return Math.min(1, Math.max(0, v));
 }
 
-function resolvePlayModifiers(entry, weatherEffects = null, professionMods = null) {
+function resolvePlayModifiers(entry, weatherEffects = null, professionMods = null, date = new Date()) {
     const curse = getCurseInfo(entry);
     const bless = getBlessInfo(entry);
     const wx = scaleWeatherForProfession(weatherEffects || {}, professionMods);
     const prof = professionMods || {};
+    const eventSafeBonus = getSpecialEventSafeBonus(date);
     return {
         curse,
         bless,
         wx,
         prof,
-        safeLimit: Math.max(1, DAILY_SAFE_LIMIT + (wx.safeBonus || 0) + (prof.safeBonus || 0)),
+        eventSafeBonus,
+        safeLimit: Math.max(1, DAILY_SAFE_LIMIT + (wx.safeBonus || 0) + (prof.safeBonus || 0) + eventSafeBonus),
         deathDelta: (wx.deathDelta || 0) + (prof.deathDelta || 0) - (bless.deathReduce || 0) + (curse.deathBonus || 0),
         stealDelta: (wx.stealDelta || 0) + (prof.stealDelta || 0),
         helpFailDelta: (wx.helpFailDelta || 0) + (prof.helpFailDelta || 0),
@@ -1249,8 +1256,8 @@ function applyOverlimitDeathCap(deathChance, profMods) {
 }
 
 /** 自🦌超限区：当前 entry 状态下再🦌一次的鹿死概率（含天象/职业/咒福） */
-function computeSelfLuDeathChance(entry, weatherEffects = null, professionMods = null) {
-    const mods = resolvePlayModifiers(entry, weatherEffects, professionMods);
+function computeSelfLuDeathChance(entry, weatherEffects = null, professionMods = null, date = new Date()) {
+    const mods = resolvePlayModifiers(entry, weatherEffects, professionMods, date);
     const { safeLimit, overlimitStepReduce, deathDelta } = mods;
     if ((entry?.c ?? 0) < safeLimit) return 0;
     return applyOverlimitDeathCap(
@@ -1480,7 +1487,7 @@ export function calcYearStats(userRecord, year, now = new Date()) {
 }
 
 /** 今日状态摘要 */
-export function getTodayStatus(monthData, day, { weather = null, weatherEffects = null } = {}) {
+export function getTodayStatus(monthData, day, { weather = null, weatherEffects = null, date = new Date() } = {}) {
     const entry = getDayEntry(monthData, day) || createDayEntry(0);
     const dead = !!entry.d;
     const chosen = hasDayProfession(monthData, day);
@@ -1504,14 +1511,14 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
             canLu: false,
             canHelp: false,
             attempts: entry.a,
-            safeLimit: DAILY_SAFE_LIMIT,
+            safeLimit: DAILY_SAFE_LIMIT + getSpecialEventSafeBonus(date),
             safeLeft: 0,
             inRiskZone: false,
             inWithdrawalZone: !dead && entry.c < 0,
             weather,
         };
     }
-    const mods = resolvePlayModifiers(entry, weatherEffects, profession);
+    const mods = resolvePlayModifiers(entry, weatherEffects, profession, date);
     const safeLimit = mods.safeLimit;
     const count = dead ? 0 : entry.c;
     const inWithdrawalZone = !dead && count < 0;
@@ -1519,9 +1526,9 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
     const recoveryNeeded = inWithdrawalZone ? safeLimit - count : 0;
     const inRiskZone = !dead && count >= safeLimit;
     const monthNet = sumMonthNet(monthData, { upToDay: day }).sum;
-    const nextDeathChance = dead ? 0 : computeSelfLuDeathChance(entry, weatherEffects, profession);
+    const nextDeathChance = dead ? 0 : computeSelfLuDeathChance(entry, weatherEffects, profession, date);
     const bi = getBlessInfo(entry);
-    const balanced = getDayBalancedDetail(monthData, day, entry);
+    const balanced = getDayBalancedDetail(monthData, day, entry, { date });
     const pq = getPlayQuotaSnapshot(monthData, day);
     const p = pq.play || {};
     return {
@@ -1535,6 +1542,7 @@ export function getTodayStatus(monthData, day, { weather = null, weatherEffects 
         dead,
         safeLeft: dead ? 0 : safeLeft,
         safeLimit,
+        eventSafeBonus: mods.eventSafeBonus || 0,
         inRiskZone,
         nextDeathChance,
         riskPercent: formatChancePercent(nextDeathChance),
@@ -1783,7 +1791,7 @@ export function performLu(deerData, userId, date, day, gameContext = {}, opts = 
     entry.a += 1;
     const profMods = getProfessionMods(monthData, day);
     const { wx, patrolConsumed } = weatherForAction(gameContext, monthData, day);
-    const mods = resolvePlayModifiers(entry, wx, profMods);
+    const mods = resolvePlayModifiers(entry, wx, profMods, date);
     const curseBefore = mods.curse;
     const blessBefore = mods.bless;
     const hadActiveCurse = curseBefore.active;
@@ -2252,7 +2260,7 @@ export function performGrinderRush(deerData, userId, date, day, gameContext = {}
     markJobSkillUsed(monthData, day);
     const profMods = getProfessionMods(monthData, day);
     const { wx, patrolConsumed } = weatherForAction(gameContext, monthData, day);
-    const mods = resolvePlayModifiers(entry, wx, profMods);
+    const mods = resolvePlayModifiers(entry, wx, profMods, date);
     const curseBefore = mods.curse;
     const blessBefore = mods.bless;
     const hadActiveCurse = curseBefore.active;
@@ -2291,7 +2299,7 @@ export function performMedicHealSkill(deerData, helperId, targetId, date, day, g
     const { wx, patrolConsumed } = weatherForAction(gameContext, helperMonth, day);
     const targetMonth = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(targetMonth, day);
-    const targetMods = resolvePlayModifiers(entry, wx);
+    const targetMods = resolvePlayModifiers(entry, wx, null, date);
     const helpKey = String(helperId);
     markJobSkillUsed(helperMonth, day);
     helperMonth[helpQuotaBonusKey(day)] = (helperMonth[helpQuotaBonusKey(day)] || 0) + MEDIC_SKILL_HELP_QUOTA_BONUS;
@@ -2803,7 +2811,7 @@ export function performHelpLu(deerData, helperId, targetId, date, day, gameConte
     const helperWx = scaleWeatherForProfession(wx, helperProf);
     const monthData = ensureMonthData(deerData, targetId, date);
     const entry = ensureDayEntry(monthData, day);
-    const targetMods = resolvePlayModifiers(entry, wx);
+    const targetMods = resolvePlayModifiers(entry, wx, null, date);
     const impBonus = getImpotenceHelpFailBonus(monthData, day);
     const helpFailChance = clampDeathChance(
         HELP_FAIL_CHANCE + targetMods.helpFailDelta + (helperProf?.helpFailDelta || 0) + impBonus,
