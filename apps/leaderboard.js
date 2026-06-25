@@ -1,4 +1,4 @@
-import { screenshot } from '../utils/deer-screenshot.js';
+import { DEER_SHOT_LEADERBOARD, screenshot } from '../utils/deer-screenshot.js';
 
 import Leaderboard from "../model/leaderboard.js";
 
@@ -107,7 +107,7 @@ export class LeaderboardApp extends plugin {
             rankFooter: 'yunzai-plugin-deer-pipe · 上榜合计为净值之和',
             sumUnit: '次',
         });
-        const img = await screenshot('yunzai-plugin-deer-pipe/leaderboard/leaderboard', data);
+        const img = await screenshot('yunzai-plugin-deer-pipe/leaderboard/leaderboard', data, DEER_SHOT_LEADERBOARD);
         e.reply(img);
     }
 
@@ -163,7 +163,7 @@ export class LeaderboardApp extends plugin {
             rankFooter: getSpecialRankFooter(board),
             sumUnit: unit,
         });
-        const img = await screenshot('yunzai-plugin-deer-pipe/leaderboard/leaderboard', data);
+        const img = await screenshot('yunzai-plugin-deer-pipe/leaderboard/leaderboard', data, DEER_SHOT_LEADERBOARD);
         e.reply(img);
     }
 

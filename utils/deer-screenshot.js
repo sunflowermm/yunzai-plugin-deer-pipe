@@ -20,6 +20,15 @@ export const DEER_SHOT_FAST = Object.freeze({
     priority: true,
 });
 
+/** 排行榜：头像已内嵌 data URI，禁等外链图，按卡片区域截图 */
+export const DEER_SHOT_LEADERBOARD = Object.freeze({
+    ...DEER_SHOT_FAST,
+    waitImages: false,
+    selector: '.container',
+    width: 560,
+    height: 900,
+});
+
 /** 从渲染器返回值取出 Buffer */
 export function toImageBuffer(result) {
     if (result == null || result === false) return null;

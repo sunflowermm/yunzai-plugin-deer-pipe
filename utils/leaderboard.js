@@ -19,6 +19,30 @@ import {
 } from './data.js';
 import { aggregateHelperScores } from './help-log.js';
 
+const RANK_AVATAR_SIZE = 100;
+const RANK_AVATAR_FETCH_MS = 5000;
+const RANK_AVATAR_PLACEHOLDER = `data:image/svg+xml,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><circle cx="24" cy="24" r="24" fill="#e8dfd3"/></svg>',
+)}`;
+
+async function fetchRankAvatarDataUri(userId) {
+    if (!userId) return RANK_AVATAR_PLACEHOLDER;
+    try {
+        const res = await fetch(QQ_AVATAR(userId, RANK_AVATAR_SIZE), {
+            signal: AbortSignal.timeout(RANK_AVATAR_FETCH_MS),
+        });
+        if (!res.ok) return RANK_AVATAR_PLACEHOLDER;
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (!buf.length) return RANK_AVATAR_PLACEHOLDER;
+        const mime = String(res.headers.get('content-type') || '').includes('png')
+            ? 'image/png'
+            : 'image/jpeg';
+        return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch {
+        return RANK_AVATAR_PLACEHOLDER;
+    }
+}
+
 function compareRank(a, b, order) {
     const diff = order === 'asc' ? a.sum - b.sum : b.sum - a.sum;
     return diff !== 0 ? diff : String(a.id).localeCompare(String(b.id));
@@ -193,10 +217,11 @@ export function buildActiveRankData(deerData, members, { scope = 'month', date =
 export async function enrichRankWithMembers(rankData, membersMap) {
     return Promise.all(rankData.map(async (item, index) => {
         const groupInfo = membersMap.get(parseInt(item.id));
+        const avatar = await fetchRankAvatarDataUri(item.id);
         return {
             ...item,
             user_id: item.id,
-            avatar: QQ_AVATAR(item.id),
+            avatar,
             card: groupInfo?.card || groupInfo?.nickname || item.id,
             order: index + 1,
         };
